@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E3 已完成；E4 运行证据已通过，待最终 Git commit 冻结；F-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F-H 待开发
 最后更新：2026-08-12
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -288,8 +288,8 @@ C# 私有协议使用 `initialize_part_drawing_handoff`、`validate_frozen_part_
   - [x] 初始化一次、候选一个、发布一次；create 后独立 verify，且不存在私有操作泄漏。
   - [x] 覆盖主机阻塞、handoff 哈希漂移、计划拒绝、能力阻塞、路径碰撞和核验不一致等负向案例。
   - [x] `validation/`、源模型、模板和全部已发布上游制品在运行前后保持不变。
-- [ ] E4：冻结当前三 Skill 链的新发布候选证据。
-  - [ ] 记录 Git commit、三个 Skill、Schema、`native-v4`、能力清单、C# runtime 和全部制品 SHA-256。
+- [x] E4：冻结当前三 Skill 链的新发布候选证据。
+  - [x] 记录 Git commit、三个 Skill、Schema、`native-v4`、能力清单、C# runtime 和全部制品 SHA-256。
   - [x] 更新 README、CHANGELOG、复现命令和发布报告；DrawingPlan 1.0 仅作为兼容性附加门禁。
 
 E0 的 45 项 C# 合同和 13 项 SolidWorks 实机矩阵继续作为底层回归基线，但不能单独证明当前三 Skill

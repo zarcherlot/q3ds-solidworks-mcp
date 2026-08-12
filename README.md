@@ -322,8 +322,9 @@ semantic MCP
   initializer request, one candidate and one immutable publication. A real SolidWorks 2025 SP5 run
   completed initialize, publish, validate, create and independent verify with identical request and
   canonical-plan hashes while preserving the source model, template, `validation/`, handoff and
-  published plan. The E4 report records the evidence and remains pending only the final Git commit
-  hash. See [the E release-candidate report](docs/E_RELEASE_CANDIDATE_REPORT.md).
+  published plan. E4 freezes the accepted implementation and complete artifact inventory at commit
+  `7a6dcdfc217bc3940e7cc18a9321bfeb2286d61b`. See
+  [the E release-candidate report](docs/E_RELEASE_CANDIDATE_REPORT.md).
 The production profile uses the immutable `native-v4` view-selection-expert pack and prompt-request contract 3.0. The
 retired `baseline` pack remains unchanged as migration history but is not runtime-selectable. To add
 or tune a prompt set, create a new pack ID/version from `native-v4` and replace its Markdown

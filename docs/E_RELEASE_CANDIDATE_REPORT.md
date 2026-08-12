@@ -4,7 +4,7 @@ Date: 2026-08-12
 
 Branch: `feature/e-skill-chain-closure`
 
-Result: E1-E3 pass; E4 evidence complete except final Git commit hash
+Result: E1-E4 pass
 
 Host: SolidWorks 2025 SP5, revision `33.5.0`
 
@@ -21,9 +21,8 @@ stdio MCP tools and zero prompts, initialized once, generated one candidate, pub
 validated through both Python and C#, created one new associated drawing transactionally, and then
 performed an independent read-only verification.
 
-The E3 result is a pass. E4 is not declared complete because the working tree has intentionally not
-been committed without user authorization. The evidence below is final for the current tree; after
-the user requests a commit, record that commit SHA-1 and rerun the short hash/diff checks.
+The E3 result is a pass. E4 freezes the accepted implementation at Git commit
+`7a6dcdfc217bc3940e7cc18a9321bfeb2286d61b`; the evidence below is bound to that candidate.
 
 ## E1-E3 acceptance
 
@@ -104,7 +103,7 @@ no opposed visible linear-edge pair. Eight feature-bound center marks remain ver
 
 Git base before the E changes: `2cd6bf979a3c01ddcb62d946fedbdd6cc3c42606`.
 
-Final E commit: pending user-authorized commit.
+E release-candidate implementation commit: `7a6dcdfc217bc3940e7cc18a9321bfeb2286d61b`.
 
 ## Reproduction
 
