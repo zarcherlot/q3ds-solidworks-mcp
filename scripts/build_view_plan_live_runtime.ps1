@@ -6,13 +6,20 @@ param(
     [string]$OutputDirectory,
 
     [Parameter(Mandatory = $true)]
-    [string]$SolidWorksInteropDirectory
+    [string]$SolidWorksInteropDirectory,
+
+    [string]$SolidWorksApiRedistDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = [System.IO.Path]::GetFullPath($RepositoryRoot)
 $output = [System.IO.Path]::GetFullPath($OutputDirectory)
 $interop = [System.IO.Path]::GetFullPath($SolidWorksInteropDirectory)
+$apiRedist = if ([string]::IsNullOrWhiteSpace($SolidWorksApiRedistDirectory)) {
+    $interop
+} else {
+    [System.IO.Path]::GetFullPath($SolidWorksApiRedistDirectory)
+}
 $validation = [System.IO.Path]::GetFullPath((Join-Path $repo 'validation'))
 if ($output -eq $validation -or $output.StartsWith($validation + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'OutputDirectory must not be validation or one of its descendants.'
@@ -29,9 +36,9 @@ else {
 $compiler = Join-Path $repo 'solidworks-execution\packages\Microsoft.Net.Compilers.Toolset\tasks\net472\csc.exe'
 $framework = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
 $packageRoot = Join-Path $repo 'solidworks-execution\packages'
-$cosworks = Join-Path $interop 'SolidWorks.Interop.cosworks.dll'
+$cosworks = Join-Path $apiRedist 'SolidWorks.Interop.cosworks.dll'
 if (-not (Test-Path -LiteralPath $cosworks -PathType Leaf)) {
-    $cosworks = Join-Path $interop 'api\redist\SolidWorks.Interop.cosworks.dll'
+    $cosworks = Join-Path $apiRedist 'api\redist\SolidWorks.Interop.cosworks.dll'
 }
 $referencePaths = @(
     (Join-Path $framework 'mscorlib.dll'),

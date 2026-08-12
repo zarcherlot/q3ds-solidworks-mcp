@@ -70,6 +70,17 @@ The server runs headless and must be running while SolidWorks is open (the COM c
 
 From the repository root:
 
+The recommended clean-machine path is the MCP-independent setup stage:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_host.ps1 `
+  -Mode Configure -DependencySet Development
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_host.ps1 `
+  -Mode Verify -DependencySet Development
+```
+
+See [docs/REPOSITORY_HOST_SETUP.md](docs/REPOSITORY_HOST_SETUP.md). The manual equivalent remains:
+
 ```powershell
 py -3.12 -m venv .venv
 & .\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-dev.lock

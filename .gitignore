@@ -44,6 +44,7 @@ captures/
 
 # Local SolidWorks host preflight and skill-update staging artifacts.
 .host-preflight/
+.host-setup/
 _host_preflight/
 _host_preflight_section/
 .skill-update-staging/

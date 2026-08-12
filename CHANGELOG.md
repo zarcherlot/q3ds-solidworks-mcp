@@ -2,19 +2,13 @@
 
 ## Unreleased
 
-- Froze the three-Skill production chain contract for host bootstrap, immutable drawing handoff and
-  ViewPlan drawing creation. Added exact per-Skill semantic allow-lists, default 10-tool/zero-prompt
-  drift tests, mutually exclusive explicit-publish and Sampling branches, one-candidate/one-publish
-  rules, and unchanged `planning_request_sha256` bindings through publish, validate, create and
-  independent verify.
-- Added the reproducible E3 real-user-entry runner over the default stdio MCP. It fails closed on
-  host, runtime ownership, business status, capability, output collision and hash drift; snapshots
-  protected inputs; starts an isolated loopback Execution Service when requested; and records the
-  runtime, handoff, plan, drawing and sidecar hashes. SolidWorks 2025 SP5 passed the complete chain.
-- Fixed initializer sheet-scale serialization to emit positive Schema integers, deployed the
-  repository HostBootstrap helper in live runtime builds, and added a strictly loopback-only
-  Execution Service base-address override so concurrent local MCP sessions cannot steal the E3
-  runtime endpoint.
+- Added an MCP-independent repository host setup stage with explicit `Inspect`, `Configure`, and
+  `Verify` modes. It can create the Python 3.12 `.venv`, install hash-locked dependencies, restore
+  fixed C# packages, build the x64 execution runtime with Visual Studio MSBuild or pinned local
+  Roslyn, validate stdio MCP discovery, and run the native no-launch host inspection. It publishes
+  a Schema-validated atomic report, makes only repository-scoped changes by default, and keeps
+  SolidWorks installation, licensing, COM activation, registration repair, and elevation outside
+  this stage.
 - Added the explicit upper-layer Skill planning route and
   `publish_validated_part_drawing_view_plan`. A current Codex model can now generate one ViewPlan
   candidate from the immutable repository pack and verified handoff without MCP Sampling or a
