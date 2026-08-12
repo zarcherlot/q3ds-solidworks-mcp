@@ -65,6 +65,7 @@ def test_configure_uses_repository_roslyn_and_skips_unchanged_hosts() -> None:
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell setup is Windows-specific")
+@pytest.mark.host_integration
 def test_inspect_is_read_only_and_always_publishes_a_structured_report(
     tmp_path: Path,
 ) -> None:

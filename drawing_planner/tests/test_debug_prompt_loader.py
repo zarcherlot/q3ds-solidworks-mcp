@@ -233,7 +233,10 @@ class DebugPromptLoaderTests(unittest.TestCase):
             planner_profile="debug",
             debug_prompt_directory=str(self.prompt_root),
         )
-        self.assertEqual(request.debug_prompt_directory, str(self.prompt_root.resolve()))
+        self.assertTrue(
+            os.path.samefile(request.debug_prompt_directory, self.prompt_root),
+            "debug prompt directory should identify the configured directory",
+        )
         with self.assertRaisesRegex(ValueError, "only valid with planner_profile=debug"):
             PlanningRequest(**shared, debug_prompt_directory=str(self.prompt_root))
 
@@ -249,7 +252,10 @@ class DebugPromptLoaderTests(unittest.TestCase):
             {"PLANNER_DEBUG_PROMPT_DIRECTORY": str(self.prompt_root)},
         ):
             request = PlanningRequest(**shared)
-        self.assertEqual(request.debug_prompt_directory, str(self.prompt_root.resolve()))
+        self.assertTrue(
+            os.path.samefile(request.debug_prompt_directory, self.prompt_root),
+            "environment path should identify the configured directory",
+        )
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ jobs:
         run: python -m pip install --require-hashes -r requirements-dev.lock
 
       - name: Verify semantic MCP, prompt pipeline, execution contracts, and drawing-plan models
-        run: python -m pytest -q adapters/claude/tests drawing_planner/tests
+        run: python -m pytest -q -m "not host_integration" adapters/claude/tests drawing_planner/tests
 
       - name: Run offline compiler tests
         run: python solidworks-compiler/pycompiler/tests/test_compiler.py

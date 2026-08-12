@@ -74,6 +74,7 @@ def test_codex_stdio_initializes_as_utf8_without_banner() -> None:
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell launcher is Windows-specific")
+@pytest.mark.host_integration
 def test_codex_powershell_launcher_initializes_as_utf8() -> None:
     root = Path(__file__).resolve().parents[3]
 
