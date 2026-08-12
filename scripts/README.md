@@ -1,5 +1,10 @@
 # Bolt-gauge examples
 
+For repository installation before the semantic MCP can start, use
+`setup_repository_host.ps1`; its `Inspect`, `Configure`, and `Verify` modes are documented in
+[`docs/REPOSITORY_HOST_SETUP.md`](../docs/REPOSITORY_HOST_SETUP.md). This is separate from the
+SolidWorks-specific `bootstrap-solidworks-host` Skill.
+
 These scripts record the SolidWorks 2026 development and verification flow used
 to exercise SolidPilot's part-modeling tools. They are examples, not an
 automated test suite, and they operate on a live SolidWorks session.

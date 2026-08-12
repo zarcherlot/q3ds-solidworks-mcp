@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added an MCP-independent repository host setup stage with explicit `Inspect`, `Configure`, and
+  `Verify` modes. It can create the Python 3.12 `.venv`, install hash-locked dependencies, restore
+  fixed C# packages, build the x64 execution runtime with Visual Studio MSBuild or pinned local
+  Roslyn, validate stdio MCP discovery, and run the native no-launch host inspection. It publishes
+  a Schema-validated atomic report, makes only repository-scoped changes by default, and keeps
+  SolidWorks installation, licensing, COM activation, registration repair, and elevation outside
+  this stage.
 - Added the explicit upper-layer Skill planning route and
   `publish_validated_part_drawing_view_plan`. A current Codex model can now generate one ViewPlan
   candidate from the immutable repository pack and verified handoff without MCP Sampling or a

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidpilot-repository-host-setup-report-1.schema.json",
+  "title": "SolidPilot repository host setup report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "generated_at",
+    "mode",
+    "status",
+    "repository_root",
+    "policy",
+    "checks",
+    "actions",
+    "blocking_issues",
+    "warnings",
+    "outputs"
+  ],
+  "properties": {
+    "kind": { "const": "solidpilot_repository_host_setup" },
+    "schema_version": { "const": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "mode": { "enum": ["inspect", "configure", "verify"] },
+    "status": { "enum": ["pass", "warning", "blocked"] },
+    "repository_root": { "type": "string", "minLength": 1 },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs_before_semantic_mcp",
+        "repository_scoped_changes_only_by_default",
+        "system_package_install_authorized",
+        "installs_solidworks",
+        "manages_solidworks_license",
+        "elevates_process",
+        "launches_solidworks"
+      ],
+      "properties": {
+        "runs_before_semantic_mcp": { "const": true },
+        "repository_scoped_changes_only_by_default": { "const": true },
+        "system_package_install_authorized": { "type": "boolean" },
+        "installs_solidworks": { "const": false },
+        "manages_solidworks_license": { "const": false },
+        "elevates_process": { "const": false },
+        "launches_solidworks": { "const": false }
+      }
+    },
+    "checks": { "$ref": "#/$defs/results" },
+    "actions": { "$ref": "#/$defs/results" },
+    "blocking_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "remediation"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 },
+          "remediation": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "outputs": { "type": "object", "additionalProperties": true }
+  },
+  "$defs": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "message", "details"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pass", "fail", "completed", "not_needed", "not_run", "failed"] },
+          "message": { "type": "string", "minLength": 1 },
+          "details": true
+        }
+      }
+    }
+  }
+}

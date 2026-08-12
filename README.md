@@ -478,6 +478,29 @@ Example batch payload:
 Run the following commands from the repository root in PowerShell. The examples below assume the
 repository is at `C:\src\solidpilot`; replace that path with the absolute path to your clone.
 
+### Repository host setup before MCP
+
+On a new or migrated machine, prepare the repository before Codex attempts to start `solidpilot`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_host.ps1 -Mode Inspect
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_host.ps1 -Mode Configure
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_host.ps1 -Mode Verify
+```
+
+`Configure` creates the repository `.venv`, installs the hash-locked runtime dependencies, restores
+the C# packages, and builds the x64 Execution Service plus native HostBootstrap helper. It uses
+repository-local Roslyn when Visual Studio MSBuild is unavailable. By default it makes only
+repository-scoped changes; pass `-AllowSystemPackageInstall` only when you explicitly authorize
+`winget` to install a missing Python 3.12 runtime or Visual Studio Build Tools.
+
+`Verify` initializes the stdio MCP, checks its complete semantic tool surface, and runs the native
+no-launch host inspection. It does not launch SolidWorks. Each mode publishes the machine-readable
+`.host-setup/repository-host-setup-report.json`; see
+[the repository host setup contract](docs/REPOSITORY_HOST_SETUP.md) for modes, parameters, and hard
+boundaries. After it passes, restart the MCP client and use `bootstrap-solidworks-host` for isolated
+COM activation verification and any explicitly authorized registration repair.
+
 ### Python environment
 
 ```powershell
@@ -557,7 +580,7 @@ Restart Claude Desktop after saving the file.
 
 The repository includes `.codex/config.toml`, so a trusted Codex project discovers the `solidpilot`
 STDIO server automatically. It launches `adapters/codex/server.py` through the repository's `.venv`,
-allow-lists exactly the nine default semantic tools, and prompts before write-class operations. Confirm with:
+allow-lists exactly the ten default semantic tools, and prompts before write-class operations. Confirm with:
 
 ```powershell
 codex mcp list
@@ -584,7 +607,7 @@ args = ['C:\src\solidpilot\adapters\claude\server.py']
 EXECUTION_BASE_URL = 'http://localhost:5000'
 ```
 
-Start a new Codex task after changing MCP configuration so the 9-tool semantic surface is discovered.
+Start a new Codex task after changing MCP configuration so the 10-tool semantic surface is discovered.
 
 ### Other MCP clients
 
