@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/model-semantic-features-1.0.schema.json",
+  "title": "Q3DS frozen model semantic features",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "artifact_id",
+    "status",
+    "producer",
+    "model",
+    "geometry_report",
+    "taxonomy",
+    "features",
+    "relations",
+    "required_feature_ids",
+    "exemptions",
+    "open_questions"
+  ],
+  "properties": {
+    "protocol_id": { "const": "q3ds-solidworks-model-semantic-features" },
+    "schema_version": { "const": "1.0" },
+    "artifact_id": { "$ref": "#/$defs/id" },
+    "status": { "enum": ["complete", "incomplete"] },
+    "producer": { "$ref": "#/$defs/producer" },
+    "model": { "$ref": "#/$defs/modelBinding" },
+    "geometry_report": { "$ref": "#/$defs/artifactBinding" },
+    "taxonomy": { "$ref": "#/$defs/taxonomyBinding" },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relation" }
+    },
+    "required_feature_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/featureId" }
+    },
+    "exemptions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exemption" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/openQuestion" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "complete" } } },
+      "then": {
+        "properties": { "open_questions": { "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "incomplete" } } },
+      "then": {
+        "properties": { "open_questions": { "minItems": 1 } }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    },
+    "featureId": {
+      "type": "string",
+      "pattern": "^FT-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "maxLength": 128
+    },
+    "relationId": {
+      "type": "string",
+      "pattern": "^REL-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "maxLength": 128
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "point3": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "extraction_mode"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "extraction_mode": {
+          "enum": ["csharp_initializer", "offline_fixture", "controlled_manual_truth"]
+        }
+      }
+    },
+    "modelBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "configuration", "display_state"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "configuration": { "type": "string", "minLength": 1 },
+        "display_state": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifactBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "taxonomyBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taxonomy_id", "taxonomy_version", "path", "sha256"],
+      "properties": {
+        "taxonomy_id": { "const": "mechanical-features" },
+        "taxonomy_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[a-z0-9.-]+)?$"
+        },
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "geometryRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body_ids", "face_ids", "edge_ids", "vertex_ids"],
+      "properties": {
+        "body_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^B[0-9]+$" }
+        },
+        "face_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^B[0-9]+F[0-9]+$" }
+        },
+        "edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^B[0-9]+E[0-9]+$" }
+        },
+        "vertex_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^B[0-9]+V[0-9]+$" }
+        }
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin_m", "direction"],
+      "properties": {
+        "origin_m": { "$ref": "#/$defs/point3" },
+        "direction": { "$ref": "#/$defs/point3" }
+      }
+    },
+    "axialExtent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_m", "end_m", "effective_depth_m", "total_depth_m", "bottom_form"],
+      "properties": {
+        "start_m": { "type": "number" },
+        "end_m": { "type": "number" },
+        "effective_depth_m": { "type": ["number", "null"], "minimum": 0 },
+        "total_depth_m": { "type": "number", "minimum": 0 },
+        "bottom_form": {
+          "enum": ["through", "flat", "conical", "spherical", "compound", "unknown"]
+        }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["occurrence_id", "suppressed", "geometry_refs"],
+      "properties": {
+        "occurrence_id": { "$ref": "#/$defs/id" },
+        "suppressed": { "type": "boolean" },
+        "geometry_refs": { "$ref": "#/$defs/geometryRefs" }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "feature_class",
+        "parent_feature_id",
+        "source_feature_ref",
+        "significance",
+        "geometry_refs",
+        "axis",
+        "normal",
+        "opening_count",
+        "axial_extent",
+        "occurrences",
+        "evidence_status"
+      ],
+      "properties": {
+        "feature_id": { "$ref": "#/$defs/featureId" },
+        "feature_class": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+          "maxLength": 128
+        },
+        "parent_feature_id": {
+          "anyOf": [{ "$ref": "#/$defs/featureId" }, { "type": "null" }]
+        },
+        "source_feature_ref": { "type": ["string", "null"], "minLength": 1 },
+        "significance": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["manufacturing", "assembly", "function", "inspection"] }
+        },
+        "geometry_refs": { "$ref": "#/$defs/geometryRefs" },
+        "axis": { "anyOf": [{ "$ref": "#/$defs/axis" }, { "type": "null" }] },
+        "normal": { "anyOf": [{ "$ref": "#/$defs/point3" }, { "type": "null" }] },
+        "opening_count": { "type": ["integer", "null"], "minimum": 0 },
+        "axial_extent": {
+          "anyOf": [{ "$ref": "#/$defs/axialExtent" }, { "type": "null" }]
+        },
+        "occurrences": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/occurrence" }
+        },
+        "evidence_status": { "enum": ["complete", "partial"] }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "relation_class", "member_feature_ids", "axis", "plane_normal", "evidence_status"],
+      "properties": {
+        "relation_id": { "$ref": "#/$defs/relationId" },
+        "relation_class": {
+          "enum": ["relation.pattern", "relation.symmetry_or_mirror", "relation.coaxial_or_intersecting"]
+        },
+        "member_feature_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/featureId" }
+        },
+        "axis": { "anyOf": [{ "$ref": "#/$defs/axis" }, { "type": "null" }] },
+        "plane_normal": { "anyOf": [{ "$ref": "#/$defs/point3" }, { "type": "null" }] },
+        "evidence_status": { "enum": ["complete", "partial"] }
+      }
+    },
+    "exemption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_id", "reason_code", "reason", "controlled_source"],
+      "properties": {
+        "feature_id": { "$ref": "#/$defs/featureId" },
+        "reason_code": {
+          "enum": ["not_drawing_significant", "covered_by_parent", "controlled_scope_exclusion"]
+        },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "controlled_source": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "openQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "code", "feature_ids", "impact", "required_source"],
+      "properties": {
+        "question_id": { "$ref": "#/$defs/id" },
+        "code": {
+          "enum": [
+            "UNCLASSIFIED_FEATURE",
+            "FEATURE_GEOMETRY_INCOMPLETE",
+            "FUNCTIONAL_DATUM_UNKNOWN",
+            "CONTROLLED_SEMANTICS_REQUIRED"
+          ]
+        },
+        "feature_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/featureId" }
+        },
+        "impact": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "required_source": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    }
+  }
+}

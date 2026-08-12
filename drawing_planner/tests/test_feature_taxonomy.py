@@ -88,7 +88,11 @@ def test_taxonomy_rejects_incomplete_requirement_namespace():
 
 def test_taxonomy_rejects_kind_change_below_parent():
     payload = _payload()
-    payload["feature_classes"][5]["kind"] = "specialized_structure"
+    next(
+        entry
+        for entry in payload["feature_classes"]
+        if entry["code"] == "geometry.hole"
+    )["kind"] = "specialized_structure"
 
     with pytest.raises(ValidationError, match="changes kind below parent"):
         MechanicalFeatureTaxonomy.model_validate(payload)

@@ -47,6 +47,12 @@ def test_checked_in_json_schemas_are_valid_draft_2020_12():
             "feature-taxonomy.schema.json",
         ),
         os.path.join(
+            _ROOT,
+            "drawing_planner",
+            "contracts",
+            "model-semantic-features.schema.json",
+        ),
+        os.path.join(
             _ROOT, "drawing_planner", "contracts", "view-plan.schema.json"
         ),
     ]

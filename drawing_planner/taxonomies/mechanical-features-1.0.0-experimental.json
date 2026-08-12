@@ -58,6 +58,23 @@
       "implementation_status": "vocabulary_only"
     },
     {
+      "code": "overall.prismatic_or_plate",
+      "kind": "global_shape",
+      "parent_code": "overall",
+      "abstract": false,
+      "labels": { "zh_cn": "棱柱或板状总体外形", "en": "prismatic or plate-like overall shape" },
+      "definition": "A concrete global envelope dominated by principal planar faces, including plate-like and prismatic single parts.",
+      "scope": {
+        "includes": ["Plate-like and prismatic completed-part envelopes with stable principal planes."],
+        "excludes": ["Local holes, slots, transitions, and independent positive structures."]
+      },
+      "default_requirements": ["shape_true_form"],
+      "evidence_needs": ["bounding_box", "brep_face_group", "normal"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
       "code": "structure",
       "kind": "specialized_structure",
       "parent_code": null,
@@ -240,6 +257,23 @@
       },
       "default_requirements": ["shape_true_form", "internal_profile", "depth_extent", "location_relation"],
       "evidence_needs": ["brep_face_group", "brep_edge_group", "normal", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.slot.open_profile",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.slot",
+      "abstract": false,
+      "labels": { "zh_cn": "开口轮廓槽", "en": "open-profile groove" },
+      "definition": "A groove open to an exterior boundary whose true end profile and longitudinal extent are independently significant.",
+      "scope": {
+        "includes": ["Longitudinal semicylindrical, V, U, and other typed exterior-opening grooves."],
+        "excludes": ["Closed pockets, circular holes, and section-defined undercut slots such as T-slots."]
+      },
+      "default_requirements": ["shape_true_form", "depth_extent", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "axis", "opening", "axial_extent"],
       "source_status": "pending",
       "source_refs": [],
       "implementation_status": "initializer_planned"

@@ -217,3 +217,28 @@ Release additionally requires:
 The first experimental slice delivers only the taxonomy Schema, a versioned initial controlled
 vocabulary, a strict read-only loader, and offline contract tests. It intentionally does not mutate
 ViewPlan 1.4, change the default MCP surface, or claim initializer/C# execution support.
+
+## 8. Validation dataset record
+
+The read-only validation source supplied for this experiment is:
+
+```text
+C:\Users\zarch\Desktop\solidwokrs-mcp-test
+```
+
+The current source contains five native single-part models. Their observed SHA-256 bindings are:
+
+| Model | SHA-256 | M1 use |
+|---|---|---|
+| `ACCCMD-01-010102-0100-PT 殷钢固定板.SLDPRT` | `0bd799510f00a0ad855167f89501bdeff264faa854adb357e93207a3c8c27538` | semantic identity and six-hole/slot reference case |
+| `ACCCMD-01-010104-0300-PT C型夹-120滚针底板双孔型.SLDPRT` | `dd26951ed19d39ddf62404ca586cc09349d1ea7cf1200efa0443b72ddd318754` | future bracket and compound-hole case |
+| `ACCCMD-01-010107-0300-PT 真空束管支撑板.SLDPRT` | `eb9651163f7649cb6fc3cb0fde2bfd03c0dd2a6e4b3a9c4f0db0e5fd0b916cf8` | future support-plate and conduit case |
+| `ACCCMD-01-010109-0200-PT 固定环.SLDPRT` | `a88206575e16a0affbb9f9c87c153664386b5331938d34e246abfab3d4ed4792` | future ring/groove case |
+| `ACCCMD-12\12345.SLDPRT` | `f6dd764dd4bfff436e86521a30652d8fdb53735eebb1cf432582bcf27bbf7f0a` | future controlled-special-feature case |
+
+At the time of this M1 run, the temporary `.drawing-handoff-*` directories under the first model
+were removed by an external host workflow while the native models remained. They were inspected
+read-only before removal; no repository test depends on those transient paths. The captured fixed
+plate evidence showed B-Rep IDs such as `B0F8`–`B0F13` being used as six separate coverage IDs for
+one repeated hole family. M1 therefore treats those IDs only as `geometry_refs`, and represents the
+semantic hole and its actual/suppressed occurrences separately.
