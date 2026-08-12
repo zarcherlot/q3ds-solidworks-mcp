@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/mechanical-feature-taxonomy-1.0.schema.json",
+  "title": "Q3DS mechanical semantic-feature taxonomy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "taxonomy_id",
+    "taxonomy_version",
+    "status",
+    "requirement_kinds",
+    "derivation_kinds",
+    "feature_classes"
+  ],
+  "properties": {
+    "protocol_id": { "const": "q3ds-solidworks-mechanical-feature-taxonomy" },
+    "schema_version": { "const": "1.0" },
+    "taxonomy_id": { "const": "mechanical-features" },
+    "taxonomy_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[a-z0-9.-]+)?$"
+    },
+    "status": { "enum": ["experimental", "released", "retired"] },
+    "requirement_kinds": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/requirementKind" }
+    },
+    "derivation_kinds": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/derivationKind" }
+    },
+    "feature_classes": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/featureClass" }
+    }
+  },
+  "$defs": {
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "maxLength": 128
+    },
+    "requirementKind": {
+      "enum": [
+        "opening_and_count",
+        "shape_true_form",
+        "internal_profile",
+        "depth_extent",
+        "axis_direction",
+        "angular_orientation",
+        "location_relation",
+        "pattern_relation",
+        "transition_detail"
+      ]
+    },
+    "derivationKind": {
+      "enum": [
+        "deterministic_geometry",
+        "model_feature_data",
+        "model_pmi",
+        "controlled_user_requirement",
+        "planner_engineering_decision"
+      ]
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zh_cn", "en"],
+      "properties": {
+        "zh_cn": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "en": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["includes", "excludes"],
+      "properties": {
+        "includes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "excludes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "featureClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "kind",
+        "parent_code",
+        "abstract",
+        "labels",
+        "definition",
+        "scope",
+        "default_requirements",
+        "evidence_needs",
+        "source_status",
+        "source_refs",
+        "implementation_status"
+      ],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "kind": {
+          "enum": [
+            "global_shape",
+            "geometric_feature",
+            "specialized_structure",
+            "relation",
+            "manufacturing_context"
+          ]
+        },
+        "parent_code": {
+          "anyOf": [{ "$ref": "#/$defs/code" }, { "type": "null" }]
+        },
+        "abstract": { "type": "boolean" },
+        "labels": { "$ref": "#/$defs/labels" },
+        "definition": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "default_requirements": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/requirementKind" }
+        },
+        "evidence_needs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "bounding_box",
+              "brep_face_group",
+              "brep_edge_group",
+              "feature_tree_data",
+              "axis",
+              "normal",
+              "opening",
+              "axial_extent",
+              "occurrences",
+              "relation_geometry",
+              "model_pmi",
+              "controlled_requirement"
+            ]
+          }
+        },
+        "source_status": { "enum": ["pending", "referenced", "verified"] },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "implementation_status": {
+          "enum": [
+            "vocabulary_only",
+            "initializer_planned",
+            "deterministic_extraction",
+            "live_verified"
+          ]
+        }
+      }
+    }
+  }
+}

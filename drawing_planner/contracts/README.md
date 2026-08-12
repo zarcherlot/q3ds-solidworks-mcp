@@ -28,3 +28,9 @@ Candidate plans pass through `RepositoryViewPlanValidator` in the fixed order in
 2020-12 Schema, semantics, feature coverage, and sheet layout. Integrity or Schema failure prevents
 dependent gates from running. The accepted producer/ruleset identity is recomputed from the selected
 repository planner profile and immutable prompt pack; it is not trusted from model output.
+
+`feature-taxonomy.schema.json` 1.0 defines the experimental repository-owned vocabulary contract
+for semantic mechanical features and expression-requirement kinds. Versioned artifacts live under
+`drawing_planner/taxonomies/`; production does not discover or accept runtime taxonomies. The
+initial `mechanical-features-1.0.0-experimental.json` artifact is vocabulary and initializer-planning
+scaffolding only. It does not change ViewPlan 1.4 or claim execution support.

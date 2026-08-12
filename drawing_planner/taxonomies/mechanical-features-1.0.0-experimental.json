@@ -1,0 +1,588 @@
+{
+  "protocol_id": "q3ds-solidworks-mechanical-feature-taxonomy",
+  "schema_version": "1.0",
+  "taxonomy_id": "mechanical-features",
+  "taxonomy_version": "1.0.0-experimental",
+  "status": "experimental",
+  "requirement_kinds": [
+    "opening_and_count",
+    "shape_true_form",
+    "internal_profile",
+    "depth_extent",
+    "axis_direction",
+    "angular_orientation",
+    "location_relation",
+    "pattern_relation",
+    "transition_detail"
+  ],
+  "derivation_kinds": [
+    "deterministic_geometry",
+    "model_feature_data",
+    "model_pmi",
+    "controlled_user_requirement",
+    "planner_engineering_decision"
+  ],
+  "feature_classes": [
+    {
+      "code": "overall",
+      "kind": "global_shape",
+      "parent_code": null,
+      "abstract": true,
+      "labels": { "zh_cn": "总体形状", "en": "overall shape" },
+      "definition": "The global envelope and principal shape of one completed part, not a substitute for local semantic-feature coverage.",
+      "scope": {
+        "includes": ["Overall envelope, principal axes or planes, and dominant external form."],
+        "excludes": ["Local holes, slots, transitions, and manufacturing contexts."]
+      },
+      "default_requirements": ["shape_true_form"],
+      "evidence_needs": ["bounding_box", "brep_face_group"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "geometry",
+      "kind": "geometric_feature",
+      "parent_code": null,
+      "abstract": true,
+      "labels": { "zh_cn": "几何特征", "en": "geometric feature" },
+      "definition": "A local positive, negative, transition, wall, or surface form with independent drawing-expression significance.",
+      "scope": {
+        "includes": ["Local forms that affect manufacture, assembly, function, or inspection."],
+        "excludes": ["Pure relationships and stock-process context."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["brep_face_group"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure",
+      "kind": "specialized_structure",
+      "parent_code": null,
+      "abstract": true,
+      "labels": { "zh_cn": "专用结构", "en": "specialized structure" },
+      "definition": "A standard, functional, or process-specific mechanical structure whose semantics exceed raw B-Rep shape.",
+      "scope": {
+        "includes": ["Threads, transmission forms, springs, conduits, weld preparations, and formed sheet structures."],
+        "excludes": ["Unqualified primitive holes, slots, and transitions."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["feature_tree_data"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "relation",
+      "kind": "relation",
+      "parent_code": null,
+      "abstract": true,
+      "labels": { "zh_cn": "特征关系", "en": "feature relation" },
+      "definition": "A relationship among semantic features or occurrences that creates an independent expression obligation.",
+      "scope": {
+        "includes": ["Patterns, symmetry, mirrors, coaxiality, and geometric intersections."],
+        "excludes": ["The individual related feature shapes."]
+      },
+      "default_requirements": ["pattern_relation"],
+      "evidence_needs": ["relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "context",
+      "kind": "manufacturing_context",
+      "parent_code": null,
+      "abstract": true,
+      "labels": { "zh_cn": "制造与毛坯语境", "en": "manufacturing and stock context" },
+      "definition": "A controlled manufacturing or stock context that changes drawing rules without becoming a geometric feature itself.",
+      "scope": {
+        "includes": ["Cast, forged, molded, welded, machined, and formed-sheet contexts."],
+        "excludes": ["Geometry inferred only from appearance without a controlled source."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "geometry.hole",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": true,
+      "labels": { "zh_cn": "孔", "en": "hole" },
+      "definition": "A round or otherwise explicitly typed negative feature organized around an axis and one or more openings.",
+      "scope": {
+        "includes": ["Through, blind, counterbored, countersunk, stepped, tapered, oblique, and intersecting holes."],
+        "excludes": ["Obround slots and arbitrary pockets."]
+      },
+      "default_requirements": ["opening_and_count", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "axis", "opening"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.hole.through",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.hole",
+      "abstract": false,
+      "labels": { "zh_cn": "通孔", "en": "through hole" },
+      "definition": "A hole whose cylindrical or typed passage intersects two external openings.",
+      "scope": {
+        "includes": ["Simple through passages with two proven external openings."],
+        "excludes": ["Blind holes and open-ended slots."]
+      },
+      "default_requirements": ["opening_and_count", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "axis", "opening", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.hole.blind_drilled",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.hole",
+      "abstract": false,
+      "labels": { "zh_cn": "钻削盲孔", "en": "blind drilled hole" },
+      "definition": "A one-opening axial hole with a controlled cylindrical depth and an explicitly classified bottom form.",
+      "scope": {
+        "includes": ["Blind drilled holes with flat, conical drill-point, spherical, or otherwise typed bottoms."],
+        "excludes": ["Blind pockets without a hole axis."]
+      },
+      "default_requirements": ["opening_and_count", "internal_profile", "depth_extent", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "feature_tree_data", "axis", "opening", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.hole.compound",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.hole",
+      "abstract": false,
+      "labels": { "zh_cn": "复合孔", "en": "compound hole" },
+      "definition": "A semantically grouped coaxial or otherwise controlled multi-level hole such as a stepped, counterbored, or countersunk hole.",
+      "scope": {
+        "includes": ["Counterbores, countersinks, spotfaces, and multi-diameter stepped holes."],
+        "excludes": ["Unrelated holes that only happen to be near one another."]
+      },
+      "default_requirements": ["opening_and_count", "internal_profile", "depth_extent", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "feature_tree_data", "axis", "opening", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.hole.oblique_or_intersecting",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.hole",
+      "abstract": false,
+      "labels": { "zh_cn": "斜孔或交叉孔", "en": "oblique or intersecting hole" },
+      "definition": "A hole whose spatial direction or controlled intersection cannot generally be proven by one principal projection.",
+      "scope": {
+        "includes": ["Oblique entries, radial holes, and controlled intersections between passages."],
+        "excludes": ["Principal-axis holes fully determined by one direct opening view and one section."]
+      },
+      "default_requirements": ["opening_and_count", "internal_profile", "axis_direction", "angular_orientation", "location_relation"],
+      "evidence_needs": ["brep_face_group", "axis", "opening", "relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.slot",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": true,
+      "labels": { "zh_cn": "槽", "en": "slot" },
+      "definition": "An elongated or section-defined negative feature with controlled width, path, end form, and extent.",
+      "scope": {
+        "includes": ["Straight, open, obround, key, annular, relief, T, dovetail, sealing, and lubrication grooves."],
+        "excludes": ["Round holes and unrestricted pockets."]
+      },
+      "default_requirements": ["shape_true_form", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.slot.obround",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.slot",
+      "abstract": false,
+      "labels": { "zh_cn": "长圆槽", "en": "obround slot" },
+      "definition": "A slot with two end arcs or semicircles and a controlled center path, treated as a slot rather than a hole.",
+      "scope": {
+        "includes": ["Through or blind obround slots with explicit end geometry."],
+        "excludes": ["Circular holes and arbitrary rounded pockets."]
+      },
+      "default_requirements": ["opening_and_count", "shape_true_form", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "opening", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.slot.section_defined",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.slot",
+      "abstract": false,
+      "labels": { "zh_cn": "断面定义槽", "en": "section-defined slot" },
+      "definition": "A slot whose manufacturing form requires a true cross-section, including T and dovetail slots.",
+      "scope": {
+        "includes": ["T-slots, dovetail slots, and other non-rectangular controlled slot sections."],
+        "excludes": ["Straight rectangular slots fully defined in a direct view."]
+      },
+      "default_requirements": ["shape_true_form", "internal_profile", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "normal", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.pocket",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": false,
+      "labels": { "zh_cn": "凹腔", "en": "pocket or cavity" },
+      "definition": "A bounded negative volume with a controlled opening, floor or through state, wall profile, and location.",
+      "scope": {
+        "includes": ["Machined pockets and local cavities with explicit boundary and depth."],
+        "excludes": ["Global shell interiors and typed holes or slots."]
+      },
+      "default_requirements": ["shape_true_form", "internal_profile", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "opening", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.positive",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": true,
+      "labels": { "zh_cn": "正体结构", "en": "positive-volume feature" },
+      "definition": "A local material-adding or retained structure with independent size and location significance.",
+      "scope": {
+        "includes": ["Bosses, hubs, lugs, feet, ribs, and local pads."],
+        "excludes": ["The undifferentiated overall body envelope."]
+      },
+      "default_requirements": ["shape_true_form", "location_relation"],
+      "evidence_needs": ["brep_face_group"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "geometry.positive.boss_hub_lug_or_foot",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.positive",
+      "abstract": false,
+      "labels": { "zh_cn": "凸台、轮毂、耳板或支脚", "en": "boss, hub, lug, or foot" },
+      "definition": "A typed local positive structure whose subtype and dependent holes or slots remain explicitly recorded.",
+      "scope": {
+        "includes": ["Bosses, hubs, lugs, ears, mounting feet, and pads."],
+        "excludes": ["Ribs and global flanges."]
+      },
+      "default_requirements": ["shape_true_form", "location_relation"],
+      "evidence_needs": ["brep_face_group", "feature_tree_data"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "geometry.positive.rib",
+      "kind": "geometric_feature",
+      "parent_code": "geometry.positive",
+      "abstract": false,
+      "labels": { "zh_cn": "加强筋", "en": "rib or web" },
+      "definition": "A thin load-carrying or stiffening positive feature with special longitudinal-section drawing treatment.",
+      "scope": {
+        "includes": ["Ribs, webs, spokes, and gussets when represented as semantic stiffeners."],
+        "excludes": ["General thin walls and unrelated plates."]
+      },
+      "default_requirements": ["shape_true_form", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "feature_tree_data", "normal", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.step_or_shoulder",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": false,
+      "labels": { "zh_cn": "台阶、轴肩或止口", "en": "step, shoulder, or register" },
+      "definition": "A controlled change in level, diameter, width, or axial extent between adjacent regions.",
+      "scope": {
+        "includes": ["Axial steps, shoulders, registers, and flange levels."],
+        "excludes": ["Uncontrolled transition faces and cosmetic edges."]
+      },
+      "default_requirements": ["internal_profile", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "axis", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.thin_wall_or_shell",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": false,
+      "labels": { "zh_cn": "薄壁或壳体", "en": "thin wall or shell" },
+      "definition": "A paired or bounded wall structure whose thickness and inner/outer profile require coordinated expression.",
+      "scope": {
+        "includes": ["Uniform or locally varying walls and shell cavities."],
+        "excludes": ["Independent ribs and ordinary solid-body faces."]
+      },
+      "default_requirements": ["internal_profile", "depth_extent", "location_relation"],
+      "evidence_needs": ["brep_face_group", "relation_geometry", "axial_extent"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.transition",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": false,
+      "labels": { "zh_cn": "倒角、圆角或过渡", "en": "chamfer, fillet, or transition" },
+      "definition": "A local edge transition represented once as a semantic feature even when it produces multiple B-Rep faces.",
+      "scope": {
+        "includes": ["Chamfers, rounds, blend surfaces, and controlled relief transitions."],
+        "excludes": ["Theoretical sharp intersections that are not modelled transitions."]
+      },
+      "default_requirements": ["transition_detail"],
+      "evidence_needs": ["brep_face_group", "brep_edge_group", "feature_tree_data"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "geometry.surface.inclined_conical_spherical_or_freeform",
+      "kind": "geometric_feature",
+      "parent_code": "geometry",
+      "abstract": false,
+      "labels": { "zh_cn": "斜面、锥面、球面或自由曲面", "en": "inclined, conical, spherical, or free-form surface" },
+      "definition": "A surface whose true form, axis, center, or controlled data reference may require an auxiliary or sectional expression.",
+      "scope": {
+        "includes": ["Inclined planes, cones, spheres, and controlled free-form surfaces."],
+        "excludes": ["Ordinary principal planes and cylinders already represented by another typed feature."]
+      },
+      "default_requirements": ["shape_true_form", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "normal", "axis", "controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "structure.thread",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "螺纹", "en": "thread" },
+      "definition": "An internal or external thread whose standard, size, pitch, class, hand, and effective extent require controlled feature data or PMI.",
+      "scope": {
+        "includes": ["Internal, external, straight, tapered, pipe, multi-start, and left-hand threads."],
+        "excludes": ["Unqualified cosmetic helical geometry without controlled thread semantics."]
+      },
+      "default_requirements": ["opening_and_count", "depth_extent", "axis_direction", "location_relation"],
+      "evidence_needs": ["feature_tree_data", "axis", "axial_extent", "model_pmi"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure.transmission",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "传动齿形或轮廓", "en": "transmission tooth or profile" },
+      "definition": "A gear, spline, worm, rack, sprocket, pulley, timing-tooth, ratchet, or cam structure requiring controlled product semantics.",
+      "scope": {
+        "includes": ["Gears, splines, worms, racks, sprockets, pulleys, timing forms, ratchets, and cams."],
+        "excludes": ["Decorative repeated serrations without a transmission function."]
+      },
+      "default_requirements": ["shape_true_form", "depth_extent", "axis_direction", "pattern_relation"],
+      "evidence_needs": ["feature_tree_data", "axis", "occurrences", "model_pmi", "controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure.sheet_metal_form",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "钣金成形结构", "en": "sheet-metal form" },
+      "definition": "A bend, flange, hem, bead, louver, formed hole, or other controlled sheet-metal form.",
+      "scope": {
+        "includes": ["Bends, flanges, hems, beads, louvers, formed holes, and local sheet forms."],
+        "excludes": ["Flat machined plates without a controlled sheet-forming context."]
+      },
+      "default_requirements": ["shape_true_form", "axis_direction", "angular_orientation", "location_relation"],
+      "evidence_needs": ["feature_tree_data", "relation_geometry", "controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure.spring",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "弹簧", "en": "spring" },
+      "definition": "A compression, extension, torsion, disc, or other spring requiring type-specific controlled parameters.",
+      "scope": {
+        "includes": ["Compression, extension, torsion, disc, and typed special springs."],
+        "excludes": ["Unqualified helical decorations and flexible hoses."]
+      },
+      "default_requirements": ["shape_true_form", "depth_extent", "axis_direction", "angular_orientation"],
+      "evidence_needs": ["feature_tree_data", "axis", "controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure.conduit_or_flow_path",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "管路或内部流道", "en": "conduit or internal flow path" },
+      "definition": "A bent tube, port network, oil passage, or internal flow path whose route and intersections require explicit expression.",
+      "scope": {
+        "includes": ["Bent tubes, ports, oilways, and intersecting internal passage networks."],
+        "excludes": ["A single ordinary hole without flow-path semantics."]
+      },
+      "default_requirements": ["opening_and_count", "internal_profile", "axis_direction", "location_relation"],
+      "evidence_needs": ["brep_face_group", "feature_tree_data", "axis", "opening", "relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "structure.weld_preparation",
+      "kind": "specialized_structure",
+      "parent_code": "structure",
+      "abstract": false,
+      "labels": { "zh_cn": "焊接坡口或焊后结构", "en": "weld preparation or post-weld structure" },
+      "definition": "A controlled weld preparation or post-weld machined structure, without treating an assembly weldment as a single-part model by default.",
+      "scope": {
+        "includes": ["Groove preparations and post-weld machining features on an in-scope single part."],
+        "excludes": ["Assembly drawing weld definitions and unsupported multi-body weldments."]
+      },
+      "default_requirements": ["shape_true_form", "transition_detail", "location_relation"],
+      "evidence_needs": ["feature_tree_data", "controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "relation.pattern",
+      "kind": "relation",
+      "parent_code": "relation",
+      "abstract": false,
+      "labels": { "zh_cn": "阵列或重复", "en": "pattern or repetition" },
+      "definition": "A linear, rectangular, circular, path-based, or unequal repetition with explicit seed and actual occurrences.",
+      "scope": {
+        "includes": ["Patterns with seed, occurrence IDs, count, spacing or spread, and suppression state."],
+        "excludes": ["Coincidentally similar independent features without a proven grouping."]
+      },
+      "default_requirements": ["opening_and_count", "pattern_relation", "angular_orientation", "location_relation"],
+      "evidence_needs": ["feature_tree_data", "occurrences", "relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "relation.symmetry_or_mirror",
+      "kind": "relation",
+      "parent_code": "relation",
+      "abstract": false,
+      "labels": { "zh_cn": "对称或镜像", "en": "symmetry or mirror" },
+      "definition": "A proven symmetry or mirror relationship with a frozen axis or plane and explicit exceptions.",
+      "scope": {
+        "includes": ["Exact geometric symmetry and feature-tree mirror relationships."],
+        "excludes": ["Nearly symmetric geometry or sides with unrecorded differences."]
+      },
+      "default_requirements": ["pattern_relation", "location_relation"],
+      "evidence_needs": ["feature_tree_data", "occurrences", "relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "relation.coaxial_or_intersecting",
+      "kind": "relation",
+      "parent_code": "relation",
+      "abstract": false,
+      "labels": { "zh_cn": "同轴或相交关系", "en": "coaxial or intersecting relation" },
+      "definition": "A deterministic axis-to-axis or path intersection relationship among semantic features.",
+      "scope": {
+        "includes": ["Coaxial levels, intersecting holes, and connected flow passages."],
+        "excludes": ["Functional geometric tolerances not present in controlled PMI."]
+      },
+      "default_requirements": ["internal_profile", "axis_direction", "location_relation"],
+      "evidence_needs": ["axis", "relation_geometry"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "initializer_planned"
+    },
+    {
+      "code": "context.cast",
+      "kind": "manufacturing_context",
+      "parent_code": "context",
+      "abstract": false,
+      "labels": { "zh_cn": "铸造毛坯", "en": "cast stock" },
+      "definition": "A controlled cast-stock context with casting-specific draft, parting, allowance, radius, and defect requirements.",
+      "scope": {
+        "includes": ["Parts explicitly identified as cast stock by a controlled source."],
+        "excludes": ["Forgings and geometry merely resembling a casting."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "context.forged",
+      "kind": "manufacturing_context",
+      "parent_code": "context",
+      "abstract": false,
+      "labels": { "zh_cn": "锻造毛坯", "en": "forged stock" },
+      "definition": "A controlled forged-stock context kept distinct from casting rules and evidence.",
+      "scope": {
+        "includes": ["Parts explicitly identified as forged stock by a controlled source."],
+        "excludes": ["Cast or molded stock and geometry inferred only from appearance."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    },
+    {
+      "code": "context.molded",
+      "kind": "manufacturing_context",
+      "parent_code": "context",
+      "abstract": false,
+      "labels": { "zh_cn": "模塑毛坯", "en": "molded stock" },
+      "definition": "A controlled molded-part context with mold-specific parting, draft, wall, and local-form rules.",
+      "scope": {
+        "includes": ["Parts explicitly identified as molded by a controlled source."],
+        "excludes": ["Cast, forged, or machined parts inferred from appearance."]
+      },
+      "default_requirements": [],
+      "evidence_needs": ["controlled_requirement"],
+      "source_status": "pending",
+      "source_refs": [],
+      "implementation_status": "vocabulary_only"
+    }
+  ]
+}
