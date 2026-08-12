@@ -36,6 +36,8 @@ from drawing_planner.planning_models import (
     canonical_json_sha256,
     json_object_copy,
 )
+from drawing_planner.feature_taxonomy import load_feature_taxonomy
+from drawing_planner.semantic_features import load_model_semantic_features
 from drawing_planner.planning_prompt_compiler import (
     PlannerProfileUnavailable,
     RepositoryPlanningPromptCompiler,
@@ -285,7 +287,9 @@ def inspect_part_for_drawing(model_path: str) -> str:
         "repository C# transaction opens the source read-only, creates and read-only-reopens a new "
         "blank drawing from the supplied template, captures six real standard-view PNGs, freezes "
         "geometry/readiness reports, and publishes drawing-planning-handoff.json last. Every output "
-        "must be new; the previous active document is restored and Python performs no COM calls."
+        "must be new; the previous active document is restored and Python performs no COM calls. "
+        "The optional semantic_feature_profile=m1-experimental adds a hash-bound semantic artifact; "
+        "that artifact remains incomplete until typed FeatureData/PMI evidence is available."
     ),
     annotations={
         "readOnlyHint": False,
@@ -300,6 +304,7 @@ def initialize_part_drawing_handoff(
     publication_directory: str,
     image_width: Annotated[int, Field(ge=320, le=2000)] = 1024,
     image_height: Annotated[int, Field(ge=240, le=2000)] = 768,
+    semantic_feature_profile: Annotated[str, Field(pattern=r"^(none|m1-experimental)$")] = "none",
 ) -> str:
     model = validate_model_path(model_path)
     template = validate_drawing_template_path(drawing_template_path)
@@ -316,6 +321,11 @@ def initialize_part_drawing_handoff(
         "top.png",
         "bottom.png",
     ]
+    if semantic_feature_profile == "m1-experimental":
+        expected.extend([
+            "model-semantic-features.json",
+            "mechanical-features-1.0.0-experimental.json",
+        ])
     collisions = [name for name in expected if (Path(publication) / name).exists()]
     if collisions:
         raise ValueError(
@@ -329,6 +339,7 @@ def initialize_part_drawing_handoff(
             "publication_directory": publication,
             "image_width": image_width,
             "image_height": image_height,
+            "semantic_feature_profile": semantic_feature_profile,
         },
         mutating=True,
     )
@@ -363,6 +374,22 @@ def initialize_part_drawing_handoff(
             "INITIALIZER_INTEGRITY_VALIDATION_FAILED: "
             + (details or "repository handoff validation failed")
         )
+    if semantic_feature_profile == "m1-experimental":
+        assert integrity.manifest is not None
+        semantic_binding = integrity.manifest.get("semantic_features")
+        taxonomy_binding = integrity.manifest.get("semantic_taxonomy")
+        if not isinstance(semantic_binding, dict) or not isinstance(taxonomy_binding, dict):
+            raise ToolError("INITIALIZER_SEMANTIC_BINDING_MISSING: experimental artifacts are absent")
+        taxonomy = load_feature_taxonomy(Path(taxonomy_binding["path"]))
+        semantic = load_model_semantic_features(
+            Path(semantic_binding["path"]), taxonomy=taxonomy
+        )
+        payload["semantic_features"] = {
+            "path": semantic_binding["path"],
+            "sha256": semantic_binding["sha256"],
+            "status": semantic.status,
+            "open_question_count": len(semantic.open_questions),
+        }
     payload["handoff_integrity"] = "pass"
     payload["planning_request"] = request.model_dump(mode="json")
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

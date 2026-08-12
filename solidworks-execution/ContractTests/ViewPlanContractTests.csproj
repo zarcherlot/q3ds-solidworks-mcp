@@ -54,6 +54,12 @@
     <Compile Include="..\SolidworksExecution\Contracts\ViewPlanSectionGeometryResolver.cs">
       <Link>ViewPlanSectionGeometryResolver.cs</Link>
     </Compile>
+    <Compile Include="..\SolidworksExecution\Contracts\ViewPlanSectionNativeContract.cs">
+      <Link>ViewPlanSectionNativeContract.cs</Link>
+    </Compile>
+    <Compile Include="..\SolidworksExecution\Contracts\SemanticFeatureTypeContract.cs">
+      <Link>SemanticFeatureTypeContract.cs</Link>
+    </Compile>
     <Compile Include="..\SolidworksExecution\Services\SolidWorksService.ViewPlan.cs">
       <Link>SolidWorksService.ViewPlan.cs</Link>
     </Compile>

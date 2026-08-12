@@ -227,6 +227,23 @@ def _artifacts(
             media_type="application/json",
         ),
     ]
+    if manifest.get("semantic_features") is not None:
+        artifacts.extend(
+            [
+                PlanningInputArtifact(
+                    kind="semantic_features",
+                    path=manifest["semantic_features"]["path"],
+                    sha256=manifest["semantic_features"]["sha256"],
+                    media_type="application/json",
+                ),
+                PlanningInputArtifact(
+                    kind="semantic_taxonomy",
+                    path=manifest["semantic_taxonomy"]["path"],
+                    sha256=manifest["semantic_taxonomy"]["sha256"],
+                    media_type="application/json",
+                ),
+            ]
+        )
     by_view = {
         row["view"]: row for row in manifest["standard_view_images"]
     }

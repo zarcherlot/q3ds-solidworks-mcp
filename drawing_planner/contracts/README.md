@@ -34,3 +34,12 @@ for semantic mechanical features and expression-requirement kinds. Versioned art
 `drawing_planner/taxonomies/`; production does not discover or accept runtime taxonomies. The
 initial `mechanical-features-1.0.0-experimental.json` artifact is vocabulary and initializer-planning
 scaffolding only. It does not change ViewPlan 1.4 or claim execution support.
+
+`view-plan-1.5.schema.json` starts the explicit M2 protocol successor. It replaces the overlapping
+`required_mode` / `expression_mode` pair with `requirement_kind` / `expression_method`, changes
+single-view satisfaction to a non-empty primary/supporting view set, and freezes required
+independent-projection counts plus expected opening, occurrence, depth, and semantic-relation
+evidence. `ViewPlan15SchemaValidator` and `ViewPlan15ExpressionValidator` are offline experimental
+gates only. ViewPlan 1.5 is not registered on the default MCP surface, accepted by the capability
+manifest, compiled by C#, or executable; ViewPlan 1.4 remains the unchanged runtime authority until
+the remaining M2 migration gates are implemented and verified together.

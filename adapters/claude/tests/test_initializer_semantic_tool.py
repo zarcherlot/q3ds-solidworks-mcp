@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -19,7 +20,7 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _write_executor_handoff(model: Path, publication: Path) -> dict:
+def _write_executor_handoff(model: Path, publication: Path, *, experimental=False) -> dict:
     blank = publication / "initializer-blank.SLDDRW"
     readiness = publication / "drawing-readiness.json"
     geometry = publication / "model-geometry.json"
@@ -48,9 +49,7 @@ def _write_executor_handoff(model: Path, publication: Path) -> dict:
         path.write_bytes(view.encode("ascii"))
         images.append({"view": view, "path": str(path), "sha256": _sha(path)})
     manifest = publication / "drawing-planning-handoff.json"
-    manifest.write_text(
-        json.dumps(
-            {
+    manifest_payload = {
                 "protocol_id": "q3ds-drawing-planning-handoff",
                 "schema_version": "1.0",
                 "handoff_id": "DH-unit-test",
@@ -103,9 +102,34 @@ def _write_executor_handoff(model: Path, publication: Path) -> dict:
                 "blocking_issues": [],
                 "open_questions": [],
             }
-        ),
-        encoding="utf-8",
-    )
+    if experimental:
+        taxonomy = publication / "mechanical-features-1.0.0-experimental.json"
+        source_taxonomy = Path(__file__).resolve().parents[3] / "drawing_planner" / "taxonomies" / taxonomy.name
+        shutil.copyfile(source_taxonomy, taxonomy)
+        semantic = publication / "model-semantic-features.json"
+        semantic.write_text(json.dumps({
+            "protocol_id": "q3ds-solidworks-model-semantic-features",
+            "schema_version": "1.0",
+            "artifact_id": "MSF-unit-test",
+            "status": "incomplete",
+            "producer": {"name": "q3ds-test", "version": "1.0.0", "extraction_mode": "csharp_initializer"},
+            "model": {"path": str(model), "sha256": _sha(model), "configuration": "Default", "display_state": "Display State-1"},
+            "geometry_report": {"path": str(geometry), "sha256": _sha(geometry)},
+            "taxonomy": {"taxonomy_id": "mechanical-features", "taxonomy_version": "1.0.0-experimental", "path": str(taxonomy), "sha256": _sha(taxonomy)},
+            "features": [{
+                "feature_id": "FT-OVERALL-0", "feature_class": "overall.prismatic_or_plate",
+                "parent_feature_id": None, "source_feature_ref": None,
+                "significance": ["manufacturing", "inspection"],
+                "geometry_refs": {"body_ids": ["B0"], "face_ids": [], "edge_ids": [], "vertex_ids": []},
+                "axis": None, "normal": None, "opening_count": None, "axial_extent": None,
+                "occurrences": [], "evidence_status": "partial"
+            }],
+            "relations": [], "required_feature_ids": [], "exemptions": [],
+            "open_questions": [{"question_id": "Q-SEMANTIC-FEATURE-DATA", "code": "CONTROLLED_SEMANTICS_REQUIRED", "feature_ids": ["FT-OVERALL-0"], "impact": "typed feature data unavailable", "required_source": "FeatureData"}]
+        }), encoding="utf-8")
+        manifest_payload["semantic_features"] = {"path": str(semantic), "sha256": _sha(semantic)}
+        manifest_payload["semantic_taxonomy"] = {"path": str(taxonomy), "sha256": _sha(taxonomy)}
+    manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
     return {
         "status": "COMPLETED",
         "verified": True,
@@ -153,6 +177,7 @@ def test_initializer_routes_one_semantic_transaction_and_revalidates_handoff(tmp
                 "publication_directory": str(publication.resolve()),
                 "image_width": 1024,
                 "image_height": 768,
+                "semantic_feature_profile": "none",
             },
             True,
         )
@@ -174,3 +199,26 @@ def test_initializer_refuses_any_existing_output_before_executor(tmp_path):
                 str(model), str(template), str(publication)
             )
     execute.assert_not_called()
+
+
+def test_experimental_initializer_validates_semantic_artifact_end_to_end(tmp_path):
+    model = tmp_path / "part.SLDPRT"
+    template = tmp_path / "A3.DRWDOT"
+    publication = tmp_path / "publication"
+    model.write_bytes(b"model")
+    template.write_bytes(b"template")
+    publication.mkdir()
+
+    def fake_execute(tool, params, *, mutating):
+        assert params["semantic_feature_profile"] == "m1-experimental"
+        return _write_executor_handoff(model, publication, experimental=True)
+
+    with patch.object(server, "_execute", side_effect=fake_execute):
+        payload = json.loads(server.initialize_part_drawing_handoff(
+            str(model), str(template), str(publication),
+            semantic_feature_profile="m1-experimental",
+        ))
+
+    assert payload["handoff_integrity"] == "pass"
+    assert payload["semantic_features"]["status"] == "incomplete"
+    assert payload["semantic_features"]["open_question_count"] == 1

@@ -90,6 +90,51 @@ namespace SolidworksExecution.ContractTests
                 AssertEqual(error.JsonPointer, "", "non-object pointer");
                 Pass("structured object requirement");
 
+                AssertEqual(SemanticFeatureTypeContract.Classify("HoleWzd", null, 25),
+                    "geometry.hole.through", "through Hole Wizard classification");
+                AssertEqual(SemanticFeatureTypeContract.Classify("HoleWzd", null, 10),
+                    "geometry.hole.compound", "compound Hole Wizard classification");
+                AssertEqual(SemanticFeatureTypeContract.Classify("HoleWzd", null, 72),
+                    "geometry.slot.obround", "Hole Wizard slot classification");
+                AssertEqual(SemanticFeatureTypeContract.Classify("Boss", true, null),
+                    "geometry.positive.boss_hub_lug_or_foot", "boss classification");
+                AssertEqual(SemanticFeatureTypeContract.Classify("Cut", false, null),
+                    "geometry.pocket", "cut classification");
+                Assert(SemanticFeatureTypeContract.Classify("ProfileFeature", null, null) == null,
+                    "uncontrolled sketch/profile names must not imply semantic classes");
+                Assert(SemanticFeatureTypeContract.IsThroughWizardHole(25) &&
+                    !SemanticFeatureTypeContract.IsThroughWizardHole(22),
+                    "Hole Wizard through/blind contract");
+                Assert(SemanticFeatureTypeContract.IsPattern("CirPattern") &&
+                    SemanticFeatureTypeContract.IsMirror("MirrorPattern"),
+                    "pattern and mirror relation classification");
+                AssertEqual(SemanticFeatureTypeContract.ClassifyExtrudedCutProfile(6, false,
+                    true), "geometry.hole.through", "multi-circle cut profile classification");
+                AssertEqual(SemanticFeatureTypeContract.ClassifyExtrudedCutProfile(1, true,
+                    true), "geometry.pocket", "mixed cut profile remains a pocket");
+                double angle = Math.PI / 3.0;
+                var circularSeed = new double[] { 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 };
+                var circularStep = new double[]
+                {
+                    Math.Cos(angle), -Math.Sin(angle), 0,
+                    Math.Sin(angle), Math.Cos(angle), 0,
+                    0, 0, 1,
+                    0.01, -0.0173205080756888, 0
+                };
+                double[] circularOrigin;
+                double[] circularDirection;
+                Assert(SemanticFeatureTypeContract.TryReadCircularTransformAxis(circularSeed,
+                    circularStep, out circularOrigin, out circularDirection),
+                    "circular transform pair should resolve an axis");
+                AssertNear(circularOrigin[0], 0.02, 1e-9, "circular axis origin x");
+                AssertNear(circularOrigin[1], 0.0, 1e-9, "circular axis origin y");
+                AssertNear(Math.Abs(circularDirection[2]), 1.0, 1e-9,
+                    "circular axis direction z");
+                Assert(!SemanticFeatureTypeContract.TryReadCircularTransformAxis(circularSeed,
+                    circularSeed, out circularOrigin, out circularDirection),
+                    "identity transform pair must fail closed");
+                Pass("M1 typed semantic-feature classification contract");
+
                 var guard = new TestGuard(7);
                 var service = new SolidWorksService(guard);
                 ExecutionResponse response = service.ValidatePartDrawingViewPlan(
@@ -131,6 +176,21 @@ namespace SolidworksExecution.ContractTests
                     "B3 execution plan should bind model, drawing, two reports, and six images");
                 Pass("B2 model/projected compilation and stable topological order");
 
+                double[] activeViewPoint = ViewPlanSectionNativeContract.ToActiveViewLocal(
+                    new[] { 0.075, 0.165, 0.0 }, new[] { 0.105, 0.165 });
+                Assert(activeViewPoint != null &&
+                    Math.Abs(activeViewPoint[0] + 0.03) < 1e-12 &&
+                    Math.Abs(activeViewPoint[1]) < 1e-12 &&
+                    Math.Abs(activeViewPoint[2]) < 1e-12,
+                    "drawing sketch coordinates must be relative to the active parent view");
+                Assert(ViewPlanSectionNativeContract.CreateOptions(
+                    "half_section", "not_aligned", false) == 49,
+                    "half-section options must include surface cut, partial, and not-aligned");
+                Assert(ViewPlanSectionNativeContract.CreateOptions(
+                    "full_section", "projected", false) == 32,
+                    "full-section options must include surface cut");
+                Pass("C1 native section coordinate and option contract");
+
                 foreach (string sectionType in new[] { "full_section", "half_section",
                     "offset_section", "aligned_section", "removed_section" })
                 {
@@ -145,6 +205,8 @@ namespace SolidworksExecution.ContractTests
                         sectionType + " should retain parent-first native creation order");
                     AssertEqual(basicPlan.Views[1].SectionLabel,
                         SectionLabel(sectionType), sectionType + " frozen label");
+                    Assert(basicPlan.Views[1].SectionDepthAutomatic,
+                        sectionType + " zero section depth should compile as automatic");
                 }
                 Pass("C1 five-section-family COM-free compilation");
 
@@ -557,6 +619,44 @@ namespace SolidworksExecution.ContractTests
                     AssertEqual(executionError.Code, "VIEW_PLAN_OFFSET_SECTION_AXIS_MISSED",
                         "C1 offset axis-miss code");
                     Pass("C1 offset-section feature-axis intersection gate");
+
+                    string halfRoot = Path.Combine(preflightRoot, "c1-half-real-geometry");
+                    Directory.CreateDirectory(halfRoot);
+                    string halfGeometry = "{\"part_box_m\":{" +
+                        "\"x_min_m\":0,\"y_min_m\":0,\"z_min_m\":0," +
+                        "\"x_max_m\":0.1,\"y_max_m\":0.02,\"z_max_m\":0.05}," +
+                        "\"features\":[{\"id\":\"B0F0\",\"surface_parameters\":{" +
+                        "\"origin\":[0.05,0,0.04],\"axis\":[0,1,0]}}]}";
+                    sectionPreflight = BuildSectionPreflightPlan(valid, halfRoot,
+                        "half_section", halfGeometry);
+                    sectionPreflight["views"][0]["orientation"] = new JObject
+                    {
+                        ["kind"] = "standard_model_view",
+                        ["standard_view"] = "top",
+                        ["roll_angle_rad"] = 0.0
+                    };
+                    sectionPreflight["views"][1]["section_definition"]
+                        ["cutting_line_points_model_m"] = new JArray(
+                            new JArray(-0.01, 0.01, 0.025),
+                            new JArray(0.05, 0.01, 0.025),
+                            new JArray(0.05, 0.01, 0.06));
+                    Assert(validator.TryParse(sectionPreflight, out basicDocument, out error),
+                        "real half-section geometry should satisfy Schema: " + Format(error));
+                    Assert(basicCompiler.TryCompile(basicDocument, out basicPlan,
+                        out executionError), "real half-section geometry should compile");
+                    Assert(geometryResolver.TryResolve(basicPlan, out executionError),
+                        "centered half-section must span the part and intersect its feature axis: " +
+                        Format(executionError));
+                    Assert(basicPlan.Views[1].SectionDepthAutomatic &&
+                        Math.Abs(basicPlan.Views[1].SectionDepth - 0.022) < 1e-12,
+                        "automatic half-section depth must cover the frozen part-box depth");
+                    foreach (double[] point in basicPlan.Views[1].SectionPointsModel)
+                        point[0] += 0.01;
+                    Assert(!geometryResolver.TryResolve(basicPlan, out executionError),
+                        "off-center half-section bend must fail before COM");
+                    AssertEqual(executionError.Code, "VIEW_PLAN_HALF_SECTION_CENTER_INVALID",
+                        "C1 half-section center code");
+                    Pass("C1 half-section frozen center, outline, and feature-axis gates");
 
                     preflightCandidate = BuildPreflightPlan(valid, preflightRoot);
                     Assert(validator.TryParse(preflightCandidate, out basicDocument, out error),
@@ -975,6 +1075,14 @@ namespace SolidworksExecution.ContractTests
             if (!string.Equals(actual, expected, StringComparison.Ordinal))
                 throw new InvalidOperationException(label + ": expected='" + expected +
                     "' actual='" + actual + "'");
+        }
+
+        private static void AssertNear(double actual, double expected, double tolerance,
+            string label)
+        {
+            if (Math.Abs(actual - expected) > tolerance)
+                throw new InvalidOperationException(label + ": expected=" + expected +
+                    " actual=" + actual);
         }
 
         private static void Pass(string name)

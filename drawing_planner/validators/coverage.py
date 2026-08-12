@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from drawing_planner.planning_models import ValidationIssue
+from drawing_planner.semantic_features import (
+    ModelSemanticFeatures,
+    assess_closed_set_coverage,
+)
 from drawing_planner.validators._common import pointer, stable_issues, validation_issue
 
 
@@ -49,7 +53,12 @@ _MODE_VIEW_TYPES = {
 
 
 class ViewPlanCoverageValidator:
-    def validate(self, plan: Mapping[str, Any]) -> tuple[ValidationIssue, ...]:
+    def validate(
+        self,
+        plan: Mapping[str, Any],
+        *,
+        semantic_artifact: ModelSemanticFeatures | None = None,
+    ) -> tuple[ValidationIssue, ...]:
         issues: list[ValidationIssue] = []
         views = {view["id"]: view for view in plan["views"]}
         coverage_rows = plan["feature_coverage"]
@@ -166,6 +175,51 @@ class ViewPlanCoverageValidator:
                         "coverage",
                         f"covered feature is not expressed by any planned view: {feature_id}",
                         pointer("feature_coverage", feature_index, "feature_id"),
+                    )
+                )
+        if semantic_artifact is not None:
+            closed_set = assess_closed_set_coverage(
+                semantic_artifact,
+                [row["feature_id"] for row in coverage_rows],
+            )
+            if closed_set.semantic_artifact_status != "complete" or closed_set.unresolved_question_ids:
+                details = ", ".join(closed_set.unresolved_question_ids) or "artifact status is incomplete"
+                issues.append(
+                    validation_issue(
+                        "VP-COVERAGE-SEMANTIC-UNRESOLVED",
+                        "coverage",
+                        "semantic closed-set coverage is unresolved: " + details,
+                        "/feature_coverage",
+                    )
+                )
+            if closed_set.missing_feature_ids:
+                issues.append(
+                    validation_issue(
+                        "VP-COVERAGE-SEMANTIC-MISSING",
+                        "coverage",
+                        "required semantic features are missing: "
+                        + ", ".join(closed_set.missing_feature_ids),
+                        "/feature_coverage",
+                    )
+                )
+            if closed_set.unexpected_feature_ids:
+                issues.append(
+                    validation_issue(
+                        "VP-COVERAGE-SEMANTIC-UNKNOWN",
+                        "coverage",
+                        "coverage references unknown semantic features: "
+                        + ", ".join(closed_set.unexpected_feature_ids),
+                        "/feature_coverage",
+                    )
+                )
+            if closed_set.invalid_exemption_ids:
+                issues.append(
+                    validation_issue(
+                        "VP-COVERAGE-SEMANTIC-EXEMPTION",
+                        "coverage",
+                        "coverage includes controlled semantic exemptions: "
+                        + ", ".join(closed_set.invalid_exemption_ids),
+                        "/feature_coverage",
                     )
                 )
         return stable_issues(issues)

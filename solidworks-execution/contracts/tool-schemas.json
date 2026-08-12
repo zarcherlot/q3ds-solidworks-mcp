@@ -832,7 +832,8 @@
                 "drawing_template_path": "string (required, existing absolute .DRWDOT path)",
                 "publication_directory": "string (required, existing absolute directory)",
                 "image_width": "integer (optional, default 1024, range 320..2000)",
-                "image_height": "integer (optional, default 768, range 240..2000)"
+                "image_height": "integer (optional, default 768, range 240..2000)",
+                "semantic_feature_profile": "string (optional: none | m1-experimental; default none)"
             }
         },
         "output": "-> see execution-response.json; verified result_geometry contains the immutable manifest path/hash, all initializer artifact paths, frozen drawing context, and source-model read-only evidence."

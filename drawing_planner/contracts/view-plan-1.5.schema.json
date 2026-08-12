@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/solidworks/view-plan/1.5",
+  "title": "SolidWorks View Plan Protocol 1.5 Expression Contract",
+  "description": "Experimental successor to ViewPlan 1.4 with non-overlapping feature requirement and expression contracts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "protocol_id", "schema_version", "plan_id", "created_at_utc", "producer",
+    "execution_policy", "model_path", "model_sha256", "drawing_path", "drawing_sha256",
+    "geometry_report_path", "geometry_report_sha256", "readiness_report_path",
+    "readiness_report_sha256", "standard_view_images", "configuration", "display_state",
+    "sheet", "projection_method", "sheet_scale", "main_view_id", "views", "feature_coverage",
+    "inner_frame", "clearance_policy", "dimension_zones", "reserved_zones", "decision_summary",
+    "assumptions", "open_questions"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "protocol_id": { "const": "solidworks-view-plan" },
+    "schema_version": { "const": "1.5" },
+    "plan_id": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/id" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "producer": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/producer" },
+    "execution_policy": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/executionPolicy" },
+    "model_path": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/path" },
+    "model_sha256": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/sha256" },
+    "drawing_path": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/path" },
+    "drawing_sha256": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/sha256" },
+    "geometry_report_path": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/path" },
+    "geometry_report_sha256": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/sha256" },
+    "readiness_report_path": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/path" },
+    "readiness_report_sha256": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/sha256" },
+    "standard_view_images": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/standardViewImage" }
+    },
+    "configuration": { "type": "string", "minLength": 1 },
+    "display_state": { "type": ["string", "null"], "minLength": 1 },
+    "sheet": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/sheet" },
+    "projection_method": { "enum": ["first_angle", "third_angle"] },
+    "sheet_scale": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/scaleRatio" },
+    "main_view_id": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/id" },
+    "views": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/view" }
+    },
+    "feature_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/featureCoverage" }
+    },
+    "inner_frame": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/innerFrame" },
+    "clearance_policy": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/clearancePolicy" },
+    "dimension_zones": {
+      "type": "array", "items": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/dimensionZone" }
+    },
+    "reserved_zones": {
+      "type": "array", "items": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/reservedZone" }
+    },
+    "decision_summary": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/decisionSummary" },
+    "assumptions": {
+      "type": "array", "items": { "type": "string", "minLength": 1 }
+    },
+    "open_questions": {
+      "type": "array", "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "requirementKind": {
+      "enum": [
+        "opening_and_count", "axis_direction", "location_relation", "internal_profile",
+        "depth_extent", "shape_true_form", "cross_section", "angular_orientation",
+        "pattern_relation", "transition_detail"
+      ]
+    },
+    "expressionMethod": {
+      "enum": [
+        "direct_opening_view", "section_through_axis", "true_shape_view", "cross_section",
+        "direct_visible_profile", "independent_multiview"
+      ]
+    },
+    "viewSatisfaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view_id", "role"],
+      "properties": {
+        "view_id": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/id" },
+        "role": { "enum": ["primary", "supporting"] }
+      }
+    },
+    "featureRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id", "requirement_kind", "expression_method", "satisfied_by",
+        "minimum_independent_projections", "expected_opening_count",
+        "expected_unsuppressed_occurrence_count", "expected_effective_depth_m",
+        "expected_total_depth_m", "expected_spatial_direction_model",
+        "semantic_relation_ids", "discernibility_check", "status"
+      ],
+      "properties": {
+        "requirement_id": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/id" },
+        "requirement_kind": { "$ref": "#/$defs/requirementKind" },
+        "expression_method": { "$ref": "#/$defs/expressionMethod" },
+        "satisfied_by": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/viewSatisfaction" }
+        },
+        "minimum_independent_projections": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "expected_opening_count": { "type": ["integer", "null"], "minimum": 0 },
+        "expected_unsuppressed_occurrence_count": {
+          "type": ["integer", "null"], "minimum": 0
+        },
+        "expected_effective_depth_m": { "type": ["number", "null"], "minimum": 0 },
+        "expected_total_depth_m": { "type": ["number", "null"], "minimum": 0 },
+        "expected_spatial_direction_model": {
+          "oneOf": [
+            { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/point3" },
+            { "type": "null" }
+          ]
+        },
+        "semantic_relation_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^REL-[A-Z0-9]+(?:-[A-Z0-9]+)*$" }
+        },
+        "discernibility_check": {
+          "oneOf": [
+            { "$ref": "#/$defs/discernibilityCheck" },
+            { "type": "null" }
+          ]
+        },
+        "status": { "enum": ["pass", "blocked"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "requirement_kind": { "const": "opening_and_count" } } },
+          "then": {
+            "properties": {
+              "expected_opening_count": { "type": "integer" },
+              "expected_unsuppressed_occurrence_count": { "type": "integer" }
+            }
+          },
+          "else": {
+            "properties": {
+              "expected_opening_count": { "type": "null" },
+              "expected_unsuppressed_occurrence_count": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "requirement_kind": {
+                "enum": ["axis_direction", "angular_orientation"]
+              }
+            }
+          },
+          "then": {
+            "properties": { "expected_spatial_direction_model": { "type": "array" } }
+          },
+          "else": {
+            "properties": { "expected_spatial_direction_model": { "type": "null" } }
+          }
+        },
+        {
+          "if": { "properties": { "requirement_kind": { "const": "depth_extent" } } },
+          "then": { "properties": { "expected_total_depth_m": { "type": "number" } } },
+          "else": {
+            "properties": {
+              "expected_effective_depth_m": { "type": "null" },
+              "expected_total_depth_m": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "requirement_kind": {
+                "enum": ["pattern_relation", "location_relation"]
+              }
+            }
+          },
+          "then": { "properties": { "semantic_relation_ids": { "minItems": 1 } } },
+          "else": { "properties": { "semantic_relation_ids": { "maxItems": 0 } } }
+        }
+      ]
+    },
+    "discernibilityCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "line_width_sheet_m", "minimum_line_width_ratio"],
+      "properties": {
+        "critical": { "const": true },
+        "line_width_sheet_m": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_line_width_ratio": { "type": "number", "minimum": 2, "maximum": 20 }
+      }
+    },
+    "featureCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_id", "feature_class", "requirements"],
+      "properties": {
+        "feature_id": { "$ref": "https://local.example/schemas/solidworks/view-plan/1.4#/$defs/id" },
+        "feature_class": { "type": "string", "minLength": 1 },
+        "requirements": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/featureRequirement" }
+        }
+      }
+    }
+  }
+}

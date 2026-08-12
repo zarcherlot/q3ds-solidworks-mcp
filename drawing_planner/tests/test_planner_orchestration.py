@@ -219,6 +219,127 @@ class PlannerOrchestrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "VP-INTEGRITY-ARTIFACT-HASH"):
             RepositoryPlanningPromptCompiler().compile(self.request)
 
+    def test_repository_compiler_attaches_bound_semantic_pair_and_status(self):
+        taxonomy = self.root / "mechanical-features-1.0.0-experimental.json"
+        taxonomy.write_bytes(
+            (
+                _ROOT
+                / "drawing_planner"
+                / "taxonomies"
+                / "mechanical-features-1.0.0-experimental.json"
+            ).read_bytes()
+        )
+        geometry = {
+            "status": "success",
+            "bodies": [
+                {
+                    "id": "B0",
+                    "faces": [{"id": "B0F0", "edge_ids": []}],
+                    "edges": [],
+                    "vertices": [],
+                }
+            ],
+        }
+        self.geometry.write_text(json.dumps(geometry), encoding="utf-8")
+        payload = json.loads(self.manifest.read_text(encoding="utf-8"))
+        payload["geometry_report"]["sha256"] = _sha(self.geometry)
+        semantic = self.root / "model-semantic-features.json"
+        semantic.write_text(
+            json.dumps(
+                {
+                    "protocol_id": "q3ds-solidworks-model-semantic-features",
+                    "schema_version": "1.0",
+                    "artifact_id": "MSF-prompt-1",
+                    "status": "incomplete",
+                    "model_evidence_status": "exhausted",
+                    "controlled_semantics_status": "unresolved",
+                    "producer": {
+                        "name": "test-initializer",
+                        "version": "1.2.0",
+                        "extraction_mode": "offline_fixture",
+                    },
+                    "model": payload["model"],
+                    "geometry_report": payload["geometry_report"],
+                    "taxonomy": {
+                        "path": str(taxonomy),
+                        "sha256": _sha(taxonomy),
+                        "taxonomy_id": "mechanical-features",
+                        "taxonomy_version": "1.0.0-experimental",
+                    },
+                    "features": [
+                        {
+                            "feature_id": "FT-HOLE-1",
+                            "feature_class": "geometry.hole.blind_drilled",
+                            "parent_feature_id": None,
+                            "source_feature_ref": "Cut-Extrude1",
+                            "significance": [],
+                            "geometry_refs": {
+                                "body_ids": ["B0"],
+                                "face_ids": ["B0F0"],
+                                "edge_ids": [],
+                                "vertex_ids": [],
+                            },
+                            "axis": None,
+                            "normal": None,
+                            "opening_count": None,
+                            "axial_extent": None,
+                            "occurrences": [],
+                            "evidence_status": "partial",
+                        }
+                    ],
+                    "relations": [],
+                    "required_feature_ids": [],
+                    "exemptions": [],
+                    "open_questions": [
+                        {
+                            "question_id": "OQ-CONTROLLED-1",
+                            "code": "CONTROLLED_SEMANTICS_REQUIRED",
+                            "feature_ids": [],
+                            "impact": "Closed-set significance is unresolved.",
+                            "required_source": "Optional controlled input.",
+                            "resolution_kind": "optional_controlled_input",
+                        }
+                    ],
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        payload["semantic_features"] = {
+            "path": str(semantic),
+            "sha256": _sha(semantic),
+        }
+        payload["semantic_taxonomy"] = {
+            "path": str(taxonomy),
+            "sha256": _sha(taxonomy),
+        }
+        self.manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        request = PlanningRequest(
+            handoff_manifest_path=str(self.manifest),
+            handoff_manifest_sha256=_sha(self.manifest),
+            planner_profile="production",
+            publication_directory=str(self.root),
+        )
+
+        prompt = RepositoryPlanningPromptCompiler().compile(request)
+
+        self.assertEqual(len(prompt.artifacts), 11)
+        self.assertEqual(
+            {item.kind for item in prompt.artifacts},
+            {
+                "handoff_manifest",
+                "readiness_report",
+                "geometry_report",
+                "semantic_features",
+                "semantic_taxonomy",
+                "standard_view_image",
+            },
+        )
+        rendered = "\n".join(message["content"] for message in prompt.messages)
+        self.assertIn('"model_evidence_status": "exhausted"', rendered)
+        self.assertIn('"controlled_semantics_status": "unresolved"', rendered)
+        self.assertIn('"resolution_kind": "optional_controlled_input"', rendered)
+
     def test_repository_compiler_rejects_unknown_profile(self):
         request = PlanningRequest(
             handoff_manifest_path=str(self.manifest),

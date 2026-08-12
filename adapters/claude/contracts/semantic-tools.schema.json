@@ -88,7 +88,8 @@
             "drawing_template_path": { "type": "string", "minLength": 1 },
             "publication_directory": { "type": "string", "minLength": 1 },
             "image_width": { "type": "integer", "minimum": 320, "maximum": 2000, "default": 1024 },
-            "image_height": { "type": "integer", "minimum": 240, "maximum": 2000, "default": 768 }
+            "image_height": { "type": "integer", "minimum": 240, "maximum": 2000, "default": 768 },
+            "semantic_feature_profile": { "type": "string", "enum": ["none", "m1-experimental"], "default": "none" }
           }
         }
       }

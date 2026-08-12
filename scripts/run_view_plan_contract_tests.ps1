@@ -46,6 +46,8 @@ $sourceRelativePaths = @(
     'solidworks-execution\SolidworksExecution\Contracts\ViewPlanBasicVerificationPreflight.cs',
     'solidworks-execution\SolidworksExecution\Contracts\ViewPlanContractValidator.cs',
     'solidworks-execution\SolidworksExecution\Contracts\ViewPlanSectionGeometryResolver.cs',
+    'solidworks-execution\SolidworksExecution\Contracts\ViewPlanSectionNativeContract.cs',
+    'solidworks-execution\SolidworksExecution\Contracts\SemanticFeatureTypeContract.cs',
     'solidworks-execution\SolidworksExecution\Services\SolidWorksService.ViewPlan.cs',
     'solidworks-execution\SolidworksExecution\Infrastructure\IOperationGuard.cs',
     'solidworks-execution\SolidworksExecution\Models\CadState.cs',

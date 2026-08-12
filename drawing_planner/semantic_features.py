@@ -104,10 +104,65 @@ class AxialExtent(_StrictModel):
         return self
 
 
+class HoleSpecification(_StrictModel):
+    source_kind: Literal["hole_wizard", "simple_hole", "extruded_cut"]
+    feature_type_code: int | None = None
+    end_condition_code: int | None = None
+    diameter_m: float | None = Field(default=None, gt=0)
+    hole_depth_m: float | None = Field(default=None, ge=0)
+    thread_depth_m: float | None = Field(default=None, ge=0)
+    thread_diameter_m: float | None = Field(default=None, gt=0)
+    thread_callout: str | None = Field(default=None, min_length=1, max_length=500)
+    counterbore_depth_m: float | None = Field(default=None, ge=0)
+    counterbore_diameter_m: float | None = Field(default=None, gt=0)
+    countersink_diameter_m: float | None = Field(default=None, gt=0)
+    countersink_angle_rad: float | None = Field(default=None, gt=0)
+    drill_angle_rad: float | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def finite_values(self) -> "HoleSpecification":
+        for name in (
+            "diameter_m",
+            "hole_depth_m",
+            "thread_depth_m",
+            "thread_diameter_m",
+            "counterbore_depth_m",
+            "counterbore_diameter_m",
+            "countersink_diameter_m",
+            "countersink_angle_rad",
+            "drill_angle_rad",
+        ):
+            value = getattr(self, name)
+            if value is not None and not math.isfinite(value):
+                raise ValueError(f"hole specification {name} must be finite")
+        return self
+
+
 class FeatureOccurrence(_StrictModel):
     occurrence_id: StableId
     suppressed: bool
-    geometry_refs: GeometryRefs
+    geometry_refs: "OccurrenceGeometryRefs"
+
+    @model_validator(mode="after")
+    def suppression_geometry_consistency(self) -> "FeatureOccurrence":
+        if not self.suppressed and not self.geometry_refs.body_ids:
+            raise ValueError("unsuppressed occurrence requires frozen body geometry")
+        return self
+
+
+class OccurrenceGeometryRefs(_StrictModel):
+    body_ids: tuple[Annotated[str, StringConstraints(pattern=r"^B[0-9]+$")], ...] = ()
+    face_ids: tuple[Annotated[str, StringConstraints(pattern=r"^B[0-9]+F[0-9]+$")], ...] = ()
+    edge_ids: tuple[Annotated[str, StringConstraints(pattern=r"^B[0-9]+E[0-9]+$")], ...] = ()
+    vertex_ids: tuple[Annotated[str, StringConstraints(pattern=r"^B[0-9]+V[0-9]+$")], ...] = ()
+
+    @model_validator(mode="after")
+    def unique_refs(self) -> "OccurrenceGeometryRefs":
+        for label in ("body_ids", "face_ids", "edge_ids", "vertex_ids"):
+            values = getattr(self, label)
+            if len(values) != len(set(values)):
+                raise ValueError(f"occurrence geometry_refs.{label} must not contain duplicates")
+        return self
 
 
 class SemanticFeature(_StrictModel):
@@ -115,12 +170,13 @@ class SemanticFeature(_StrictModel):
     feature_class: str = Field(pattern=r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$", max_length=128)
     parent_feature_id: FeatureId | None
     source_feature_ref: str | None
-    significance: tuple[Literal["manufacturing", "assembly", "function", "inspection"], ...] = Field(min_length=1)
+    significance: tuple[Literal["manufacturing", "assembly", "function", "inspection"], ...] = ()
     geometry_refs: GeometryRefs
     axis: FeatureAxis | None
     normal: Point3 | None
     opening_count: int | None = Field(ge=0)
     axial_extent: AxialExtent | None
+    hole_specification: HoleSpecification | None = None
     occurrences: tuple[FeatureOccurrence, ...] = ()
     evidence_status: Literal["complete", "partial"]
 
@@ -140,6 +196,10 @@ class SemanticFeature(_StrictModel):
             unsuppressed = sum(not occurrence.suppressed for occurrence in self.occurrences)
             if self.opening_count != unsuppressed:
                 raise ValueError("opening_count must equal the unsuppressed occurrence count")
+        if self.hole_specification is not None and not self.feature_class.startswith(
+            "geometry.hole"
+        ):
+            raise ValueError("hole_specification is only valid for a typed hole feature")
         return self
 
 
@@ -177,6 +237,9 @@ class SemanticOpenQuestion(_StrictModel):
     feature_ids: tuple[FeatureId, ...] = ()
     impact: str = Field(min_length=1, max_length=1000)
     required_source: str = Field(min_length=1, max_length=500)
+    resolution_kind: Literal[
+        "model_extraction_limit", "optional_controlled_input"
+    ] | None = None
 
 
 class ModelSemanticFeatures(_StrictModel):
@@ -184,6 +247,8 @@ class ModelSemanticFeatures(_StrictModel):
     schema_version: Literal["1.0"]
     artifact_id: StableId
     status: Literal["complete", "incomplete"]
+    model_evidence_status: Literal["exhausted", "not_exhausted"] | None = None
+    controlled_semantics_status: Literal["resolved", "unresolved"] | None = None
     producer: SemanticFeatureProducer
     model: ModelBinding
     geometry_report: ArtifactBinding
@@ -221,6 +286,8 @@ class ModelSemanticFeatures(_StrictModel):
             raise ValueError(f"required_feature_ids contain unknown features: {', '.join(sorted(unknown_required))}")
         if any(by_id[feature_id].evidence_status != "complete" for feature_id in required):
             raise ValueError("required features must have complete semantic evidence")
+        if any(not by_id[feature_id].significance for feature_id in required):
+            raise ValueError("required features must have controlled significance")
 
         exemption_ids = [row.feature_id for row in self.exemptions]
         if len(exemption_ids) != len(set(exemption_ids)):
@@ -229,6 +296,13 @@ class ModelSemanticFeatures(_StrictModel):
             raise ValueError("feature exemptions reference unknown features")
         if required & set(exemption_ids):
             raise ValueError("a feature cannot be both required and exempt")
+        if self.status == "complete":
+            unclassified_scope = set(by_id) - required - set(exemption_ids)
+            if unclassified_scope:
+                raise ValueError(
+                    "complete semantic artifact must classify every feature as required "
+                    "or exempt: " + ", ".join(sorted(unclassified_scope))
+                )
 
         relation_ids = [row.relation_id for row in self.relations]
         if len(relation_ids) != len(set(relation_ids)):
@@ -248,6 +322,13 @@ class ModelSemanticFeatures(_StrictModel):
             raise ValueError("complete semantic artifact cannot contain open questions")
         if self.status == "incomplete" and not self.open_questions:
             raise ValueError("incomplete semantic artifact requires open questions")
+        if self.status == "complete" and self.controlled_semantics_status == "unresolved":
+            raise ValueError("complete semantic artifact cannot have unresolved controlled semantics")
+        if self.controlled_semantics_status == "resolved" and any(
+            question.resolution_kind == "optional_controlled_input"
+            for question in self.open_questions
+        ):
+            raise ValueError("resolved controlled semantics cannot retain optional-input questions")
         return self
 
     def validate_bindings(self, taxonomy: MechanicalFeatureTaxonomy, geometry: Mapping) -> None:
@@ -282,10 +363,12 @@ class ModelSemanticFeatures(_StrictModel):
 
 class ClosedSetCoverageResult(_StrictModel):
     status: Literal["pass", "fail"]
+    semantic_artifact_status: Literal["complete", "incomplete"]
     missing_feature_ids: tuple[FeatureId, ...] = ()
-    unexpected_feature_ids: tuple[FeatureId, ...] = ()
-    duplicate_feature_ids: tuple[FeatureId, ...] = ()
+    unexpected_feature_ids: tuple[StableId, ...] = ()
+    duplicate_feature_ids: tuple[StableId, ...] = ()
     invalid_exemption_ids: tuple[FeatureId, ...] = ()
+    unresolved_question_ids: tuple[StableId, ...] = ()
 
 
 def assess_closed_set_coverage(
@@ -301,13 +384,25 @@ def assess_closed_set_coverage(
     missing = tuple(sorted(required - covered_set))
     unexpected = tuple(sorted(covered_set - known))
     invalid_exemptions = tuple(sorted(exempt & covered_set))
-    failed = bool(missing or unexpected or duplicates or invalid_exemptions)
+    unresolved_questions = tuple(sorted(
+        question.question_id for question in semantic_artifact.open_questions
+    ))
+    failed = bool(
+        semantic_artifact.status != "complete"
+        or unresolved_questions
+        or missing
+        or unexpected
+        or duplicates
+        or invalid_exemptions
+    )
     return ClosedSetCoverageResult(
         status="fail" if failed else "pass",
+        semantic_artifact_status=semantic_artifact.status,
         missing_feature_ids=missing,
         unexpected_feature_ids=unexpected,
         duplicate_feature_ids=duplicates,
         invalid_exemption_ids=invalid_exemptions,
+        unresolved_question_ids=unresolved_questions,
     )
 
 

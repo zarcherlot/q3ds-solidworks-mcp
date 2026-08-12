@@ -62,6 +62,7 @@ def _contract_tools():
                 "publication_directory",
                 "image_width",
                 "image_height",
+                "semantic_feature_profile",
             },
             {"model_path", "drawing_template_path", "publication_directory"},
         ),

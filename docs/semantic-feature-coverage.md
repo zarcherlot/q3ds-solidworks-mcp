@@ -242,3 +242,128 @@ read-only before removal; no repository test depends on those transient paths. T
 plate evidence showed B-Rep IDs such as `B0F8`–`B0F13` being used as six separate coverage IDs for
 one repeated hole family. M1 therefore treats those IDs only as `geometry_refs`, and represents the
 semantic hole and its actual/suppressed occurrences separately.
+
+## 9. M1 initializer integration status (2026-08-12)
+
+Implemented on this experimental branch:
+
+- `initialize_part_drawing_handoff` accepts an explicit `semantic_feature_profile` with default
+  `none`; production handoff 1.0 remains compatible unless `m1-experimental` is requested.
+- The C# initializer stages `model-semantic-features.json` and the exact experimental taxonomy,
+  binds both into the manifest by absolute path and SHA-256, publishes them before the manifest,
+  and includes them in rollback/no-overwrite handling.
+- The extractor now records body-level identities plus repository-controlled typed FeatureData for
+  Hole Wizard/simple holes, circular-profile extruded cuts, bosses/cuts, ribs, transitions, shells,
+  threads, and sheet-metal forms. It binds each accepted feature to the exact frozen B-Rep faces
+  and edges using COM identity; feature names and rendered geometry never select a class.
+- Circular-profile cut classification is fail-closed: only a cut whose parent `ProfileFeature`
+  contains one or more complete circles and no other non-construction geometry is promoted to a
+  hole class. Mixed/non-circular profiles remain pockets. Hole Wizard classes and opening counts
+  come from typed FeatureData.
+- Pattern and mirror seeds are resolved through typed FeatureData. A relation is published only
+  when its required axis or mirror-plane normal is natively readable. Selection-backed axis/plane
+  geometry is frozen before `ReleaseSelectionAccess`; linear patterns may also derive their exact
+  axis from the native translation difference between `GetTransform(0)` and `GetTransform(1)`.
+  Seed identity resolution is COM-based and depth-aware: it stops at the first unique
+  owner/parent/child lineage level and rejects same-level ambiguity. Circular patterns may derive
+  their axis from the native rotation transform, and occurrence binding applies every frozen
+  instance transform to the seed cylinder axis/origin before requiring a unique B-Rep match.
+- The artifact deliberately remains `status=incomplete`, with no `required_feature_ids`, until
+  controlled functional/manufacturing/inspection significance is supplied. The initializer may
+  still publish `model_evidence_status=exhausted` when it has exhausted what the `.SLDPRT` can
+  prove; unresolved controlled meaning is reported separately as
+  `controlled_semantics_status=unresolved` and a structured `optional_controlled_input` question.
+- Python strictly validates the manifest bindings and reloads the semantic artifact, checking model,
+  geometry-report, taxonomy, class namespace, graph, and B-Rep identities. The verified semantic
+  pair is attached to Planner prompts as two additional immutable artifacts. Incomplete semantics
+  remains a valid handoff input for geometric reasoning, but the production coverage gate rejects
+  it with `VP-COVERAGE-SEMANTIC-UNRESOLVED`; an empty required-feature set cannot pass closed-set
+  coverage.
+- Offline tests cover production compatibility, experimental loading, paired bindings, tampering,
+  closed-set failures, and strict schemas.
+
+Live validation completed in the isolated worktree:
+
+- `outputs/m1-five-models-experimental-20260812-r6` is the current r18 five-model evidence set.
+  All five initializer transactions returned `COMPLETED`, `verified=true`, and
+  `handoff_integrity=pass`; independent semantic/taxonomy/geometry/image hash checks passed. It
+  extracts 32 typed local features, 9 exact occurrences, 5 relations, 3 through-hole extents, and
+  4 independently B-Rep-bound cosmetic threads. All artifacts correctly remain `incomplete`.
+- `outputs/m1-five-models-experimental-20260812-r5` contains the final five independent initializer
+  transactions from the earlier runtime r11. All returned `COMPLETED`, `verified=true`, and
+  `handoff_integrity=pass`; all source, semantic-artifact, and taxonomy hashes revalidated.
+- That matrix extracted 28 typed local features, froze 10 occurrences, one pattern relation, and
+  three through-hole axial extents across the five models while preserving all five source hashes.
+  The artifacts correctly remained incomplete with one or two controlled questions each.
+- `outputs/m1-occurrence-validation-20260812-r1` proves the fixed-plate six-hole group has
+  `opening_count=6`, six distinct face bindings, twelve distinct edge bindings, and one native-axis
+  pattern relation. `outputs/m1-through-depth-validation-20260812-r1` proves the three M8 through
+  holes have frozen start/end projections `0.000/0.010 m` and matching effective/total depth.
+- `outputs/m1-pattern-validation-20260812-r1` records the r9 linear-pattern lifecycle fix and
+  native-transform fallback. It publishes a validated `relation.pattern` whose member is the
+  circular-profile hole feature and whose frozen axis is `[0, 0, 1]`; the remaining pattern gap is
+  exact actual/suppressed occurrence geometry.
+- `outputs/m1-depth-aware-lineage-validation-20260812-r1` records the identity-lineage and
+  circular-transform implementation. Model 2 now publishes both its linear-pattern and mirror
+  relations; model 3 publishes its mirror relation. Model 4 freezes the circular-pattern axis and
+  all three rotated M16 hole occurrences with unique face/edge bindings. Follow-up
+  `outputs/m1-thread-edge-validation-20260812-r1` proves cosmetic threads bind independently via
+  their typed edge selection (model 3: `B0F14/F15/F16`; model 4: `B0F13`). The focused
+  transactions all returned `COMPLETED`, `verified=true`, and `handoff_integrity=pass`.
+
+M1 final live gate result (r20):
+
+- Extend exact occurrence extraction to remaining ICE/history, non-cylindrical linear-pattern,
+  and mirror cases. ICE rows still have no unique current owner/child B-Rep on the observed models;
+  they remain omitted instead of being guessed. Circular cylindrical occurrence extraction is now
+  proven on model 4. Mirror relations and normals are proven, but occurrence publication additionally
+  requires complete topologically matching seed/mirror face sets; both observed models correctly
+  fail that stricter gate.
+  The occurrence contract explicitly permits an empty B-Rep binding only for suppressed instances;
+  every unsuppressed instance must bind frozen body geometry.
+- Hole Wizard, simple-hole, and circular extruded-cut FeatureData is frozen separately as
+  `hole_specification`. It records source specification such as type/end-condition, nominal depth,
+  thread and compound-hole parameters without pretending that FeatureData depth proves B-Rep
+  start/end geometry. The fresh-MCP r20 matrix at
+  `outputs/m1-hole-spec-validation-20260812-r2` completed models 3/4/5 with verified immutable
+  handoffs and unchanged source hashes. Models 3/4 prove typed Hole Wizard M8/M16 getters; model 5
+  proves circular extruded-cut through/blind end conditions and nominal depths. This getter set is
+  therefore promoted from implementation evidence to live proof.
+- Controlled PMI/significance is optional external input, not a prerequisite for completing the M1
+  software implementation. When absent, `required_feature_ids` remains empty and the unresolved
+  significance question stays open. Such artifacts may be consumed by PlannerEngine for explicitly
+  uncertain geometric reasoning, but must fail closed-set coverage and must never be advertised as
+  semantic-complete.
+
+The remaining omitted ICE/history and mirror occurrences are fail-closed extraction limits, not
+unverified claimed support. With the r20 matrix and final repository regression (`166 passed`, 7
+subtests; compiler `36/36`; C# `48/48`; compileall and `git diff --check` pass), the M1 software and
+HoleSpecification live gates are closed and M2 expression-contract work may proceed.
+
+## 10. M2 expression-contract initial slice (2026-08-12)
+
+- The explicit migration target is `solidworks-view-plan` 1.5; frozen ViewPlan 1.4 and its default
+  MCP/C#/capability surface remain unchanged and executable only under their existing contract.
+- `drawing_planner/contracts/view-plan-1.5.schema.json` replaces overlapping modes with
+  `requirement_kind` and `expression_method`, requires one primary plus optional supporting views,
+  and freezes the minimum independent-projection count.
+- The 1.5 requirement also freezes expected opening/unsuppressed-occurrence counts, B-Rep
+  effective/total depths, and semantic relation IDs. The Schema rejects legacy fields and fields
+  used with the wrong requirement kind.
+- The offline deterministic expression validator rejects missing/duplicate view references,
+  dependent antiparallel projections, incompatible view methods, wrong true-shape directions,
+  missing section-feature bindings, absent or mismatched opening/occurrence/depth evidence, and
+  nonexistent, incompatible, or non-member pattern/mirror/coaxial relations.
+- Spatial-direction declarations must match a frozen feature/relation axis or plane normal. Section
+  expressions additionally enforce feature-axis/path intersection, bounded depth coverage,
+  symmetry evidence for half sections, and the rib/web longitudinal-section rule.
+- Critical projected discernibility is calculated from frozen feature edges, view direction, view
+  scale, line width, and a frozen minimum line-width ratio. The check is opt-in and therefore does
+  not force detail views for ordinary non-critical rounds or chamfers.
+- This slice intentionally publishes no semantic MCP tool and claims no 1.5 execution capability.
+  Local/broken-out boundary evidence, full pipeline/PlanStore, C# contract/readback, MCP migration,
+  and live matrices remain open M2 work.
+- The focused M2 contract suite passes `12/12`. The repository regression after this slice is
+  Python `178 passed, 7 subtests passed`, compiler `36/36`, C# ViewPlan 1.4 contract tests `48/48`,
+  with compileall and `git diff --check` passing. This is regression evidence, not a claim that the
+  remaining 1.5 execution migration is complete.

@@ -78,6 +78,7 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
                     },
                     "bodies": [
                         {
+                            "id": "B0",
                             "faces": [
                                 {
                                     "id": "B0F0",
@@ -171,6 +172,97 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
             publication_directory=str(self.root),
         )
 
+    def _attach_semantic_pair(
+        self, *, unknown_face: bool = False, complete: bool = False
+    ):
+        taxonomy = self.root / "mechanical-features-1.0.0-experimental.json"
+        taxonomy.write_bytes(
+            (
+                _ROOT
+                / "drawing_planner"
+                / "taxonomies"
+                / "mechanical-features-1.0.0-experimental.json"
+            ).read_bytes()
+        )
+        semantic = self.root / "model-semantic-features.json"
+        semantic.write_text(
+            json.dumps(
+                {
+                    "protocol_id": "q3ds-solidworks-model-semantic-features",
+                    "schema_version": "1.0",
+                    "artifact_id": "MSF-test-1",
+                    "status": "complete" if complete else "incomplete",
+                    "model_evidence_status": "exhausted",
+                    "controlled_semantics_status": (
+                        "resolved" if complete else "unresolved"
+                    ),
+                    "producer": {
+                        "name": "test-initializer",
+                        "version": "1.2.0",
+                        "extraction_mode": "offline_fixture",
+                    },
+                    "model": {
+                        **self.payload["model"],
+                    },
+                    "geometry_report": {
+                        **self.payload["geometry_report"],
+                    },
+                    "taxonomy": {
+                        "path": str(taxonomy),
+                        "sha256": _sha(taxonomy),
+                        "taxonomy_id": "mechanical-features",
+                        "taxonomy_version": "1.0.0-experimental",
+                    },
+                    "features": [
+                        {
+                            "feature_id": "FT-HOLE-1",
+                            "feature_class": "geometry.hole.blind_drilled",
+                            "parent_feature_id": None,
+                            "source_feature_ref": "Cut-Extrude1",
+                            "significance": ["manufacturing"] if complete else [],
+                            "geometry_refs": {
+                                "body_ids": ["B0"],
+                                "face_ids": ["B0F999" if unknown_face else "B0F0"],
+                                "edge_ids": [],
+                                "vertex_ids": [],
+                            },
+                            "axis": None,
+                            "normal": None,
+                            "opening_count": None,
+                            "axial_extent": None,
+                            "occurrences": [],
+                            "evidence_status": "complete" if complete else "partial",
+                        }
+                    ],
+                    "relations": [],
+                    "required_feature_ids": ["FT-HOLE-1"] if complete else [],
+                    "exemptions": [],
+                    "open_questions": [] if complete else [
+                        {
+                            "question_id": "OQ-CONTROLLED-1",
+                            "code": "CONTROLLED_SEMANTICS_REQUIRED",
+                            "feature_ids": [],
+                            "impact": "Closed-set drawing significance is unresolved.",
+                            "required_source": "Optional controlled input.",
+                            "resolution_kind": "optional_controlled_input",
+                        }
+                    ],
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        self.payload["semantic_features"] = {
+            "path": str(semantic),
+            "sha256": _sha(semantic),
+        }
+        self.payload["semantic_taxonomy"] = {
+            "path": str(taxonomy),
+            "sha256": _sha(taxonomy),
+        }
+        self._write_manifest()
+        return semantic, taxonomy
+
     def test_complete_unchanged_handoff_passes(self):
         result = HandoffIntegrityValidator().validate(self._request())
         self.assertEqual(result.status, "pass")
@@ -189,6 +281,82 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
         result = HandoffIntegrityValidator().validate(request)
         self.assertEqual(result.status, "fail")
         self.assertEqual(result.issues[0].code, "VP-INTEGRITY-ARTIFACT-HASH")
+
+    def test_semantic_artifacts_must_be_bound_together_and_hash_verified(self):
+        semantic = self.root / "model-semantic-features.json"
+        taxonomy = self.root / "mechanical-features-1.0.0-experimental.json"
+        semantic.write_text("{}", encoding="utf-8")
+        taxonomy.write_text("{}", encoding="utf-8")
+        self.payload["semantic_features"] = {
+            "path": str(semantic), "sha256": _sha(semantic)
+        }
+        self._write_manifest()
+        result = HandoffIntegrityValidator().validate(self._request())
+        self.assertEqual(result.status, "fail")
+        self.assertEqual(result.issues[0].code, "VP-INTEGRITY-MANIFEST-CONTRACT")
+
+        self.payload["semantic_taxonomy"] = {
+            "path": str(taxonomy), "sha256": _sha(taxonomy)
+        }
+        self._write_manifest()
+        result = HandoffIntegrityValidator().validate(self._request())
+        self.assertEqual(result.status, "fail")
+        self.assertEqual(result.issues[0].code, "VP-INTEGRITY-SEMANTIC-CONTRACT")
+
+        semantic, _ = self._attach_semantic_pair()
+        result = HandoffIntegrityValidator().validate(self._request())
+        self.assertEqual(result.status, "pass")
+        self.assertEqual(result.semantic_artifact.status, "incomplete")
+        semantic.write_text('{"changed":true}', encoding="utf-8")
+        result = HandoffIntegrityValidator().validate(self._request())
+        self.assertEqual(result.status, "fail")
+        self.assertEqual(result.issues[0].code, "VP-INTEGRITY-ARTIFACT-HASH")
+
+    def test_semantic_artifact_rejects_unknown_brep_binding(self):
+        self._attach_semantic_pair(unknown_face=True)
+        result = HandoffIntegrityValidator().validate(self._request())
+        self.assertEqual(result.status, "fail")
+        self.assertEqual(result.issues[0].code, "VP-INTEGRITY-SEMANTIC-BINDING")
+
+    def test_incomplete_semantic_handoff_passes_integrity_but_blocks_coverage(self):
+        self._attach_semantic_pair()
+        result = RepositoryViewPlanValidator().validate(
+            self._bound_plan(), self._request()
+        )
+        self.assertEqual(result.integrity, "pass")
+        self.assertEqual(result.schema_check, "pass")
+        self.assertEqual(result.coverage, "fail")
+        codes = {issue.code for issue in result.issues}
+        self.assertIn("VP-COVERAGE-SEMANTIC-UNRESOLVED", codes)
+        self.assertIn("VP-COVERAGE-SEMANTIC-UNKNOWN", codes)
+
+    def test_complete_semantic_handoff_enforces_and_passes_closed_set(self):
+        self._attach_semantic_pair(complete=True)
+        plan = self._bound_plan()
+        for view in plan["views"]:
+            view["expressed_features"] = [
+                "FT-HOLE-1" if value == "B0F0" else value
+                for value in view["expressed_features"]
+            ]
+            for mark in view["center_marks"]:
+                mark["feature_ids"] = [
+                    "FT-HOLE-1" if value == "B0F0" else value
+                    for value in mark["feature_ids"]
+                ]
+            if view["section_definition"] is not None:
+                view["section_definition"]["feature_ids"] = [
+                    "FT-HOLE-1" if value == "B0F0" else value
+                    for value in view["section_definition"]["feature_ids"]
+                ]
+        plan["feature_coverage"][0]["feature_id"] = "FT-HOLE-1"
+
+        result = RepositoryViewPlanValidator().validate(plan, self._request())
+
+        self.assertEqual(result.coverage, "pass")
+        self.assertNotIn(
+            "VP-COVERAGE-SEMANTIC-UNRESOLVED",
+            {issue.code for issue in result.issues},
+        )
 
     def test_publication_must_share_the_verified_handoff_directory(self):
         other = self.root / "other"
@@ -276,6 +444,77 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
         issues = ViewPlanSemanticsValidator().validate(plan)
         self.assertIn(
             "VP-SEMANTICS-HALF-SECTION-PERPENDICULAR",
+            {issue.code for issue in issues},
+        )
+
+    def test_semantics_rejects_half_section_outside_frozen_center_and_outline(self):
+        plan = self._bound_plan()
+        parent = plan["views"][0]
+        parent["orientation"] = {
+            "kind": "standard_model_view",
+            "standard_view": "top",
+            "roll_angle_rad": 0.0,
+        }
+        section = plan["views"][1]
+        section["type"] = "half_section"
+        section["section_definition"].update(
+            {
+                "cutting_plane_mode": "explicit_half",
+                "cutting_line_points_model_m": [
+                    [0.02, 0.05, 0.025],
+                    [0.05, 0.05, 0.025],
+                    [0.05, 0.05, 0.04],
+                ],
+                "cutting_line_axis": None,
+                "line_extension_ratio": None,
+            }
+        )
+        issues = ViewPlanSemanticsValidator().validate(plan)
+        self.assertIn(
+            "VP-SEMANTICS-HALF-SECTION-OUTLINE-SPAN",
+            {issue.code for issue in issues},
+        )
+        section["section_definition"]["cutting_line_points_model_m"] = [
+            [-0.01, 0.05, 0.03],
+            [0.05, 0.05, 0.03],
+            [0.05, 0.05, 0.06],
+        ]
+        issues = ViewPlanSemanticsValidator().validate(plan)
+        self.assertIn(
+            "VP-SEMANTICS-HALF-SECTION-CENTER",
+            {issue.code for issue in issues},
+        )
+
+    def test_semantics_rejects_half_section_that_misses_feature_axis_in_parent(self):
+        plan = self._bound_plan()
+        plan["views"][0]["orientation"] = {
+            "kind": "standard_model_view",
+            "standard_view": "top",
+            "roll_angle_rad": 0.0,
+        }
+        section = plan["views"][1]
+        section["type"] = "half_section"
+        section["section_definition"].update(
+            {
+                "cutting_plane_mode": "explicit_half",
+                "cutting_line_points_model_m": [
+                    [-0.01, 0.05, 0.025],
+                    [0.05, 0.05, 0.025],
+                    [0.05, 0.05, 0.06],
+                ],
+                "cutting_line_axis": None,
+                "line_extension_ratio": None,
+            }
+        )
+        geometry = json.loads(self.geometry.read_text(encoding="utf-8"))
+        geometry["bodies"][0]["faces"][0]["surface_parameters"] = {
+            "origin": [0.09, 0.05, 0.04],
+            "axis": [0.0, 1.0, 0.0],
+        }
+        self.geometry.write_text(json.dumps(geometry), encoding="utf-8")
+        issues = ViewPlanSemanticsValidator().validate(plan)
+        self.assertIn(
+            "VP-SEMANTICS-HALF-SECTION-FEATURE-AXIS",
             {issue.code for issue in issues},
         )
 

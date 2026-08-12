@@ -62,7 +62,10 @@ class RepositoryViewPlanValidator:
                 plan,
                 expected_producer=expected_producer,
             )
-        coverage_issues = self._coverage.validate(plan)
+        coverage_issues = self._coverage.validate(
+            plan,
+            semantic_artifact=integrity.semantic_artifact,
+        )
         layout_issues = self._layout.validate(plan)
         issues = (*semantic_issues, *coverage_issues, *layout_issues)
         return PlanningValidation(

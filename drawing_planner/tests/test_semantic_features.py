@@ -122,6 +122,16 @@ def _artifact(root: Path) -> tuple[dict, Path, Path, Path]:
                     "total_depth_m": 0.01,
                     "bottom_form": "through",
                 },
+                "hole_specification": {
+                    "source_kind": "hole_wizard",
+                    "feature_type_code": 25,
+                    "end_condition_code": 1,
+                    "diameter_m": 0.0068,
+                    "hole_depth_m": 0.01,
+                    "thread_depth_m": 0.008,
+                    "thread_diameter_m": 0.008,
+                    "thread_callout": "M8 x 1.25",
+                },
                 "occurrences": [
                     {
                         "occurrence_id": "OCC-HOLE-001",
@@ -176,6 +186,7 @@ def test_semantic_feature_schema_and_realistic_fixture(tmp_path):
     parsed.validate_bindings(experimental_mechanical_taxonomy(), _geometry())
     assert parsed.features[1].feature_id != "B0F1"
     assert parsed.features[1].occurrences[1].suppressed is True
+    assert parsed.features[1].hole_specification.thread_callout == "M8 x 1.25"
 
 
 def test_loader_verifies_model_geometry_and_taxonomy_hashes(tmp_path):
@@ -199,6 +210,7 @@ def test_closed_set_coverage_rejects_omission_invention_duplicate_and_exemption_
 
     result = assess_closed_set_coverage(parsed, ["FT-OVERALL-001"])
     assert result.status == "fail"
+    assert result.semantic_artifact_status == "complete"
     assert result.missing_feature_ids == ("FT-HOLE-001",)
 
     result = assess_closed_set_coverage(
@@ -221,6 +233,101 @@ def test_closed_set_coverage_rejects_omission_invention_duplicate_and_exemption_
         ModelSemanticFeatures.model_validate(exempt)
 
 
+def test_incomplete_semantics_cannot_pass_an_empty_closed_set(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["status"] = "incomplete"
+    artifact["required_feature_ids"] = []
+    artifact["open_questions"] = [
+        {
+            "question_id": "Q-CONTROLLED-SCOPE",
+            "code": "CONTROLLED_SEMANTICS_REQUIRED",
+            "feature_ids": ["FT-OVERALL-001", "FT-HOLE-001"],
+            "impact": "Drawing-significant scope has not been approved.",
+            "required_source": "Optional hash-bound PMI or controlled requirement input.",
+        }
+    ]
+    parsed = ModelSemanticFeatures.model_validate(artifact)
+
+    result = assess_closed_set_coverage(parsed, [])
+
+    assert result.status == "fail"
+    assert result.semantic_artifact_status == "incomplete"
+    assert result.unresolved_question_ids == ("Q-CONTROLLED-SCOPE",)
+
+
+def test_complete_semantics_must_classify_every_known_feature(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["required_feature_ids"] = ["FT-HOLE-001"]
+
+    with pytest.raises(
+        ValidationError,
+        match="classify every feature as required or exempt",
+    ):
+        ModelSemanticFeatures.model_validate(artifact)
+
+
+def test_incomplete_semantics_may_leave_significance_uncontrolled(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["status"] = "incomplete"
+    artifact["required_feature_ids"] = []
+    artifact["features"][0]["significance"] = []
+    artifact["open_questions"] = [
+        {
+            "question_id": "Q-SIGNIFICANCE",
+            "code": "CONTROLLED_SEMANTICS_REQUIRED",
+            "feature_ids": ["FT-OVERALL-001"],
+            "impact": "Functional significance is not encoded in the source model.",
+            "required_source": "Optional hash-bound PMI or controlled requirement input.",
+        }
+    ]
+
+    parsed = ModelSemanticFeatures.model_validate(artifact)
+
+    assert parsed.features[0].significance == ()
+
+
+def test_required_feature_must_have_controlled_significance(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["features"][1]["significance"] = []
+
+    with pytest.raises(ValidationError, match="controlled significance"):
+        ModelSemanticFeatures.model_validate(artifact)
+
+
+def test_hole_specification_is_rejected_on_non_hole_feature(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["features"][0]["hole_specification"] = {
+        "source_kind": "extruded_cut",
+        "hole_depth_m": 0.01,
+    }
+
+    with pytest.raises(ValidationError, match="only valid for a typed hole"):
+        ModelSemanticFeatures.model_validate(artifact)
+
+
+def test_extraction_and_controlled_semantic_status_are_independent(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    artifact["status"] = "incomplete"
+    artifact["model_evidence_status"] = "exhausted"
+    artifact["controlled_semantics_status"] = "unresolved"
+    artifact["required_feature_ids"] = []
+    artifact["open_questions"] = [
+        {
+            "question_id": "Q-OPTIONAL-INPUT",
+            "code": "CONTROLLED_SEMANTICS_REQUIRED",
+            "feature_ids": ["FT-OVERALL-001", "FT-HOLE-001"],
+            "impact": "Model evidence is exhausted but drawing significance is unresolved.",
+            "required_source": "Optional hash-bound controlled input.",
+            "resolution_kind": "optional_controlled_input",
+        }
+    ]
+
+    parsed = ModelSemanticFeatures.model_validate(artifact)
+
+    assert parsed.model_evidence_status == "exhausted"
+    assert parsed.controlled_semantics_status == "unresolved"
+
+
 def test_semantic_artifact_rejects_brep_id_as_feature_id(tmp_path):
     artifact, *_ = _artifact(tmp_path)
     artifact["features"][0]["feature_id"] = "B0F0"
@@ -232,4 +339,16 @@ def test_incomplete_artifact_requires_open_question(tmp_path):
     artifact, *_ = _artifact(tmp_path)
     artifact["status"] = "incomplete"
     with pytest.raises(ValidationError, match="requires open questions"):
+        ModelSemanticFeatures.model_validate(artifact)
+
+
+def test_suppressed_occurrence_may_lack_brep_but_live_occurrence_may_not(tmp_path):
+    artifact, *_ = _artifact(tmp_path)
+    empty = {"body_ids": [], "face_ids": [], "edge_ids": [], "vertex_ids": []}
+    artifact["features"][1]["occurrences"][1]["geometry_refs"] = empty
+    parsed = ModelSemanticFeatures.model_validate(artifact)
+    assert parsed.features[1].occurrences[1].suppressed is True
+
+    artifact["features"][1]["occurrences"][0]["geometry_refs"] = empty
+    with pytest.raises(ValidationError, match="unsuppressed occurrence requires frozen body geometry"):
         ModelSemanticFeatures.model_validate(artifact)

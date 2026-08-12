@@ -149,6 +149,12 @@ def compile_drawing_prompt(
         "low_level_com_operations_are_forbidden": True,
         "unsupported_capabilities_must_fail_without_downgrade": True,
         "required_producer": producer_contract,
+        "semantic_evidence_policy": {
+            "model_evidence_exhausted_means_extractor_completed_available_model_evidence": True,
+            "controlled_semantics_unresolved_forbids_invented_significance": True,
+            "optional_controlled_input_questions_do_not_block_geometric_inference": True,
+            "unresolved_semantics_forbid_closed_set_complete_coverage": True,
+        },
     }
     core_policy_sha256 = _sha256(
         _canonical_json(workflow_policy).encode("utf-8")
@@ -160,6 +166,22 @@ def compile_drawing_prompt(
     }
     if input_binding is not None:
         upstream_artifacts["frozen_handoff"] = input_binding
+        semantic_features = input_binding["manifest"].get("semantic_features")
+        semantic_taxonomy = input_binding["manifest"].get("semantic_taxonomy")
+        if semantic_features is not None and semantic_taxonomy is not None:
+            semantic_payload = _read_json_object(
+                Path(semantic_features["path"]), "semantic feature artifact"
+            )
+            upstream_artifacts["semantic_features"] = {
+                **semantic_features,
+                "status": semantic_payload.get("status"),
+                "model_evidence_status": semantic_payload.get("model_evidence_status"),
+                "controlled_semantics_status": semantic_payload.get(
+                    "controlled_semantics_status"
+                ),
+                "open_questions": semantic_payload.get("open_questions", []),
+            }
+            upstream_artifacts["semantic_taxonomy"] = semantic_taxonomy
     replacements = {
         "OUTPUT_SCHEMA_JSON": _json_text(schema),
         "WORKFLOW_POLICY_JSON": _json_text(workflow_policy),

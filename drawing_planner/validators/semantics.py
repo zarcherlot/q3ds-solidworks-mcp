@@ -699,10 +699,19 @@ class ViewPlanSemanticsValidator:
 
     @staticmethod
     def _validate_section_feature_axes(views, geometry, issues) -> None:
+        by_id = {view["id"]: view for view in views}
         for view_index, view in enumerate(views):
-            if view["type"] not in {"full_section", "offset_section"}:
+            if view["type"] not in {"full_section", "half_section", "offset_section"}:
                 continue
             section = view["section_definition"]
+            projection = None
+            projected_points = None
+            if view["type"] == "half_section":
+                parent = by_id.get(view["parent_view_id"])
+                projection = _view_projection(parent)
+                projected_points = _validate_half_section_projection(
+                    view_index, section, geometry, projection, issues
+                )
             segments = [
                 (points_index, points_index + 1)
                 for points_index in range(
@@ -730,6 +739,22 @@ class ViewPlanSemanticsValidator:
                         )
                     )
                     continue
+                if view["type"] == "half_section":
+                    if projection is None or projected_points is None:
+                        continue
+                    origin, direction = axis
+                    if not _projected_axis_intersects_segments(
+                        origin, direction, projection, projected_points
+                    ):
+                        issues.append(
+                            validation_issue(
+                                "VP-SEMANTICS-HALF-SECTION-FEATURE-AXIS",
+                                "semantics",
+                                f"half-section feature axis is not intersected by a finite cutting segment in the parent view: {feature_id}",
+                                feature_pointer,
+                            )
+                        )
+                    continue
                 if view["type"] != "offset_section":
                     continue
                 origin, _ = axis
@@ -745,6 +770,97 @@ class ViewPlanSemanticsValidator:
                             feature_pointer,
                         )
                     )
+
+
+def _validate_half_section_projection(view_index, section, geometry, projection, issues):
+    base_pointer = pointer(
+        "views", view_index, "section_definition", "cutting_line_points_model_m"
+    )
+    if projection is None:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-PARENT-PROJECTION",
+                "semantics",
+                "half-section parent orientation must provide a deterministic model-to-view projection",
+                pointer("views", view_index, "parent_view_id"),
+            )
+        )
+        return None
+    box = _part_box(geometry)
+    if box is None:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-PART-BOX",
+                "semantics",
+                "half-section validation requires a finite positive-volume frozen part_box_m",
+                "/geometry_report_path",
+            )
+        )
+        return None
+    points = section["cutting_line_points_model_m"]
+    view_direction, horizontal, vertical = projection
+    depths = [_dot(point, view_direction) for point in points]
+    model_span = max(box[1][axis] - box[0][axis] for axis in range(3))
+    tolerance = max(model_span * 1e-6, 1e-9)
+    if max(depths) - min(depths) > tolerance:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-VIEW-PLANE",
+                "semantics",
+                "half-section cutting points must lie in one plane parallel to the parent view plane",
+                base_pointer,
+            )
+        )
+    projected = [(_dot(point, horizontal), _dot(point, vertical)) for point in points]
+    first = _subtract2(projected[0], projected[1])
+    second = _subtract2(projected[2], projected[1])
+    if _norm2(first) <= tolerance or _norm2(second) <= tolerance:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-PROJECTED-SEGMENT",
+                "semantics",
+                "both half-section segments must remain finite after projection into the parent view",
+                base_pointer,
+            )
+        )
+        return projected
+    cosine = abs(_dot2(first, second) / (_norm2(first) * _norm2(second)))
+    if cosine > 1e-6:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-PROJECTED-PERPENDICULAR",
+                "semantics",
+                "half-section segments must remain perpendicular in the parent view",
+                base_pointer,
+            )
+        )
+    center_model = tuple((box[0][axis] + box[1][axis]) / 2.0 for axis in range(3))
+    center = (_dot(center_model, horizontal), _dot(center_model, vertical))
+    if _norm2(_subtract2(projected[1], center)) > tolerance:
+        issues.append(
+            validation_issue(
+                "VP-SEMANTICS-HALF-SECTION-CENTER",
+                "semantics",
+                "half-section bend point must coincide with the frozen part-box center in the parent view",
+                base_pointer + "/1",
+            )
+        )
+    corners = _box_corners(box)
+    projected_corners = [(_dot(corner, horizontal), _dot(corner, vertical)) for corner in corners]
+    for endpoint_index, ray in ((0, first), (2, second)):
+        ray_length = _norm2(ray)
+        unit = (ray[0] / ray_length, ray[1] / ray_length)
+        required = max(_dot2(_subtract2(corner, center), unit) for corner in projected_corners)
+        if ray_length + tolerance < required:
+            issues.append(
+                validation_issue(
+                    "VP-SEMANTICS-HALF-SECTION-OUTLINE-SPAN",
+                    "semantics",
+                    "each half-section leg must extend from the projected center through the frozen part outline",
+                    base_pointer + f"/{endpoint_index}",
+                )
+            )
+    return projected
 
 
 def _unique_object(pairs):
@@ -830,6 +946,139 @@ def _point_on_segment(point_value, start, end) -> bool:
     closest = tuple(float(start[index]) + parameter * segment[index] for index in range(3))
     distance = _norm(_subtract(point_value, closest))
     return distance <= max(1e-9, math.sqrt(length_squared) * 1e-6)
+
+
+def _view_projection(view):
+    if not isinstance(view, Mapping):
+        return None
+    orientation = view.get("orientation")
+    if not isinstance(orientation, Mapping):
+        return None
+    kind = orientation.get("kind")
+    if kind == "explicit_basis":
+        direction = orientation.get("view_direction_model")
+        vertical = orientation.get("up_direction_model")
+        if not _finite_vector(direction) or not _finite_vector(vertical):
+            return None
+    elif kind == "standard_model_view":
+        basis = {
+            "front": ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0)),
+            "back": ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0)),
+            "left": ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+            "right": ((-1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+            "top": ((0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
+            "bottom": ((0.0, 1.0, 0.0), (0.0, 0.0, -1.0)),
+        }.get(orientation.get("standard_view"))
+        if basis is None:
+            return None
+        direction, vertical = basis
+    else:
+        return None
+    direction = _unit(direction)
+    vertical = _unit(vertical)
+    horizontal = _unit(_cross(vertical, direction))
+    roll = float(orientation.get("roll_angle_rad", 0.0))
+    if abs(roll) > _TOLERANCE:
+        cosine = math.cos(roll)
+        sine = math.sin(roll)
+        horizontal, vertical = (
+            tuple(cosine * horizontal[i] + sine * vertical[i] for i in range(3)),
+            tuple(-sine * horizontal[i] + cosine * vertical[i] for i in range(3)),
+        )
+    return direction, horizontal, vertical
+
+
+def _part_box(geometry):
+    value = geometry.get("part_box_m") if isinstance(geometry, Mapping) else None
+    if not isinstance(value, Mapping):
+        return None
+    minimum = tuple(value.get(f"{axis}_min_m") for axis in "xyz")
+    maximum = tuple(value.get(f"{axis}_max_m") for axis in "xyz")
+    if not _finite_vector(minimum) or not _finite_vector(maximum):
+        return None
+    if any(float(maximum[index]) <= float(minimum[index]) for index in range(3)):
+        return None
+    return tuple(map(float, minimum)), tuple(map(float, maximum))
+
+
+def _box_corners(box):
+    minimum, maximum = box
+    return [
+        (x, y, z)
+        for x in (minimum[0], maximum[0])
+        for y in (minimum[1], maximum[1])
+        for z in (minimum[2], maximum[2])
+    ]
+
+
+def _projected_axis_intersects_segments(origin, direction, projection, points):
+    view_direction, horizontal, vertical = projection
+    projected_origin = (_dot(origin, horizontal), _dot(origin, vertical))
+    projected_direction = (_dot(direction, horizontal), _dot(direction, vertical))
+    if _norm2(projected_direction) <= _TOLERANCE:
+        return any(
+            _point_on_segment2(projected_origin, points[index], points[index + 1])
+            for index in range(len(points) - 1)
+        )
+    return any(
+        _line_intersects_segment2(
+            projected_origin, projected_direction, points[index], points[index + 1]
+        )
+        for index in range(len(points) - 1)
+    )
+
+
+def _point_on_segment2(point_value, start, end):
+    segment = _subtract2(end, start)
+    length_squared = _dot2(segment, segment)
+    if length_squared <= _TOLERANCE * _TOLERANCE:
+        return False
+    parameter = _dot2(_subtract2(point_value, start), segment) / length_squared
+    if parameter < -1e-8 or parameter > 1.0 + 1e-8:
+        return False
+    closest = (start[0] + parameter * segment[0], start[1] + parameter * segment[1])
+    return _norm2(_subtract2(point_value, closest)) <= max(
+        1e-9, math.sqrt(length_squared) * 1e-6
+    )
+
+
+def _line_intersects_segment2(origin, direction, start, end):
+    segment = _subtract2(end, start)
+    determinant = _cross2(direction, segment)
+    tolerance = max(_norm2(direction), _norm2(segment)) * 1e-8
+    if abs(determinant) <= tolerance:
+        return abs(_cross2(_subtract2(start, origin), direction)) <= tolerance
+    parameter = _cross2(_subtract2(origin, start), direction) / determinant
+    return -1e-8 <= parameter <= 1.0 + 1e-8
+
+
+def _unit(value):
+    length = _norm(value)
+    return tuple(float(item) / length for item in value)
+
+
+def _cross(left, right):
+    return (
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    )
+
+
+def _subtract2(left, right):
+    return float(left[0]) - float(right[0]), float(left[1]) - float(right[1])
+
+
+def _dot2(left, right):
+    return float(left[0]) * float(right[0]) + float(left[1]) * float(right[1])
+
+
+def _norm2(value):
+    return math.sqrt(_dot2(value, value))
+
+
+def _cross2(left, right):
+    return float(left[0]) * float(right[1]) - float(left[1]) * float(right[0])
 
 
 def _evidence_rows(views):

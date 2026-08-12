@@ -117,7 +117,22 @@ class CompiledPlanningPrompt(StrictModel):
             "geometry_report": 1,
             "standard_view_image": 6,
         }:
-            raise ValueError("compiled prompt requires the complete nine-artifact handoff")
+            semantic_counts = {
+                key: counts.pop(key, 0)
+                for key in ("semantic_features", "semantic_taxonomy")
+            }
+            if counts != {
+                "handoff_manifest": 1,
+                "readiness_report": 1,
+                "geometry_report": 1,
+                "standard_view_image": 6,
+            } or semantic_counts not in (
+                {"semantic_features": 0, "semantic_taxonomy": 0},
+                {"semantic_features": 1, "semantic_taxonomy": 1},
+            ):
+                raise ValueError(
+                    "compiled prompt requires the complete handoff and any bound semantic pair"
+                )
         if image_views != {"front", "back", "left", "right", "top", "bottom"}:
             raise ValueError("compiled prompt requires all six standard-view images")
         manifest = next(
@@ -143,6 +158,8 @@ class PlanningInputArtifact(StrictModel):
         "handoff_manifest",
         "readiness_report",
         "geometry_report",
+        "semantic_features",
+        "semantic_taxonomy",
         "standard_view_image",
         "debug_reference_image",
     ]

@@ -734,6 +734,7 @@ namespace SolidworksExecution.Contracts
                     Pointer(index, "section_definition", "section_depth_m"),
                     "section_depth_m must be finite and non-negative.", out error);
             spec.SectionDepth = depth;
+            spec.SectionDepthAutomatic = Math.Abs(depth) <= GeometryTolerance;
             JToken extension = section["line_extension_ratio"];
             if (extension != null && extension.Type != JTokenType.Null)
             {
@@ -1148,6 +1149,7 @@ namespace SolidworksExecution.Contracts
         public double? SectionLineExtensionRatio { get; internal set; }
         public bool SectionReverseDirection { get; internal set; }
         public double SectionDepth { get; internal set; }
+        public bool SectionDepthAutomatic { get; internal set; }
         public string SectionLabel { get; internal set; }
         public double ProfileOffsetX { get; internal set; }
         public double ProfileOffsetY { get; internal set; }

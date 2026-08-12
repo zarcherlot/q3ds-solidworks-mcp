@@ -419,7 +419,7 @@ namespace SolidworksExecution.Services
             return true;
         }
 
-        private static bool TryCreateSectionView(IModelDoc2 drawingModel, IDrawingDoc drawing,
+        private bool TryCreateSectionView(IModelDoc2 drawingModel, IDrawingDoc drawing,
             IView parent, ViewPlanBasicViewSpec spec, out IView sectionView, out string error)
         {
             sectionView = null;
@@ -429,8 +429,18 @@ namespace SolidworksExecution.Services
                 error = "The unique section parent view could not be activated.";
                 return false;
             }
-            IList<double[]> points;
-            if (!TryResolveSectionPoints(parent, spec, out points, out error)) return false;
+            IList<double[]> modelPoints;
+            if (!TryResolveSectionPoints(parent, spec, out modelPoints, out error)) return false;
+            IList<double[]> viewPoints;
+            IList<double[]> sheetPoints;
+            if (!TryTransformSectionPoints(parent, modelPoints, out viewPoints,
+                out sheetPoints, out error))
+                return false;
+            if (!SectionPathIntersectsParentOutline(parent, sheetPoints))
+            {
+                error = "The transformed section path does not intersect the parent view outline.";
+                return false;
+            }
             var segments = new List<ISketchSegment>();
             try
             {
@@ -445,10 +455,10 @@ namespace SolidworksExecution.Services
                     // move a bend point or flatten an angled leg while the segments are added.
                     manager.AddToDB = true;
                     manager.DisplayWhenAdded = false;
-                    for (int index = 0; index + 1 < points.Count; index++)
+                    for (int index = 0; index + 1 < viewPoints.Count; index++)
                     {
-                        double[] first = points[index];
-                        double[] second = points[index + 1];
+                        double[] first = viewPoints[index];
+                        double[] second = viewPoints[index + 1];
                         var segment = manager.CreateLine(first[0], first[1], first[2],
                             second[0], second[1], second[2]) as ISketchSegment;
                         if (segment == null)
@@ -464,7 +474,7 @@ namespace SolidworksExecution.Services
                     manager.DisplayWhenAdded = previousDisplay;
                     manager.AddToDB = previousAddToDb;
                 }
-                if (!TryVerifyCreatedSectionSegments(segments, points, out error)) return false;
+                if (!TryVerifyCreatedSectionSegments(segments, viewPoints, out error)) return false;
                 drawingModel.ClearSelection2(true);
                 foreach (ISketchSegment segment in segments)
                     if (!segment.Select4(true, null))
@@ -534,6 +544,80 @@ namespace SolidworksExecution.Services
                     Math.Abs(end.Z - expectedEnd[2]) > PositionTolerance)
                     return FailMessage("SolidWorks changed frozen cutting-line segment " + index +
                         " while creating its sketch geometry.", out error);
+            }
+            return true;
+        }
+
+        private bool TryTransformSectionPoints(IView parent, IList<double[]> modelPoints,
+            out IList<double[]> viewPoints, out IList<double[]> sheetPoints, out string error)
+        {
+            viewPoints = null;
+            sheetPoints = null;
+            error = null;
+            IMathTransform transform = parent != null ? parent.ModelToViewTransform : null;
+            if (transform == null)
+                return FailMessage("Section parent ModelToViewTransform is unavailable.", out error);
+            double[] position = parent.Position as double[];
+            if (position == null || position.Length < 2 || position.Take(2).Any(item =>
+                double.IsNaN(item) || double.IsInfinity(item)))
+                return FailMessage("Section parent position is unavailable.", out error);
+            var local = new List<double[]>();
+            var sheet = new List<double[]>();
+            foreach (double[] modelPoint in modelPoints)
+            {
+                double[] sheetPoint;
+                if (!TryTransformModelPointToView(transform, modelPoint, out sheetPoint))
+                    return FailMessage("A frozen section point could not be transformed to " +
+                        "drawing coordinates.", out error);
+                // SketchManager.CreateLine is relative to the active drawing view. The
+                // ModelToViewTransform result includes the view's sheet insertion position,
+                // so remove that translation before creating the parent-view sketch.
+                sheet.Add(new[] { sheetPoint[0], sheetPoint[1], 0.0 });
+                local.Add(ViewPlanSectionNativeContract.ToActiveViewLocal(
+                    sheetPoint, position));
+            }
+            viewPoints = local;
+            sheetPoints = sheet;
+            return true;
+        }
+
+        private static bool SectionPathIntersectsParentOutline(IView parent,
+            IList<double[]> points)
+        {
+            double[] outline = parent != null ? parent.GetOutline() as double[] : null;
+            if (outline == null || outline.Length < 4 || points == null || points.Count < 2)
+                return false;
+            for (int index = 0; index + 1 < points.Count; index++)
+                if (SegmentIntersectsRectangle(points[index], points[index + 1], outline,
+                    PositionTolerance)) return true;
+            return false;
+        }
+
+        private static bool SegmentIntersectsRectangle(double[] first, double[] second,
+            double[] rectangle, double tolerance)
+        {
+            double xMin = rectangle[0] - tolerance;
+            double yMin = rectangle[1] - tolerance;
+            double xMax = rectangle[2] + tolerance;
+            double yMax = rectangle[3] + tolerance;
+            double dx = second[0] - first[0];
+            double dy = second[1] - first[1];
+            double tMin = 0.0;
+            double tMax = 1.0;
+            double[] p = { -dx, dx, -dy, dy };
+            double[] q = { first[0] - xMin, xMax - first[0],
+                first[1] - yMin, yMax - first[1] };
+            for (int index = 0; index < p.Length; index++)
+            {
+                if (Math.Abs(p[index]) <= 1e-15)
+                {
+                    if (q[index] < 0.0) return false;
+                    continue;
+                }
+                double ratio = q[index] / p[index];
+                if (p[index] < 0.0) tMin = Math.Max(tMin, ratio);
+                else tMax = Math.Min(tMax, ratio);
+                if (tMin > tMax) return false;
             }
             return true;
         }
@@ -1492,12 +1576,8 @@ namespace SolidworksExecution.Services
 
         private static int SectionOptions(ViewPlanBasicViewSpec spec)
         {
-            int options = 0;
-            if (spec.Alignment == "not_aligned") options |= 1;
-            if (spec.Type == "aligned_section") options |= 2;
-            if (spec.SectionReverseDirection) options |= 4;
-            if (spec.Type == "half_section") options |= 16;
-            return options;
+            return ViewPlanSectionNativeContract.CreateOptions(spec.Type, spec.Alignment,
+                spec.SectionReverseDirection);
         }
 
         private static bool TryCreateExplicitModelView(IDrawingDoc drawing, IModelDoc2 sourceModel,
@@ -2521,7 +2601,7 @@ namespace SolidworksExecution.Services
             }
         }
 
-        private static bool TryReadSectionContract(IView view, ViewPlanBasicViewSpec spec,
+        private bool TryReadSectionContract(IView view, ViewPlanBasicViewSpec spec,
             out JObject section, out string error)
         {
             section = new JObject();
@@ -2552,10 +2632,17 @@ namespace SolidworksExecution.Services
                         return FailMessage("Section line-info contains a zero-length segment.",
                             out error);
                 }
-                if (spec.Type != "full_section" &&
-                    !SectionLineInfoMatchesFrozenPoints(lineInfo, spec.SectionPointsModel))
-                    return FailMessage("Section cutting-line coordinates differ from the " +
-                        "frozen model-space points.", out error);
+                IList<double[]> expectedViewPoints = null;
+                IList<double[]> expectedSheetPoints = null;
+                if (spec.Type != "full_section")
+                {
+                    if (!TryTransformSectionPoints(view.GetBaseView() as IView,
+                        spec.SectionPointsModel, out expectedViewPoints,
+                        out expectedSheetPoints, out error)) return false;
+                    if (!SectionLineInfoMatchesPoints(lineInfo, expectedViewPoints))
+                        return FailMessage("Native section-line coordinates differ from the " +
+                            "frozen parent-view-local path.", out error);
+                }
                 string label = data.GetLabel();
                 bool partial = data.GetPartialSection();
                 bool aligned = data.IsAligned();
@@ -2580,23 +2667,30 @@ namespace SolidworksExecution.Services
                 if (double.IsNaN(depth) || double.IsInfinity(depth) || depth <= 0.0)
                     return FailMessage("Section depth readback is not a positive finite value.",
                         out error);
-                if (spec.SectionDepth > 0.0 &&
-                    Math.Abs(depth - spec.SectionDepth) > Math.Max(1e-9, spec.SectionDepth * 1e-8))
+                if ((!spec.SectionDepthAutomatic || spec.Type == "half_section") &&
+                    Math.Abs(depth - spec.SectionDepth) >
+                    Math.Max(1e-9, spec.SectionDepth * 1e-8))
                     return FailMessage("Section depth readback differs from section_depth_m.",
                         out error);
 
                 section["label"] = label;
                 section["line_segment_count"] = segmentCount;
-                section["line_info_model_m"] = new JArray(lineInfo.Select(Quantize));
+                section["cutting_line_points_model_m"] = spec.Type == "full_section"
+                    ? new JArray() : new JArray(spec.SectionPointsModel.Select(point =>
+                        new JArray(point.Select(Quantize))));
+                section["line_info_view_local_m"] = new JArray(lineInfo.Select(Quantize));
+                section["cutting_line_points_sheet_m"] = expectedSheetPoints == null
+                    ? new JArray() : new JArray(expectedSheetPoints.Select(point =>
+                        new JArray(point.Select(Quantize))));
                 section["partial"] = partial;
                 section["aligned"] = aligned;
                 section["reversed"] = reversed;
                 section["view_alignment"] = alignment;
                 section["section_depth_m_actual"] = Quantize(depth);
-                section["section_depth_mode"] = spec.SectionDepth == 0.0
-                    ? "solidworks_default" : "explicit";
-                section["line_geometry_verification"] = spec.Type == "full_section"
-                    ? "derived_line_finite" : "exact_frozen_points";
+                section["section_depth_mode"] = spec.SectionDepthAutomatic
+                    ? (spec.Type == "half_section" ? "frozen_part_box_automatic" :
+                        "solidworks_default") : "explicit";
+                section["line_geometry_verification"] = "exact_parent_view_local_points";
                 return true;
             }
             catch (Exception ex)
@@ -2605,12 +2699,11 @@ namespace SolidworksExecution.Services
             }
         }
 
-        private static bool SectionLineInfoMatchesFrozenPoints(double[] lineInfo,
+        private static bool SectionLineInfoMatchesPoints(double[] lineInfo,
             IList<double[]> points)
         {
             if (lineInfo == null || points == null ||
-                lineInfo.Length != (points.Count - 1) * 6)
-                return false;
+                lineInfo.Length != (points.Count - 1) * 6) return false;
             var matched = new bool[points.Count - 1];
             for (int actualIndex = 0; actualIndex < matched.Length; actualIndex++)
             {

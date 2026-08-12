@@ -102,6 +102,8 @@
     <Compile Include="Contracts\ViewPlanContractValidator.cs" />
     <Compile Include="Contracts\ViewPlanCenterGeometryResolver.cs" />
     <Compile Include="Contracts\ViewPlanSectionGeometryResolver.cs" />
+    <Compile Include="Contracts\ViewPlanSectionNativeContract.cs" />
+    <Compile Include="Contracts\SemanticFeatureTypeContract.cs" />
     <Compile Include="Infrastructure\ExecLog.cs" />
     <Compile Include="Infrastructure\IOperationGuard.cs" />
     <Compile Include="Infrastructure\OperationGuard.cs" />
@@ -129,6 +131,10 @@
     <None Include="packages.config" />
     <Content Include="..\..\drawing_planner\contracts\view-plan.schema.json">
       <Link>contracts\view-plan.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_planner\taxonomies\mechanical-features-1.0.0-experimental.json">
+      <Link>contracts\mechanical-features-1.0.0-experimental.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

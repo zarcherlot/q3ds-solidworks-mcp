@@ -7,12 +7,16 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from jsonschema import Draft202012Validator, FormatChecker
+from referencing import Registry, Resource
 
 from drawing_planner.planning_models import ValidationIssue
 
 
 _SCHEMA_PATH = (
     Path(__file__).resolve().parents[1] / "contracts" / "view-plan.schema.json"
+)
+_SCHEMA_15_PATH = (
+    Path(__file__).resolve().parents[1] / "contracts" / "view-plan-1.5.schema.json"
 )
 
 
@@ -38,7 +42,10 @@ class ViewPlanSchemaValidator:
             )
         errors = sorted(
             self._validator.iter_errors(dict(plan)),
-            key=lambda error: (tuple(str(item) for item in error.absolute_path), error.message),
+            key=lambda error: (
+                tuple(str(item) for item in error.absolute_path),
+                error.message,
+            ),
         )
         return tuple(
             ValidationIssue(
@@ -48,6 +55,24 @@ class ViewPlanSchemaValidator:
                 json_pointer=_json_pointer(error.absolute_path),
             )
             for error in errors
+        )
+
+
+class ViewPlan15SchemaValidator(ViewPlanSchemaValidator):
+    """Structural validator for the experimental, non-executable ViewPlan 1.5 contract."""
+
+    def __init__(self, schema_path: Path = _SCHEMA_15_PATH):
+        self.schema_path = schema_path.resolve()
+        schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
+        base_schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        registry = Registry().with_resource(
+            base_schema["$id"], Resource.from_contents(base_schema)
+        )
+        self._validator = Draft202012Validator(
+            schema,
+            registry=registry,
+            format_checker=FormatChecker(),
         )
 
 

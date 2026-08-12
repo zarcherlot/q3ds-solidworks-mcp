@@ -18,7 +18,9 @@ from pydantic import (
     model_validator,
 )
 
+from drawing_planner.feature_taxonomy import MechanicalFeatureTaxonomy, load_feature_taxonomy
 from drawing_planner.planning_models import PlanningRequest, ValidationIssue
+from drawing_planner.semantic_features import ModelSemanticFeatures
 
 
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
@@ -76,6 +78,15 @@ class _StandardViewImage(_Artifact):
         return value
 
 
+class _SemanticArtifact(_Artifact):
+    @field_validator("path")
+    @classmethod
+    def json_extension(cls, value: str) -> str:
+        if Path(value).suffix.lower() != ".json":
+            raise ValueError("semantic artifact path must end with .json")
+        return value
+
+
 class _HandoffManifest(_StrictModel):
     protocol_id: Literal["q3ds-drawing-planning-handoff"]
     schema_version: Literal["1.0"]
@@ -85,6 +96,8 @@ class _HandoffManifest(_StrictModel):
     blank_drawing: _DrawingArtifact
     readiness_report: _Artifact
     geometry_report: _Artifact
+    semantic_features: _SemanticArtifact | None = None
+    semantic_taxonomy: _SemanticArtifact | None = None
     standard_view_images: list[_StandardViewImage] = Field(min_length=6, max_length=6)
     drawing_context: dict
     blocking_issues: list[object] = Field(default_factory=list)
@@ -111,12 +124,18 @@ class _HandoffManifest(_StrictModel):
             raise ValueError(
                 "blank drawing, reports and standard-view images must share one directory"
             )
+        semantic = [item for item in (self.semantic_features, self.semantic_taxonomy) if item]
+        if semantic and any(Path(item.path).parent != artifact_root for item in semantic):
+            raise ValueError("semantic artifacts must share the initializer artifact directory")
+        if (self.semantic_features is None) != (self.semantic_taxonomy is None):
+            raise ValueError("semantic feature and taxonomy artifacts must be bound together")
         return self
 
 
 class IntegrityValidationResult(_StrictModel):
     status: Literal["pass", "fail"]
     manifest: dict | None
+    semantic_artifact: ModelSemanticFeatures | None = None
     issues: tuple[ValidationIssue, ...] = ()
 
     @model_validator(mode="after")
@@ -125,6 +144,8 @@ class IntegrityValidationResult(_StrictModel):
             raise ValueError("passing integrity result requires a manifest and no issues")
         if self.status == "fail" and (self.manifest is not None or not self.issues):
             raise ValueError("failed integrity result requires issues and no manifest")
+        if self.status == "fail" and self.semantic_artifact is not None:
+            raise ValueError("failed integrity result cannot expose a semantic artifact")
         return self
 
 
@@ -164,6 +185,8 @@ class HandoffIntegrityValidator:
             manifest.geometry_report,
             *manifest.standard_view_images,
         ]
+        if manifest.semantic_features is not None:
+            artifacts.extend([manifest.semantic_features, manifest.semantic_taxonomy])
         for artifact in artifacts:
             path = Path(artifact.path)
             if not path.is_file():
@@ -174,8 +197,31 @@ class HandoffIntegrityValidator:
                 return _failure(
                     "VP-INTEGRITY-ARTIFACT-HASH", f"handoff artifact SHA-256 changed: {path}"
                 )
+
+        semantic_artifact = None
+        if manifest.semantic_features is not None:
+            assert manifest.semantic_taxonomy is not None
+            try:
+                taxonomy = load_feature_taxonomy(Path(manifest.semantic_taxonomy.path))
+                semantic_raw = json.loads(
+                    Path(manifest.semantic_features.path).read_text(encoding="utf-8-sig")
+                )
+                semantic_artifact = ModelSemanticFeatures.model_validate(semantic_raw)
+            except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as exc:
+                return _failure("VP-INTEGRITY-SEMANTIC-CONTRACT", str(exc))
+            try:
+                geometry = json.loads(
+                    Path(manifest.geometry_report.path).read_text(encoding="utf-8-sig")
+                )
+                if not isinstance(geometry, Mapping):
+                    raise ValueError("geometry report must contain a JSON object")
+                _validate_semantic_bindings(manifest, semantic_artifact, taxonomy, geometry)
+            except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+                return _failure("VP-INTEGRITY-SEMANTIC-BINDING", str(exc))
         return IntegrityValidationResult(
-            status="pass", manifest=manifest.model_dump(mode="json")
+            status="pass",
+            manifest=manifest.model_dump(mode="json"),
+            semantic_artifact=semantic_artifact,
         )
 
     def validate_plan_bindings(
@@ -274,6 +320,34 @@ def _failure(code: str, message: str) -> IntegrityValidationResult:
             ),
         ),
     )
+
+
+def _validate_semantic_bindings(
+    manifest: _HandoffManifest,
+    semantic: ModelSemanticFeatures,
+    taxonomy: MechanicalFeatureTaxonomy,
+    geometry: Mapping[str, Any],
+) -> None:
+    assert manifest.semantic_features is not None
+    assert manifest.semantic_taxonomy is not None
+    expected_model = manifest.model
+    if not _same_path(semantic.model.path, expected_model.path):
+        raise ValueError("semantic artifact model path does not match the frozen handoff")
+    if semantic.model.sha256 != expected_model.sha256:
+        raise ValueError("semantic artifact model SHA-256 does not match the frozen handoff")
+    if semantic.model.configuration != expected_model.configuration:
+        raise ValueError("semantic artifact configuration does not match the frozen handoff")
+    if semantic.model.display_state != expected_model.display_state:
+        raise ValueError("semantic artifact display state does not match the frozen handoff")
+    if not _same_path(semantic.geometry_report.path, manifest.geometry_report.path):
+        raise ValueError("semantic artifact geometry path does not match the frozen handoff")
+    if semantic.geometry_report.sha256 != manifest.geometry_report.sha256:
+        raise ValueError("semantic artifact geometry SHA-256 does not match the frozen handoff")
+    if not _same_path(semantic.taxonomy.path, manifest.semantic_taxonomy.path):
+        raise ValueError("semantic artifact taxonomy path does not match the frozen handoff")
+    if semantic.taxonomy.sha256 != manifest.semantic_taxonomy.sha256:
+        raise ValueError("semantic artifact taxonomy SHA-256 does not match the frozen handoff")
+    semantic.validate_bindings(taxonomy, geometry)
 
 
 def _normalize_absolute_path(value: str) -> str:

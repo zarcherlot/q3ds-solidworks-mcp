@@ -69,10 +69,18 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$hostBootstrap = Join-Path $repo 'solidworks-execution\HostBootstrap\bin\Release\SolidWorksHostBootstrap.exe'
+if (-not (Test-Path -LiteralPath $hostBootstrap -PathType Leaf)) {
+    throw "Required HostBootstrap helper is missing: $hostBootstrap"
+}
+$hostBootstrapDirectory = New-Item -ItemType Directory -Path (Join-Path $output 'HostBootstrap')
+Copy-Item -LiteralPath $hostBootstrap -Destination $hostBootstrapDirectory.FullName
+
 foreach ($dependency in $referencePaths | Where-Object { $_ -notlike "$framework*" }) {
     Copy-Item -LiteralPath $dependency -Destination $output
 }
 Copy-Item -LiteralPath (Join-Path $repo 'solidworks-execution\SolidworksExecution\app.config') -Destination ($executable + '.config')
 $contracts = New-Item -ItemType Directory -Path (Join-Path $output 'contracts')
 Copy-Item -LiteralPath (Join-Path $repo 'drawing_planner\contracts\view-plan.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_planner\taxonomies\mechanical-features-1.0.0-experimental.json') -Destination $contracts
 Get-FileHash -LiteralPath $executable -Algorithm SHA256 | Select-Object Path, Hash
