@@ -1,0 +1,4 @@
+interface:
+  display_name: "Initialize SolidWorks Drawing Handoff"
+  short_description: "Generate verified drawing-planning initializer artifacts"
+  default_prompt: "Use $solidworks-initialize-drawing-handoff to create a verified initializer handoff for this SolidWorks part."

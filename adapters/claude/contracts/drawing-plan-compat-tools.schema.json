@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/drawing-plan-compat-tools-1.0.schema.json",
+  "title": "Q3DS explicit DrawingPlan 1.0 compatibility MCP tools",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "validate_part_drawing_plan",
+    "create_part_drawing",
+    "verify_part_drawing"
+  ],
+  "properties": {
+    "validate_part_drawing_plan": { "$ref": "#/$defs/planTool" },
+    "create_part_drawing": { "$ref": "#/$defs/planTool" },
+    "verify_part_drawing": { "$ref": "#/$defs/planTool" }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "parameters"],
+      "properties": {
+        "description": { "type": "string", "minLength": 20 },
+        "parameters": { "type": "object" }
+      }
+    },
+    "planTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["plan"],
+              "properties": {
+                "plan": {
+                  "$ref": "https://q3ds.dev/contracts/solidworks/drawing-plan-1.0.schema.json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

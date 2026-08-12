@@ -1,0 +1,10 @@
+interface:
+  display_name: "Bootstrap SolidWorks Host"
+  short_description: "Inspect and bootstrap SolidWorks safely"
+  default_prompt: "Use $bootstrap-solidworks-host to inspect this host and verify SolidWorks COM readiness safely."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "solidpilot"
+      description: "Repository semantic MCP exposing inspect_solidworks_host and bootstrap_solidworks_host"

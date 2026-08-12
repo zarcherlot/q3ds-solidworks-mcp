@@ -1,0 +1,26 @@
+[mcp_servers.solidpilot]
+command = "powershell.exe"
+args = [
+  "-NoProfile",
+  "-NonInteractive",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-File",
+  "scripts\\start_codex_mcp.ps1",
+]
+cwd = "."
+startup_timeout_sec = 30
+tool_timeout_sec = 240
+enabled_tools = [
+  "solidworks_status",
+  "inspect_solidworks_host",
+  "bootstrap_solidworks_host",
+  "inspect_part_for_drawing",
+  "initialize_part_drawing_handoff",
+  "plan_part_drawing_views",
+  "publish_validated_part_drawing_view_plan",
+  "validate_part_drawing_view_plan",
+  "create_part_drawing_from_view_plan",
+  "verify_part_drawing_view_plan",
+]
+default_tools_approval_mode = "writes"

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "handoff_manifest_path": {
+      "minLength": 1,
+      "title": "Handoff Manifest Path",
+      "type": "string"
+    },
+    "handoff_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Handoff Manifest Sha256",
+      "type": "string"
+    },
+    "planner_profile": {
+      "default": "production",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "title": "Planner Profile",
+      "type": "string"
+    },
+    "publication_directory": {
+      "minLength": 1,
+      "title": "Publication Directory",
+      "type": "string"
+    },
+    "debug_prompt_directory": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "null"}
+      ],
+      "default": null,
+      "title": "Debug Prompt Directory"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "user_requirements": {
+      "additionalProperties": true,
+      "title": "User Requirements",
+      "type": "object"
+    }
+  },
+  "required": [
+    "handoff_manifest_path",
+    "handoff_manifest_sha256",
+    "publication_directory"
+  ],
+  "title": "PlanningRequest",
+  "type": "object"
+}

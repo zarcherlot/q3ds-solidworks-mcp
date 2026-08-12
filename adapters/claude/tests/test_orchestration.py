@@ -11,7 +11,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ADAPTER_DIR = os.path.dirname(_HERE)
 sys.path.insert(0, _ADAPTER_DIR)
 
-import server  # noqa: E402
+import legacy_server as server  # noqa: E402
 
 
 def _completed(*, state=1, sketch=None, features=None, geometry=None):

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/view-plan-prompt-request-3.0.schema.json",
+  "title": "Q3DS repository view-planning prompt compilation request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "readiness_report_path",
+    "geometry_report_path",
+    "standard_view_image_paths",
+    "view_plan_output_path"
+  ],
+  "properties": {
+    "schema_version": { "const": "3.0" },
+    "prompt_pack": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "default": "native-v4"
+    },
+    "readiness_report_path": { "type": "string", "minLength": 1 },
+    "geometry_report_path": { "type": "string", "minLength": 1 },
+    "standard_view_image_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["front", "back", "left", "right", "top", "bottom"],
+      "properties": {
+        "front": { "type": "string", "minLength": 1 },
+        "back": { "type": "string", "minLength": 1 },
+        "left": { "type": "string", "minLength": 1 },
+        "right": { "type": "string", "minLength": 1 },
+        "top": { "type": "string", "minLength": 1 },
+        "bottom": { "type": "string", "minLength": 1 }
+      }
+    },
+    "view_plan_output_path": { "type": "string", "minLength": 1 },
+    "user_requirements": { "type": "object", "default": {} }
+  }
+}

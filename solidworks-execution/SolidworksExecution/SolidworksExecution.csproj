@@ -16,9 +16,15 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == ''">$(SOLIDWORKS_INTEROP_DIR)</SolidWorksInteropDir>
+    <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == '' and Exists('C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SolidWorks.Interop.sldworks.dll')">C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS</SolidWorksInteropDir>
+    <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == '' and Exists('C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.sldworks.dll')">C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist</SolidWorksInteropDir>
+    <SolidWorksApiRedistDir Condition="'$(SolidWorksApiRedistDir)' == ''">$(SOLIDWORKS_API_REDIST_DIR)</SolidWorksApiRedistDir>
+    <SolidWorksApiRedistDir Condition="'$(SolidWorksApiRedistDir)' == '' and Exists('$(SolidWorksInteropDir)\SolidWorks.Interop.cosworks.dll')">$(SolidWorksInteropDir)</SolidWorksApiRedistDir>
+    <SolidWorksApiRedistDir Condition="'$(SolidWorksApiRedistDir)' == ''">$(SolidWorksInteropDir)\api\redist</SolidWorksApiRedistDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -28,7 +34,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -66,44 +72,79 @@
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="SolidWorks.Interop.sldworks">
-      <HintPath>C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.sldworks.dll</HintPath>
+      <HintPath>$(SolidWorksInteropDir)\SolidWorks.Interop.sldworks.dll</HintPath>
       <Private>True</Private>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="SolidWorks.Interop.swconst">
-      <HintPath>C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.swconst.dll</HintPath>
+      <HintPath>$(SolidWorksInteropDir)\SolidWorks.Interop.swconst.dll</HintPath>
       <Private>False</Private>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="SolidWorks.Interop.swpublished">
-      <HintPath>C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.swpublished.dll</HintPath>
+      <HintPath>$(SolidWorksInteropDir)\SolidWorks.Interop.swpublished.dll</HintPath>
       <Private>False</Private>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="SolidWorks.Interop.cosworks">
-      <HintPath>C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.cosworks.dll</HintPath>
+      <HintPath>$(SolidWorksApiRedistDir)\SolidWorks.Interop.cosworks.dll</HintPath>
       <Private>True</Private>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controllers\HostBootstrapController.cs" />
     <Compile Include="Controllers\ToolController.cs" />
+    <Compile Include="Contracts\ViewPlanBasicExecutionCompiler.cs" />
+    <Compile Include="Contracts\ViewPlanBasicTransactionPreflight.cs" />
+    <Compile Include="Contracts\ViewPlanBasicVerificationPreflight.cs" />
+    <Compile Include="Contracts\ViewPlanContractValidator.cs" />
+    <Compile Include="Contracts\ViewPlanCenterGeometryResolver.cs" />
+    <Compile Include="Contracts\ViewPlanSectionGeometryResolver.cs" />
     <Compile Include="Infrastructure\ExecLog.cs" />
     <Compile Include="Infrastructure\IOperationGuard.cs" />
     <Compile Include="Infrastructure\OperationGuard.cs" />
     <Compile Include="Infrastructure\StaExecutor.cs" />
     <Compile Include="Models\CadState.cs" />
     <Compile Include="Models\ExecutionResponse.cs" />
+    <Compile Include="Models\HostBootstrapRequest.cs" />
+    <Compile Include="Models\HostBootstrapResponse.cs" />
     <Compile Include="Models\ToolRequest.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Services\SolidWorksService.cs" />
+    <Compile Include="Services\SolidWorksService.DrawingInitializer.cs" />
+    <Compile Include="Services\SolidWorksService.DrawingPlan.cs" />
+    <Compile Include="Services\SolidWorksService.ViewPlan.cs" />
+    <Compile Include="Services\SolidWorksService.ViewPlanExecution.cs" />
     <Compile Include="Services\SolidWorksService.Simulation.cs" />
+    <Compile Include="Services\HostBootstrapRunner.cs" />
+    <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
+    <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />
+    <Compile Include="Services\ViewPlanBasicViewExecutor.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <Content Include="..\..\drawing_planner\contracts\view-plan.schema.json">
+      <Link>contracts\view-plan.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HostBootstrap\HostBootstrap.csproj">
+      <Project>{8C193120-933F-4E09-8833-4BF1D12732DF}</Project>
+      <Name>HostBootstrap</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="DeployHostBootstrap" AfterTargets="Build">
+    <MakeDir Directories="$(OutputPath)HostBootstrap" />
+    <Copy
+      SourceFiles="..\HostBootstrap\bin\$(Configuration)\SolidWorksHostBootstrap.exe"
+      DestinationFolder="$(OutputPath)HostBootstrap"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

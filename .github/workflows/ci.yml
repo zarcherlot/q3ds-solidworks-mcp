@@ -24,14 +24,34 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.lock
 
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Set up NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore C# contract-test packages
+        run: nuget restore solidworks-execution/ContractTests/packages.config -PackagesDirectory solidworks-execution/packages
+
       - name: Install test dependencies
         run: python -m pip install --require-hashes -r requirements-dev.lock
 
-      - name: Verify MCP and execution contracts
-        run: python adapters/claude/tests/test_schema_contract.py
+      - name: Verify semantic MCP, prompt pipeline, execution contracts, and drawing-plan models
+        run: python -m pytest -q adapters/claude/tests drawing_planner/tests
 
       - name: Run offline compiler tests
         run: python solidworks-compiler/pycompiler/tests/test_compiler.py
 
+      - name: Build COM-free ViewPlan 1.4 C# contract tests
+        run: msbuild solidworks-execution/ContractTests/ViewPlanContractTests.csproj /t:Build /p:Configuration=Release /v:minimal
+
+      - name: Run COM-free ViewPlan 1.4 C# contract tests
+        shell: powershell
+        run: '& solidworks-execution/ContractTests/bin/Release/ViewPlanContractTests.exe $env:GITHUB_WORKSPACE'
+
+      - name: Build and verify repository-owned native HostBootstrap
+        shell: powershell
+        run: scripts/run_host_bootstrap_contract_tests.ps1 -Configuration Release
+
       - name: Compile Python sources
-        run: python -m compileall -q adapters/claude solidworks-compiler scripts
+        run: python -m compileall -q adapters drawing_planner solidworks-compiler scripts

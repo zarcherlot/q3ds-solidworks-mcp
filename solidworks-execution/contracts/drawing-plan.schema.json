@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/drawing-plan-1.0.schema.json",
+  "title": "Q3DS transactional part drawing plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "drawing", "sheet", "views"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\.[sS][lL][dD][pP][rR][tT]$" },
+        "configuration": { "type": "string", "minLength": 1 },
+        "display_state": { "type": "string", "minLength": 1 }
+      }
+    },
+    "drawing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_path", "output_path"],
+      "properties": {
+        "template_path": { "type": "string", "minLength": 1, "pattern": "\\.[dD][rR][wW][dD][oO][tT]$" },
+        "output_path": { "type": "string", "minLength": 1, "pattern": "\\.[sS][lL][dD][dD][rR][wW]$" },
+        "overwrite": { "type": "boolean", "default": false },
+        "projection": {
+          "enum": ["preserve", "first_angle", "third_angle"],
+          "default": "preserve"
+        }
+      }
+    },
+    "sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scale_numerator": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+        "scale_denominator": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+        "margin_m": { "type": "number", "minimum": 0, "maximum": 0.05, "default": 0.005 },
+        "view_clearance_m": { "type": "number", "minimum": 0, "maximum": 0.05, "default": 0.003 },
+        "require_no_overlap": { "type": "boolean", "default": true }
+      }
+    },
+    "views": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/view" }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "position_tolerance_m": {
+          "type": "number",
+          "minimum": 0.000001,
+          "maximum": 0.005,
+          "default": 0.0005
+        },
+        "scale_tolerance": {
+          "type": "number",
+          "minimum": 0.000000001,
+          "maximum": 0.001,
+          "default": 0.000001
+        }
+      }
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 },
+        "y": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
+      }
+    },
+    "commonView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "position"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+        "kind": { "enum": ["base", "projected"] },
+        "orientation": { "enum": ["front", "back", "left", "right", "top", "bottom", "isometric"] },
+        "parent_id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+        "position": { "$ref": "#/$defs/position" },
+        "scale_mode": { "enum": ["sheet", "custom", "parent"] },
+        "scale": { "type": "number", "minimum": 0.001, "maximum": 100 },
+        "display_mode": {
+          "enum": ["wireframe", "hidden_lines_removed", "hidden_lines_visible", "shaded", "shaded_with_edges"],
+          "default": "hidden_lines_removed"
+        },
+        "tangent_edges": { "enum": ["removed", "fonted", "visible"], "default": "removed" },
+        "configuration": { "type": "string", "minLength": 1 },
+        "display_state": { "type": "string", "minLength": 1 },
+        "lock_position": { "type": "boolean", "default": true }
+      }
+    },
+    "view": {
+      "allOf": [
+        { "$ref": "#/$defs/commonView" },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "kind": { "const": "base" },
+                "orientation": { "enum": ["front", "back", "left", "right", "top", "bottom", "isometric"] },
+                "scale_mode": { "enum": ["sheet", "custom"] }
+              },
+              "required": ["orientation"],
+              "not": { "required": ["parent_id"] }
+            },
+            {
+              "properties": {
+                "kind": { "const": "projected" },
+                "scale_mode": { "enum": ["sheet", "custom", "parent"] }
+              },
+              "required": ["parent_id"],
+              "not": {
+                "anyOf": [
+                  { "required": ["orientation"] },
+                  { "required": ["configuration"] },
+                  { "required": ["display_state"] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "if": { "properties": { "scale_mode": { "const": "custom" } }, "required": ["scale_mode"] },
+          "then": { "required": ["scale"] },
+          "else": { "not": { "required": ["scale"] } }
+        }
+      ]
+    }
+  }
+}

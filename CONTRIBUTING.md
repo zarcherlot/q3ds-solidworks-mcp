@@ -19,7 +19,7 @@ The system has four layers, and preserving these boundaries is the foundation of
 | `cad-planner` | `cad-planner/` | Intent -> CAD-neutral Feature Graph IR. Does not touch COM, does not emit raw tool calls. |
 | `solidworks-compiler` | `solidworks-compiler/` | IR -> tool calls + reference resolution. Deterministic; contains no LLM and no MCP. |
 | `solidworks-execution` | `solidworks-execution/` | The only layer that touches SolidWorks COM (C#, .NET 4.8.1). |
-| `adapters/claude` | `adapters/claude/` | MCP protocol bridge (Python, FastMCP). |
+| `adapters/claude` | `adapters/claude/` | Default semantic MCP bridge (Python, FastMCP); `legacy_server.py` is diagnostics-only. |
 
 Rules that must never be violated:
 
@@ -29,6 +29,9 @@ Rules that must never be violated:
 - The execution and planner layers have no knowledge of which client is calling them.
 - Adding a new CAD backend means adding a new compiler and execution layer; the IR and `cad-planner` stay unchanged.
 - The adapter layer is provider-specific. Supporting a new AI client (OpenClaw, OpenAI, a local LLM, etc.) means only adding a new adapter that reuses the shared bridge core.
+- Agent-facing tools use engineering intent, strict data contracts, and read-back verification.
+  Do not expose a COM method, selection action, sketch primitive, save step, or other atomic
+  executor operation as a new default MCP tool.
 
 ---
 
@@ -36,7 +39,8 @@ Rules that must never be violated:
 
 ### Requirements
 
-- Windows and **SolidWorks 2026** (development happens against a local SolidWorks install).
+- Windows and **SolidWorks 2025 SP5 or 2026**. Run live tests against the version affected by the
+  change and record that version in the verification notes.
 - **.NET Framework 4.8.1 Developer Pack** and MSBuild (available with Visual Studio 2022).
 - **Python 3.12** for the checked-in Windows lock files and CI parity.
 
@@ -45,8 +49,13 @@ Rules that must never be violated:
 Build:
 
 ```
+$env:SOLIDWORKS_INTEROP_DIR = "C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS"
+$env:SOLIDWORKS_API_REDIST_DIR = "$env:SOLIDWORKS_INTEROP_DIR\api\redist"
 & "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" solidworks-execution\SolidworksExecution.sln /t:Build /p:Configuration=Debug
 ```
+
+Override those environment variables for nonstandard installations. The execution process is
+always x64.
 
 Restart (headless, `http://localhost:5000`):
 
@@ -89,12 +98,14 @@ uv pip compile adapters\claude\requirements-dev.txt --output-file requirements-d
 
 ## Adding a new capability
 
-### A new low-level tool (execution surface)
+### A new private executor operation
 
 1. **Contract** — add the tool to `solidworks-execution/contracts/tool-schemas.json`.
 2. **Execution** — add a `case "tool_name":` in `ToolController.cs` and implement it in `SolidWorksService.cs`. **Verify any SolidWorks COM API signature by reflecting the interop assembly first — never invent a method name or argument list.** The real API frequently differs from what looks plausible (for example, the model-item insertion API lives on `IDrawingDoc`, not `IView`; `GetLines3` returns empty while `GetPolylines7` is the working geometry getter). Decode unknown return shapes empirically against a live document before writing the parser.
-3. **Adapter** — register the MCP tool in `adapters/claude/server.py`. Model-facing guidance lives here (the client never sees `tool-schemas.json`): use `Literal` enums for discriminators, Pydantic `Field` constraints for units and ranges, and real required parameters.
-4. **Verify** — run the contract test (see below), then validate against live SolidWorks.
+3. **Semantic orchestration** — call it only from an engineering-semantic transaction in
+   `adapters/claude/server.py`; keep development-only wrappers in `legacy_server.py`. Use strict
+   Pydantic models, reject unknown fields, and require disk/read-back verification for mutations.
+4. **Verify** — run both contract tests, then validate against live SolidWorks.
 
 ### A new feature (IR level — the strategic direction)
 
@@ -122,11 +133,32 @@ uv pip compile adapters\claude\requirements-dev.txt --output-file requirements-d
 
 ## Testing
 
-- **Contract test:** catches any tool or parameter drift across the 39-tool adapter surface and
-  `tool-schemas.json`.
+- **Semantic MCP contract:** catches tool/parameter drift and executor-operation leakage across the
+  default 6-tool surface.
 
   ```powershell
   & .\.venv\Scripts\python.exe .\adapters\claude\tests\test_schema_contract.py
+  ```
+
+- **Private execution contract:** checks that every C# dispatcher operation is documented.
+
+  ```powershell
+  & .\.venv\Scripts\python.exe -m pytest -q adapters\claude\tests\test_execution_contract.py
+  ```
+
+- **DrawingPlan 1.0 compatibility contract:** locks the separate three-tool compatibility surface
+  and proves it remains absent from the default MCP and Codex allow-list.
+
+  ```powershell
+  & .\.venv\Scripts\python.exe -m pytest -q adapters\claude\tests\test_drawing_plan_compat_server.py
+  ```
+
+- **ViewPlan C# contract:** compiles the production parser and COM-free partial service entry, then
+  validates the complete 1.4 fixture and rejection cases without starting SolidWorks.
+
+  ```powershell
+  msbuild solidworks-execution\ContractTests\ViewPlanContractTests.csproj /t:Build /p:Configuration=Release
+  & .\solidworks-execution\ContractTests\bin\Release\ViewPlanContractTests.exe (Resolve-Path .).Path
   ```
 
 - **Offline compiler tests:**
@@ -138,8 +170,23 @@ uv pip compile adapters\claude\requirements-dev.txt --output-file requirements-d
 - **Syntax check:**
 
   ```powershell
-  & .\.venv\Scripts\python.exe -m compileall -q adapters\claude solidworks-compiler scripts
+  & .\.venv\Scripts\python.exe -m compileall -q adapters drawing_planner solidworks-compiler scripts
   ```
+
+- **Complete Python, MCP, schema, and prompt-pipeline suite:**
+
+  ```powershell
+  & .\.venv\Scripts\python.exe -m pytest -q adapters\claude\tests drawing_planner\tests
+  ```
+
+When changing drawing-planning prompts, create or version a pack under
+`drawing_planner/prompt_packs/`; do not edit a released pack in place. Keep all required
+placeholders, run the prompt-pipeline tests, and record the pack/envelope hashes for live
+comparisons. Prompt output must still pass semantic validation and disk-reopen verification.
+The external `$solidworks-plan-drawing-views` Skill is design reference material only: do not modify
+its `SKILL.md` workflow or anything under its `references/`, and do not add it as a runtime dependency.
+Preserve schema-1.4 `view_plan.json` byte-for-byte across validation and execution; never downgrade
+it to DrawingPlan 1.0.
 
 The Windows GitHub Actions workflow in `.github/workflows/ci.yml` installs
 `requirements-dev.lock` with hash verification and runs all three offline checks for pushes to

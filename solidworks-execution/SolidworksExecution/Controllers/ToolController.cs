@@ -169,6 +169,13 @@ namespace SolidworksExecution.Controllers
                 case "auto_center_marks":      return _service.AutoCenterMarks(request);
                 case "add_hole_callout":       return _service.AddHoleCallout(request);
                 case "add_section_view":       return _service.AddSectionView(request);
+                case "inspect_part_for_drawing": return _service.InspectPartForDrawing(request);
+                case "initialize_part_drawing_handoff": return _service.InitializePartDrawingHandoff(request);
+                case "validate_frozen_part_drawing_view_plan": return _service.ValidatePartDrawingViewPlan(request);
+                case "execute_part_drawing_view_plan": return _service.ExecutePartDrawingViewPlan(request);
+                case "verify_committed_part_drawing_view_plan": return _service.VerifyCommittedPartDrawingViewPlan(request);
+                case "execute_drawing_plan":   return _service.ExecuteDrawingPlan(request);
+                case "verify_drawing_plan":    return _service.VerifyDrawingPlan(request);
                 case "save_document":          return _service.SaveDocument(request);
                 case "export_document":        return _service.ExportDocument(request);
                 case "knit_surfaces":          return _service.KnitSurfaces(request);

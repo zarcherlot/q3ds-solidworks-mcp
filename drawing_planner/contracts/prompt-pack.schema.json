@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/prompt-pack-2.0.schema.json",
+  "title": "Q3DS drawing-planning prompt pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "description",
+    "output_contract",
+    "templates"
+  ],
+  "properties": {
+    "schema_version": { "const": "2.0" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "description": { "type": "string", "minLength": 20, "maxLength": 500 },
+    "output_contract": { "const": "solidworks-view-plan/1.4" },
+    "templates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "task"],
+      "properties": {
+        "system": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\.md$"
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\.md$"
+        }
+      }
+    }
+  }
+}

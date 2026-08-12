@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.dev/contracts/solidworks/view-plan-executor-capabilities-1.0.schema.json",
+  "title": "Q3DS SolidWorks ViewPlan executor capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "executor",
+    "executor_version",
+    "plan_protocol_id",
+    "plan_schema_version",
+    "view_types",
+    "elements"
+  ],
+  "properties": {
+    "protocol_id": { "const": "q3ds-solidworks-view-plan-capabilities" },
+    "schema_version": { "const": "1.0" },
+    "executor": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "executor_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "plan_protocol_id": { "const": "solidworks-view-plan" },
+    "plan_schema_version": { "const": "1.4" },
+    "view_types": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_view",
+        "projected_view",
+        "full_section",
+        "half_section",
+        "offset_section",
+        "aligned_section",
+        "broken_out_section",
+        "removed_section",
+        "detail_view",
+        "auxiliary_view"
+      ],
+      "properties": {
+        "model_view": { "$ref": "#/$defs/capability" },
+        "projected_view": { "$ref": "#/$defs/capability" },
+        "full_section": { "$ref": "#/$defs/capability" },
+        "half_section": { "$ref": "#/$defs/capability" },
+        "offset_section": { "$ref": "#/$defs/capability" },
+        "aligned_section": { "$ref": "#/$defs/capability" },
+        "broken_out_section": { "$ref": "#/$defs/capability" },
+        "removed_section": { "$ref": "#/$defs/capability" },
+        "detail_view": { "$ref": "#/$defs/capability" },
+        "auxiliary_view": { "$ref": "#/$defs/capability" }
+      }
+    },
+    "elements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["center_marks", "symmetry_centerlines", "view_labels"],
+      "properties": {
+        "center_marks": { "$ref": "#/$defs/capability" },
+        "symmetry_centerlines": { "$ref": "#/$defs/capability" },
+        "view_labels": { "$ref": "#/$defs/capability" }
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "verification"],
+      "properties": {
+        "status": { "enum": ["supported", "planned", "unsupported"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "verification": { "enum": ["none", "unit", "live"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "supported" } } },
+          "then": { "properties": { "verification": { "const": "live" } } }
+        }
+      ]
+    }
+  }
+}

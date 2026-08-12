@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "id": "native-v4",
+  "version": "4.0.0",
+  "description": "Repository-native view-selection expert policy extracted from the in-repository mechanical drawing prompt lab and narrowed to evidence-bound ViewPlan 1.4 selection, coverage, scale, and layout decisions.",
+  "output_contract": "solidworks-view-plan/1.4",
+  "templates": {
+    "system": "system.md",
+    "task": "task.md"
+  }
+}

@@ -9,7 +9,7 @@ from win32com.client import VARIANT, gencache
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "adapters" / "claude"))
-import server as S
+import legacy_server as S
 
 TARGET_SKETCH = "Sketch18"
 JUNK_SKETCH = "Sketch17"

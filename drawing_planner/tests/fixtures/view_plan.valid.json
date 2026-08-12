@@ -1,0 +1,340 @@
+{
+  "$schema": "./view-plan.schema.json",
+  "protocol_id": "solidworks-view-plan",
+  "schema_version": "1.4",
+  "plan_id": "VP-20260807-0001",
+  "created_at_utc": "2026-08-07T03:00:00Z",
+  "producer": {
+    "name": "drawing-view-expert-system",
+    "version": "1.0.0",
+    "ruleset_id": "single-part-manufacturing-v1",
+    "ruleset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "execution_policy": {
+    "on_integrity_mismatch": "fail",
+    "on_selection_ambiguity": "fail",
+    "on_unsupported_view": "fail",
+    "on_layout_violation": "fail",
+    "allow_source_model_write": false,
+    "allow_source_drawing_overwrite": false,
+    "transient_model_view_policy": "forbid"
+  },
+  "model_path": "C:\\work\\part.SLDPRT",
+  "model_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "drawing_path": "C:\\work\\part-empty.SLDDRW",
+  "drawing_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "geometry_report_path": "C:\\work\\model-geometry.json",
+  "geometry_report_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "readiness_report_path": "C:\\work\\drawing-readiness.json",
+  "readiness_report_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "standard_view_images": [
+    { "view": "front", "path": "C:\\work\\前视.png", "sha256": "5555555555555555555555555555555555555555555555555555555555555555" },
+    { "view": "back", "path": "C:\\work\\后视.png", "sha256": "6666666666666666666666666666666666666666666666666666666666666666" },
+    { "view": "left", "path": "C:\\work\\左视.png", "sha256": "7777777777777777777777777777777777777777777777777777777777777777" },
+    { "view": "right", "path": "C:\\work\\右视.png", "sha256": "8888888888888888888888888888888888888888888888888888888888888888" },
+    { "view": "top", "path": "C:\\work\\上视.png", "sha256": "9999999999999999999999999999999999999999999999999999999999999999" },
+    { "view": "bottom", "path": "C:\\work\\下视.png", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+  ],
+  "configuration": "Default",
+  "display_state": "Display State-1",
+  "sheet": {
+    "name": "Sheet1",
+    "format_name": "A3-Landscape",
+    "width_m": 0.42,
+    "height_m": 0.297
+  },
+  "projection_method": "first_angle",
+  "sheet_scale": {
+    "numerator": 1,
+    "denominator": 1
+  },
+  "main_view_id": "front",
+  "views": [
+    {
+      "id": "front",
+      "type": "model_view",
+      "purpose": "直接表达圆形外轮廓、孔口真形、孔数量和对称关系，并作为剖视母视图。",
+      "model_evidence": [
+        {
+          "report_path": "C:\\work\\model-geometry.json",
+          "json_pointer": "/part_box_m",
+          "finding": "该方向给出主要圆形外轮廓和孔口真形。"
+        },
+        {
+          "report_path": "C:\\work\\model-geometry.json",
+          "json_pointer": "/bodies/0/faces/0/loops",
+          "finding": "圆柱面B0F0的边界环在该方向形成直接可见的圆形开口。"
+        }
+      ],
+      "expressed_features": ["B0F0"],
+      "source": {
+        "kind": "model_document",
+        "reference": "model"
+      },
+      "orientation": {
+        "kind": "standard_model_view",
+        "standard_view": "front",
+        "roll_angle_rad": 0.0
+      },
+      "parent_view_id": null,
+      "alignment": "none",
+      "scale": 1.0,
+      "scale_reason": "1:1比例可辨识最小孔口，并满足内图框及尺寸带净空。",
+      "layout_reason": "布置于安全区左侧，为右侧剖视和上下尺寸带保留空间。",
+      "rejected_alternatives": [
+        {
+          "alternative": "top作为主视图",
+          "reason": "主要孔口投影不是真形，且不利于建立轴向剖切关系。"
+        }
+      ],
+      "display_style": {
+        "mode": "hidden_lines_removed",
+        "faceted": false,
+        "edges": true
+      },
+      "hidden_lines": "removed",
+      "tangent_edges": "removed",
+      "center_marks": [
+        {
+          "id": "cm-front-holes",
+          "feature_ids": ["B0F0"],
+          "selection_strategy": "visible_closed_circular_edges_by_feature",
+          "deduplicate_by": "projected_center",
+          "expected_count": 1,
+          "style": "single",
+          "use_document_defaults": true,
+          "show_lines": false,
+          "propagate": false,
+          "slot": false,
+          "color_rgb": [255, 0, 0]
+        }
+      ],
+      "symmetry_centerlines": [
+        {
+          "id": "cl-front-horizontal",
+          "axis": "horizontal",
+          "selection_strategy": "opposed_visible_linear_edges",
+          "minimum_edge_span_ratio": 0.6,
+          "purpose": "表达零件水平对称关系并提供尺寸基准。",
+          "color_rgb": [255, 0, 0],
+          "model_evidence": [
+            {
+              "report_path": "C:\\work\\model-geometry.json",
+              "json_pointer": "/part_box_m",
+              "finding": "模型包围盒与圆柱面B0F0的轴线共同支持水平对称中心线。"
+            }
+          ]
+        },
+        {
+          "id": "cl-front-vertical",
+          "axis": "vertical",
+          "selection_strategy": "opposed_visible_linear_edges",
+          "minimum_edge_span_ratio": 0.6,
+          "purpose": "表达零件垂直对称关系并提供尺寸基准。",
+          "color_rgb": [255, 0, 0],
+          "model_evidence": [
+            {
+              "report_path": "C:\\work\\model-geometry.json",
+              "json_pointer": "/part_box_m",
+              "finding": "模型包围盒与圆柱面B0F0的轴线共同支持垂直对称中心线。"
+            }
+          ]
+        }
+      ],
+      "section_definition": null,
+      "broken_out_definition": null,
+      "detail_definition": null,
+      "auxiliary_definition": null,
+      "position_sheet_m": [0.115, 0.165],
+      "placement_box": {
+        "x_min_m": 0.06,
+        "y_min_m": 0.105,
+        "x_max_m": 0.17,
+        "y_max_m": 0.225
+      },
+      "label": null
+    },
+    {
+      "id": "section_A_A",
+      "type": "full_section",
+      "purpose": "通过圆柱面B0F0轴线表达盲孔轴向轮廓、底部形状和深度，消除隐藏线歧义。",
+      "model_evidence": [
+        {
+          "report_path": "C:\\work\\model-geometry.json",
+          "json_pointer": "/bodies/0/faces/0/surface_parameters",
+          "finding": "圆柱面B0F0的surface_parameters提供唯一中心点和轴线，必须由穿轴剖视表达轴向内部轮廓。"
+        }
+      ],
+      "expressed_features": ["B0F0"],
+      "source": {
+        "kind": "parent_view",
+        "reference": "front",
+        "projection_direction": null
+      },
+      "orientation": {
+        "kind": "derived_from_parent"
+      },
+      "parent_view_id": "front",
+      "alignment": "projected",
+      "scale": 1.0,
+      "scale_reason": "继承主视图1:1比例，便于对应孔口和轴向轮廓。",
+      "layout_reason": "位于主视图右侧并保持投影关系，避开标题栏和技术要求区。",
+      "rejected_alternatives": [
+        {
+          "alternative": "显示隐藏线",
+          "reason": "不能直接表达盲孔底部形状，且违反内部轮廓强制表达要求。"
+        },
+        {
+          "alternative": "局部剖",
+          "reason": "全剖能够以更简单的切线完整覆盖轴向内部轮廓。"
+        }
+      ],
+      "display_style": {
+        "mode": "hidden_lines_removed",
+        "faceted": false,
+        "edges": true
+      },
+      "hidden_lines": "removed",
+      "tangent_edges": "removed",
+      "center_marks": [],
+      "symmetry_centerlines": [],
+      "section_definition": {
+        "cutting_plane_mode": "through_feature_axes",
+        "feature_ids": ["B0F0"],
+        "cutting_line_points_model_m": [],
+        "cutting_line_axis": "vertical",
+        "line_extension_ratio": 0.1,
+        "reverse_direction": false,
+        "section_depth_m": 0
+      },
+      "broken_out_definition": null,
+      "detail_definition": null,
+      "auxiliary_definition": null,
+      "position_sheet_m": [0.265, 0.165],
+      "placement_box": {
+        "x_min_m": 0.205,
+        "y_min_m": 0.105,
+        "x_max_m": 0.325,
+        "y_max_m": 0.225
+      },
+      "label": {
+        "text": "A-A",
+        "show": true,
+        "position_mode": "document_default"
+      }
+    }
+  ],
+  "feature_coverage": [
+    {
+      "feature_id": "B0F0",
+      "feature_class": "blind_spherical_bottom_recess",
+      "requirements": [
+        {
+          "requirement_id": "quantity_and_location",
+          "required_mode": "direct_opening_view",
+          "expression_mode": "direct_opening_view",
+          "satisfied_by": "front",
+          "status": "pass"
+        },
+        {
+          "requirement_id": "axial_profile_and_depth",
+          "required_mode": "section_through_axis",
+          "expression_mode": "section_through_axis",
+          "satisfied_by": "section_A_A",
+          "status": "pass"
+        }
+      ]
+    }
+  ],
+  "inner_frame": {
+    "bounds_sheet_m": {
+      "x_min_m": 0.01,
+      "y_min_m": 0.01,
+      "x_max_m": 0.41,
+      "y_max_m": 0.287
+    },
+    "safe_zone_sheet_m": {
+      "x_min_m": 0.02,
+      "y_min_m": 0.02,
+      "x_max_m": 0.4,
+      "y_max_m": 0.277
+    }
+  },
+  "clearance_policy": {
+    "frame_clearance_m": 0.01,
+    "single_layer_dimension_depth_m": 0.025,
+    "multi_layer_dimension_depth_m": 0.035
+  },
+  "dimension_zones": [
+    {
+      "id": "dz-front-bottom",
+      "view_id": "front",
+      "side": "bottom",
+      "dimension_layers": 2,
+      "required_depth_m": 0.035,
+      "bounds_sheet_m": {
+        "x_min_m": 0.06,
+        "y_min_m": 0.065,
+        "x_max_m": 0.17,
+        "y_max_m": 0.1
+      }
+    },
+    {
+      "id": "dz-section-bottom",
+      "view_id": "section_A_A",
+      "side": "bottom",
+      "dimension_layers": 2,
+      "required_depth_m": 0.035,
+      "bounds_sheet_m": {
+        "x_min_m": 0.205,
+        "y_min_m": 0.065,
+        "x_max_m": 0.325,
+        "y_max_m": 0.1
+      }
+    }
+  ],
+  "reserved_zones": [
+    {
+      "id": "rz-title-block",
+      "kind": "title_block",
+      "bounds_sheet_m": {
+        "x_min_m": 0.325,
+        "y_min_m": 0.01,
+        "x_max_m": 0.41,
+        "y_max_m": 0.075
+      },
+      "source": "blank-drawing-template:A3-Landscape/title-block"
+    }
+  ],
+  "decision_summary": {
+    "main_orientation_comparison": [
+      {
+        "candidate": "front",
+        "advantages": ["主要孔口为真形", "对称关系清晰", "可作为穿轴剖视母视图"],
+        "disadvantages": ["内部轴向轮廓仍需剖视补充"],
+        "selected": true
+      },
+      {
+        "candidate": "top",
+        "advantages": ["可见零件厚度方向外轮廓"],
+        "disadvantages": ["孔口不是真形", "孔系定位和对称关系不如front清晰"],
+        "selected": false
+      }
+    ],
+    "final_minimum_view_set": [
+      {
+        "view_id": "front",
+        "omission_impact": "将丢失孔口真形、孔位置和对称关系。"
+      },
+      {
+        "view_id": "section_A_A",
+        "omission_impact": "将无法直接表达盲孔底部、轴向内部轮廓和深度。"
+      }
+    ],
+    "scale_selection_process": "比较标准比例候选，1:1同时满足最小特征可辨识性、内图框安全区和35 mm尺寸带。",
+    "layout_strategy": "主视图置左、轴向全剖置右，保持投影关系并避开右下标题栏。",
+    "open_questions": []
+  },
+  "assumptions": [],
+  "open_questions": []
+}

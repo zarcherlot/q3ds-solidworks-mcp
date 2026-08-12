@@ -1,0 +1,14 @@
+{
+  "protocol_id": "q3ds-repository-contract-lock",
+  "schema_version": "1.0",
+  "contract": "solidworks-view-plan",
+  "contract_version": "1.4",
+  "repository_path": "drawing_planner/contracts/view-plan.schema.json",
+  "sha256": "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac",
+  "imported_at_utc": "2026-08-08T00:00:00Z",
+  "design_source": {
+    "skill": "solidworks-plan-drawing-views",
+    "relative_path": "references/view-plan-protocol/view-plan.schema.json"
+  },
+  "runtime_authority": "repository"
+}

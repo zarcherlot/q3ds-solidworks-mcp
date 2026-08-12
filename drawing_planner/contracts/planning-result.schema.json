@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "PlanningAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_sha256": {
+          "anyOf": [
+            { "pattern": "^[0-9a-f]{64}$", "type": "string" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Candidate Sha256"
+        },
+        "capability_manifest_version": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+              "type": "string"
+            },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Capability Manifest Version"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        }
+      },
+      "required": ["request_sha256"],
+      "title": "PlanningAudit",
+      "type": "object"
+    },
+    "PlanningValidation": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "enum": ["pass", "fail", "not_run"],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "integrity": {
+          "enum": ["pass", "fail", "not_run"],
+          "title": "Integrity",
+          "type": "string"
+        },
+        "issues": {
+          "default": [],
+          "items": { "$ref": "#/$defs/ValidationIssue" },
+          "title": "Issues",
+          "type": "array"
+        },
+        "layout": {
+          "enum": ["pass", "fail", "not_run"],
+          "title": "Layout",
+          "type": "string"
+        },
+        "schema_check": {
+          "enum": ["pass", "fail", "not_run"],
+          "title": "Schema Check",
+          "type": "string"
+        },
+        "semantics": {
+          "enum": ["pass", "fail", "not_run"],
+          "title": "Semantics",
+          "type": "string"
+        }
+      },
+      "required": ["integrity", "schema_check", "semantics", "coverage", "layout"],
+      "title": "PlanningValidation",
+      "type": "object"
+    },
+    "PromptProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "core_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Core Policy Sha256",
+          "type": "string"
+        },
+        "envelope_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "input_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Manifest Sha256",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "planner_profile": {
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "title": "Planner Profile",
+          "type": "string"
+        },
+        "prompt_pack_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Pack Sha256",
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "response_id": {
+          "anyOf": [
+            { "maxLength": 256, "type": "string" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Response Id"
+        },
+        "schema_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Schema Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "planner_profile",
+        "core_policy_sha256",
+        "prompt_pack_sha256",
+        "schema_sha256",
+        "input_manifest_sha256",
+        "envelope_sha256",
+        "provider",
+        "model"
+      ],
+      "title": "PromptProvenance",
+      "type": "object"
+    },
+    "PublishedPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "path": { "minLength": 1, "title": "Path", "type": "string" },
+        "plan_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": ["plan_id", "path", "sha256"],
+      "title": "PublishedPlan",
+      "type": "object"
+    },
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "gate": {
+          "enum": ["integrity", "schema", "semantics", "coverage", "layout"],
+          "title": "Gate",
+          "type": "string"
+        },
+        "json_pointer": {
+          "anyOf": [
+            { "maxLength": 1000, "type": "string" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Json Pointer"
+        },
+        "message": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": ["code", "gate", "message"],
+      "title": "ValidationIssue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "audit": { "$ref": "#/$defs/PlanningAudit" },
+    "execution_readiness": {
+      "enum": ["supported", "capability_blocked", "not_assessed"],
+      "title": "Execution Readiness",
+      "type": "string"
+    },
+    "plan": {
+      "anyOf": [
+        { "$ref": "#/$defs/PublishedPlan" },
+        { "type": "null" }
+      ]
+    },
+    "prompt_provenance": {
+      "anyOf": [
+        { "$ref": "#/$defs/PromptProvenance" },
+        { "type": "null" }
+      ]
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": ["published", "rejected"],
+      "title": "Status",
+      "type": "string"
+    },
+    "unsupported_capabilities": {
+      "default": [],
+      "items": { "type": "string" },
+      "title": "Unsupported Capabilities",
+      "type": "array"
+    },
+    "validation": { "$ref": "#/$defs/PlanningValidation" }
+  },
+  "required": [
+    "status",
+    "execution_readiness",
+    "validation",
+    "plan",
+    "prompt_provenance",
+    "audit"
+  ],
+  "title": "PlanningResult",
+  "type": "object"
+}

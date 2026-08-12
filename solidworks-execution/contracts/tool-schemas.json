@@ -811,6 +811,89 @@
         },
         "output": "-> see execution-response.json; result_geometry reports the deleted study name."
     },
+    "inspect_part_for_drawing": {
+        "description": "Read-only drawing-source preflight. Opens one absolute .SLDPRT path read-only, reports its exact configuration names, localized standard-view names, and model bounding box, then restores the previous active document.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "model_path": "string (required, existing absolute .SLDPRT path)"
+            }
+        },
+        "output": "-> see execution-response.json; read-only result_geometry contains source metadata in meters."
+    },
+    "initialize_part_drawing_handoff": {
+        "description": "PRIVATE SEMANTIC INITIALIZER TRANSACTION: inspect one saved .SLDPRT read-only, create and read-only-reopen a blank drawing from one .DRWDOT, capture six real standard-view PNGs, freeze topology/readiness reports, and publish drawing-planning-handoff.json last without overwrite.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "model_path": "string (required, existing absolute .SLDPRT path)",
+                "drawing_template_path": "string (required, existing absolute .DRWDOT path)",
+                "publication_directory": "string (required, existing absolute directory)",
+                "image_width": "integer (optional, default 1024, range 320..2000)",
+                "image_height": "integer (optional, default 768, range 240..2000)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains the immutable manifest path/hash, all initializer artifact paths, frozen drawing context, and source-model read-only evidence."
+    },
+    "validate_frozen_part_drawing_view_plan": {
+        "description": "PRIVATE COM-FREE EXECUTOR ENTRY: independently validate one structured solidworks-view-plan 1.4 object against the locked repository Schema and the native executable capability subset. This operation does not open or start SolidWorks and does not translate to DrawingPlan 1.0.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, complete solidworks-view-plan schema 1.4 candidate; strings and unknown request parameters are rejected)"
+            }
+        },
+        "output": "-> see execution-response.json; contract-valid results include the locked Schema hash, canonical plan hash, plan identity, view types/count, execution_readiness supported/capability_blocked, and solidworks_contacted=false."
+    },
+    "execute_part_drawing_view_plan": {
+        "description": "PRIVATE MUTATING EXECUTOR ENTRY: compile and transactionally execute one complete frozen ViewPlan 1.4 object to a new .SLDDRW. Re-hashes ten inputs before COM, saves/closes/reopens read-only, verifies every persisted view and the sheet contract, then commits the drawing and audit sidecar without overwrite.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, complete solidworks-view-plan schema 1.4 object)",
+                "output_path": "string (required, absolute new .SLDDRW path; sidecar must also be new)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains plan/artifact hashes, persistent handles, and in-memory plus read-only-reopen snapshots."
+    },
+    "verify_committed_part_drawing_view_plan": {
+        "description": "PRIVATE READ-ONLY EXECUTOR ENTRY: revalidate frozen inputs, strict audit sidecar, and drawing hash, then independently open the committed ViewPlan .SLDDRW read-only and verify persisted view/sheet contracts without changing state_version.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, complete solidworks-view-plan schema 1.4 object)",
+                "output_path": "string (required, existing absolute .SLDDRW path with transaction sidecar)"
+            }
+        },
+        "output": "-> see execution-response.json; result_geometry contains the independent read-only snapshot, drawing hash, plan hash, and audit-sidecar path."
+    },
+    "execute_drawing_plan": {
+        "description": "INTERNAL EXECUTOR ENTRY: validate and transactionally execute one frozen schema-1.0 part drawing plan. Creates views through private atomic COM operations, rebuilds, saves to a same-directory transaction file, closes, reopens read-only, verifies, then atomically commits the .SLDDRW plus a verification sidecar.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "string (required, canonical JSON that must validate against drawing-plan.schema.json; object also accepted by the executor for compatibility)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains plan/artifact hashes, persistent view handles, and both in-memory and disk-reopen snapshots."
+    },
+    "verify_drawing_plan": {
+        "description": "INTERNAL EXECUTOR ENTRY: open the plan output .SLDDRW read-only and verify view count, persistent identity/name, parentage, model/configuration, scale, position, display mode, lock state, sheet bounds, and overlap constraints.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "string (required, canonical JSON that must validate against drawing-plan.schema.json; object also accepted by the executor for compatibility)"
+            }
+        },
+        "output": "-> see execution-response.json; read-only result_geometry is the verification snapshot and artifact hash."
+    },
     "search_solidworks_references": {
         "description": "ADAPTER-ONLY: search the locally indexed SolidWorks reference books by page and return short cited passages. Read-only; source PDFs and the index stay outside the repository (gitignored .solidpilot/).",
         "input": {

@@ -4,7 +4,7 @@ import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "adapters" / "claude"))
-import server as S
+import legacy_server as S
 
 
 def call(tool, **params):

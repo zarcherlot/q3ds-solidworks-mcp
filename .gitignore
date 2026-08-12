@@ -42,6 +42,12 @@ outputs/
 captures/
 .solidpilot/
 
+# Local SolidWorks host preflight and skill-update staging artifacts.
+.host-preflight/
+_host_preflight/
+_host_preflight_section/
+.skill-update-staging/
+
 # Local CAD and rendered verification artifacts.
 *.SLDPRT
 *.SLDASM

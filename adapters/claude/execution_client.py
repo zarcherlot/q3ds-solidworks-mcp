@@ -9,9 +9,12 @@ from config import (
     STATE_ENDPOINT,
     HEALTH_ENDPOINT,
     ENSURE_ENDPOINT,
+    HOST_BOOTSTRAP_ENDPOINT,
     HTTP_TIMEOUT,
     SIMULATION_TIMEOUT,
+    VIEW_PLAN_TIMEOUT,
     ENSURE_TIMEOUT,
+    HOST_BOOTSTRAP_TIMEOUT_MARGIN,
     EXECUTION_EXE_PATH,
     SERVER_SPAWN_TIMEOUT,
 )
@@ -32,10 +35,12 @@ _spawn_lock = threading.Lock()
 _client = httpx.Client(
     timeout=HTTP_TIMEOUT,
     limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
+    trust_env=False,  # the execution bridge is loopback-only and must never use a host proxy
 )
 _ensure_client = httpx.Client(
     timeout=ENSURE_TIMEOUT,
     limits=httpx.Limits(max_connections=2, max_keepalive_connections=1),
+    trust_env=False,
 )
 
 
@@ -185,7 +190,18 @@ def call_tool(tool_name: str, operation_id: str, state_version: int, params: dic
 
     _log(f"-> {tool_name} op={operation_id} sv={state_version}")
 
-    request_timeout = SIMULATION_TIMEOUT if tool_name == "sim_mesh_and_run" else HTTP_TIMEOUT
+    if tool_name == "sim_mesh_and_run":
+        request_timeout = SIMULATION_TIMEOUT
+    elif tool_name in {
+        "execute_drawing_plan",
+        "verify_drawing_plan",
+        "execute_part_drawing_view_plan",
+        "verify_committed_part_drawing_view_plan",
+        "initialize_part_drawing_handoff",
+    }:
+        request_timeout = VIEW_PLAN_TIMEOUT
+    else:
+        request_timeout = HTTP_TIMEOUT
 
     def _do():
         return _client.post(EXECUTE_ENDPOINT, json=payload, timeout=request_timeout)
@@ -251,3 +267,59 @@ def ensure_ready() -> dict:
         f"swLaunched={body.get('swLaunched')} doc={body.get('activeDocument')}"
     )
     return body
+
+
+def bootstrap_host(payload: dict) -> dict:
+    """Run the private repository HostBootstrap lifecycle endpoint.
+
+    This endpoint is intentionally separate from the executor-shaped tool dispatcher: the C#
+    service launches a controlled repository helper and Python only sends validated semantic
+    options. Structured blockers are returned to the MCP caller instead of being collapsed into
+    transport errors.
+    """
+    mode = payload.get("mode")
+    com_timeout = int(payload.get("com_timeout_seconds", 180))
+    regserver_timeout = int(payload.get("regserver_timeout_seconds", 120))
+    if mode == "inspect":
+        request_timeout = max(60.0, HTTP_TIMEOUT)
+    elif mode == "verify":
+        request_timeout = com_timeout + HOST_BOOTSTRAP_TIMEOUT_MARGIN
+    elif mode == "repair":
+        request_timeout = (
+            (com_timeout * 2) + regserver_timeout + HOST_BOOTSTRAP_TIMEOUT_MARGIN
+        )
+    else:
+        raise ValueError("mode must be inspect, verify, or repair")
+
+    _log(f"-> host/bootstrap mode={mode}")
+
+    def _do():
+        return _client.post(
+            HOST_BOOTSTRAP_ENDPOINT,
+            json=payload,
+            timeout=request_timeout,
+        )
+
+    try:
+        response = _request_with_autostart(_do, "host/bootstrap")
+    except httpx.TimeoutException as exc:
+        _log(f"<- host/bootstrap TIMEOUT after {request_timeout}s")
+        raise ExecutionLayerError(
+            f"Host bootstrap request timed out after {request_timeout}s."
+        ) from exc
+
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            f"Host bootstrap returned non-JSON HTTP {response.status_code}."
+        ) from exc
+    if response.status_code == 200:
+        _log(f"<- host/bootstrap {body.get('status')} mode={mode}")
+        return body
+    if response.status_code in {400, 409, 500} and body.get("status") == "blocked":
+        _log(f"<- host/bootstrap BLOCKED HTTP_{response.status_code}")
+        return body
+    raise ExecutionLayerError(
+        f"Unexpected HTTP {response.status_code} from /host/bootstrap: {response.text}"
+    )

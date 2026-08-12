@@ -17,11 +17,18 @@ SolidPilot lets an AI model work with SolidWorks at the **CAD feature level**. T
 
 SolidPilot is **not** a Claude-only plugin; it is **a general bridge between SolidWorks and AI.** Because MCP is an open standard, any MCP-capable AI client can connect — alongside Claude, OpenClaw, OpenAI-based agents, and local LLMs are also targeted. The architecture was designed for this extensibility **from the start**: the execution and planner layers do not know which client is calling them; a thin adapter per client reuses a shared bridge core. `adapters/claude/` is the current implementation; supporting a new AI client means only adding a new adapter.
 
-> Upstream repository: `eyfel/mcp-server-solidworks` · Public name: **SolidPilot** · Target version: **SolidWorks 2026**
+> Upstream repository: `eyfel/mcp-server-solidworks` · Public name: **SolidPilot** · Legacy target: **SolidWorks 2026** · Semantic drawing path live-verified on **SolidWorks 2025 SP5**
 
 ## Fork additions
 
-The fork currently exposes **58 MCP tools**. Its improvement passes add native sketch text,
+The default MCP server now exposes **9 engineering-semantic tools** and publishes the complete
+structured ViewPlan 1.4 and `PlanningRequest` input schemas in the MCP tool catalog. The historical **58-tool**
+surface is retained as `adapters/claude/legacy_server.py` for explicit development diagnostics;
+it is not the agent-facing default. Atomic sketch, feature, view, selection, rebuild, save, and
+COM operations remain available inside the execution service, where they can be serialized and
+verified without spending model context on API plumbing.
+
+The fork's earlier improvement passes add native sketch text,
 single- and multi-view model screenshots, compact JSON responses, batched execution, compact
 model inspection, revolved cuts, persistent HTTP connections, multi-region boss recovery, higher
 volume precision, clearer diagnostics, a first native assembly slice (insert components,
@@ -55,8 +62,9 @@ flowchart TD
     U(["User + AI client<br/>Claude · OpenClaw · OpenAI · local LLM"])
 
     subgraph ADAPT["adapters/* — MCP bridge · MCP BOUNDARY = top"]
-        LOW["58 MCP tools<br/>sketch · features · surfaces · assembly · simulation · batch · inspect · drawing · capture"]
-        RIR["rebuild_from_ir · save_analysis · compare_parts"]
+        LOW["9 semantic MCP tools (default)<br/>host preflight · status · initialize · ViewPlan 1.4"]
+        LEG["legacy_server.py (explicit diagnostics)<br/>historical 58-tool surface"]
+        RIR["legacy: rebuild_from_ir · save_analysis · compare_parts"]
         SFG["submit_feature_graph<br/>forward single tool"]
     end
 
@@ -73,9 +81,11 @@ flowchart TD
     SW(["SolidWorks · COM"])
 
     %% Working today (thick)
-    U == "MCP: low-level tools (primary today)" ==> LOW
-    LOW == "REST" ==> EX
-    U == "MCP: rebuild_from_ir (reverse round-trip — WORKS)" ==> RIR
+    U == "MCP: engineering intent" ==> LOW
+    LOW == "REST: one semantic transaction" ==> EX
+    U -. "explicit legacy launch only" .-> LEG
+    LEG -. "REST" .-> EX
+    U -. "explicit legacy adapter: reverse round-trip" .-> RIR
     IR ==> CO
     RIR == "REST" ==> CO
     CO == "REST" ==> EX
@@ -89,7 +99,10 @@ flowchart TD
     SFG -. "REST" .-> CO
 ```
 
-Read the diagram by line style: a **thick line works today**, a **dashed line is planned**. Two MCP doors are live — the 58-tool MCP surface (the primary path today), and **`rebuild_from_ir`**, which drives the **real** deterministic compiler to reproduce a part from its Feature Graph IR. The dotted reverse arrow is the discovery step: `analyze_model`/`analyze_drawing` read an existing part so an IR can be proposed for it. The only dashed (still-planned) piece is the *forward* collapse — a single `submit_feature_graph` tool that would replace the low-level surface for building from scratch; it runs through the same compiler.
+Read the diagram by line style: a **thick line works today**, a **dashed line is planned**, and a
+dotted line is an explicit compatibility/diagnostic path. The default MCP boundary is deliberately
+small and semantic. The old broad adapter remains available to maintain the existing compiler and
+specialized workflows while those domains are migrated to the same transactional pattern.
 
 The system has four layers:
 
@@ -100,17 +113,245 @@ The system has four layers:
 | Execution | `solidworks-execution/` | C# (.NET Framework 4.8.1) | The **only** layer that touches the SolidWorks COM API. The single source of truth for CAD state. |
 | Adapter | `adapters/claude/` | Python (FastMCP) | MCP protocol bridge. The MCP boundary sits at the **top** of the system. |
 
+`adapters/codex/server.py` is a thin Codex-compatible launcher for the same shared semantic server;
+it does not fork engineering behavior or duplicate tool implementations. The historical
+`adapters/claude/` name is retained for compatibility.
+
 **MCP sits at the top:** it is the boundary where the AI client meets the system, not an internal transport. Everything below the IR is deterministic and communicates over plain REST.
 
 The `adapters/` layer is provider-specific and replaceable. Because the execution and planner layers do not know which client is calling, adding a new AI client (OpenClaw, OpenAI, a local LLM, etc.) means only writing a new adapter — the IR, compiler, and execution layers stay unchanged.
 
-**Current vs. target:** the Feature Graph IR and the deterministic compiler now **exist and work** — the compiler (`solidworks-compiler/pycompiler`, lowering + a v0 reference resolver) has reproduced **real production parts** end-to-end from their IR to a `verified` match (see Project Status). It is reached today through the **`rebuild_from_ir`** tool (the reverse/reproduce direction). What is still ahead is the *forward* collapse: replacing the low-level surface with a single `submit_feature_graph` tool for building from scratch, and a **durable reference resolver** that survives edits (the make-or-break module). Until then the low-level MCP tools remain the primary path for building.
+**Current vs. target:** the Feature Graph IR and deterministic compiler exist and have reproduced
+real parts, but that compiler currently documents a non-transactional failure model. It is therefore
+reachable only through the explicit legacy adapter. A future semantic part-build transaction must
+add rollback, durable references, save/reopen verification, and objective acceptance before it can
+join the default MCP surface.
 
 ---
 
-## Tool List
+## Agent-facing semantic tool surface
 
-The system currently exposes **43 tools**; a contract test keeps the adapter and execution contract in exact sync (see [CONTRIBUTING.md](CONTRIBUTING.md)). Low-level operations remain available, while `execute_batch` and `inspect_model` reduce round trips for normal agent workflows. All lengths are in meters (SolidWorks internal units).
+The default entry point, `adapters/claude/server.py`, exposes ten engineering-semantic tools; a
+contract test fails if an executor-shaped operation leaks across the MCP boundary. All lengths are
+meters.
+
+- `solidworks_status` — read readiness without side effects, or explicitly launch SolidWorks.
+- `inspect_solidworks_host` — run the repository-owned native x64 installation, registry,
+  template, and filesystem preflight without launching SolidWorks or attempting repair.
+- `bootstrap_solidworks_host` — run isolated bounded COM activation verification; registration
+  repair is explicit-only and requires the Execution Service to already be elevated. See
+  [the host-bootstrap integration contract](docs/HOST_BOOTSTRAP_INTEGRATION.md).
+- `inspect_part_for_drawing` — read-only source preflight with exact configurations, localized
+  standard-view names, and bounding box; restores the previous active document.
+- `initialize_part_drawing_handoff` — transactionally create a verified blank drawing, readiness
+  and topology reports, six real standard-view images, and a manifest-last immutable handoff. All
+  SolidWorks COM, rollback, save/close/read-only-reopen checks, and hashing remain in C#.
+- `plan_part_drawing_views` — call the repository PlannerEngine through MCP Sampling, apply all
+  deterministic ViewPlan 1.4 gates, assess current executor capability, and atomically publish
+  `view_plan.json` beside the verified initializer artifacts without launching SolidWorks.
+- `publish_validated_part_drawing_view_plan` — accept exactly one complete candidate from an
+  explicit upper-layer planning Skill, rerun the same repository gates and capability assessment,
+  and atomically publish without overwrite or unverifiable model/prompt provenance.
+- `validate_part_drawing_view_plan` — rerun the five deterministic gates and capability assessment,
+  then ask the private C# validator to independently confirm the exact schema and executable subset
+  without contacting SolidWorks or changing executor state.
+- `create_part_drawing_from_view_plan` — transactionally execute a supported complete ViewPlan 1.4
+  against a new output path after rebinding it to the original `PlanningRequest` and re-hashing all
+  ten frozen artifacts; commit only after save, close, read-only reopen, and exact persisted readback.
+- `verify_part_drawing_view_plan` — independently verify an existing committed drawing and audit
+  sidecar read-only; successful verification never increments executor state.
+
+ViewPlan 1.4 is the only drawing protocol published by the default MCP. Codex and other clients
+receive its complete field, enum, range, discriminator, and nested-view schema during tool discovery.
+The tools pass the unchanged ViewPlan object directly to repository-native private C#
+operations; they never translate it to `DrawingPlan` 1.0. Unsupported section/detail/auxiliary
+variants and center elements return `capability_blocked` before COM, so frozen
+geometry, hashes, coverage, and layout constraints cannot be silently dropped.
+
+The legacy [drawing-plan.schema.json](solidworks-execution/contracts/drawing-plan.schema.json) is
+published only by the explicit DrawingPlan 1.0 compatibility server; it is not published by the
+default MCP. It rejects unknown fields, ambiguous/forward parent references, diagonal projected-view placement,
+invalid units/ranges, and unsafe paths. Verification reads back view identity, parentage, referenced
+model/configuration/display state, scale, position, display/tangent-edge modes, position lock,
+sheet bounds, and overlap clearance. A successful create also writes
+`<output>.verification.json` with plan/artifact hashes and the post-reopen snapshot.
+
+## Repository-owned drawing-view planning migration
+
+The production target keeps planning and execution inside this repository:
+
+```text
+semantic MCP
+        -> repository PlannerEngine or explicit upper-layer planning Skill
+        -> validated schema-1.4 view_plan.json
+        -> repository execution_client.py
+        -> repository C# Execution Service
+        -> private atomic COM operations + persisted verification
+```
+
+- The staged implementation and acceptance gates are documented in
+  [VIEW_PLANNING_INTEGRATION_PLAN.md](docs/VIEW_PLANNING_INTEGRATION_PLAN.md).
+- `$solidworks-plan-drawing-views` is a design/rules reference only; it is not part of the target
+  production runtime and its files are not modified by this repository.
+- `drawing_planner/planner_engine.py` owns model-call, deterministic-validation, capability-
+  assessment and atomic-publication orchestration.
+- `drawing_planner/capabilities/current.json` truthfully records what the repository C# executor can
+  implement and verify. Planned or unsupported behavior produces `capability_blocked`; it is never
+  downgraded.
+- `drawing_planner/prompt_packs/<pack-id>/` contains tunable prompts. Each immutable pack has a
+  strict manifest, semantic version, system/task templates, required placeholders, and a SHA-256.
+  Packs remain subordinate to repository-owned core policy and contracts.
+- `drawing_planner/prompt_pipeline.py` performs deterministic template injection. It rejects
+  traversal, unknown fields/placeholders, missing contract inputs, malformed versions, and unsafe
+  target names; it reads the SHA-256-locked repository ViewPlan 1.4 contract and never calls a model
+  or SolidWorks.
+- `drawing_planner/planning_prompt_compiler.py` is the production adapter used by PlannerEngine. It
+  accepts only allow-listed profiles, revalidates the complete nine-artifact handoff before model
+  use, and binds the manifest, core policy, prompt pack, schema, and envelope hashes into provenance.
+- For prompt experiments, use the explicit `debug` planner profile and provide
+  `debug_prompt_directory` in the `PlanningRequest`, or configure the local
+  `PLANNER_DEBUG_PROMPT_DIRECTORY` environment variable. An explicit request path takes precedence.
+  The directory must contain `skill.md` and `references/reference-map.md`. Debug planning first
+  performs a schema-constrained, non-executing reference-routing sample against the verified
+  handoff and six standard-view images. The repository validates the returned category, feature,
+  and deferred Markdown paths against the map, then loads only `skill.md`, the map, all mapped base
+  references, and the selected rules. PNG/JPG/JPEG links on the same map row as a selected Markdown
+  rule are attached to the final sampling request as verified debug reference images; they remain
+  separate from the nine-artifact handoff. The selected text, image list, media types, and SHA-256
+  values are bound into the final prompt envelope. Deferred rules require the explicit structured user requirement
+  `enable_deferred_tolerancing_rules: true`. `production` rejects this field, performs no routing sample, and continues to
+  use only the repository pack.
+- The repository PlannerEngine requires exactly one schema-constrained ViewPlan candidate through
+  its non-executing MCP Sampling submission tool. Debug reference routing is a separate preliminary
+  structured response and cannot publish a plan. The provider-neutral gateway pins provider/model
+  identity and cannot call execution tools, Skills, CLIs, or COM operations.
+- The semantic `plan_part_drawing_views` entry point supplies the exact response Schema as its sole
+  MCP Sampling submission tool and injects the hash-verified handoff manifest, readiness/geometry
+  JSON and six standard-view images. Client-provided Sampling with tools is preferred. For clients
+  without that capability, an opt-in server-side fallback can call an OpenAI-compatible Chat
+  Completions endpoint using `PLANNER_SAMPLING_API_KEY` and `PLANNER_SAMPLING_MODEL` (plus optional
+  `PLANNER_SAMPLING_BASE_URL`). Set `PLANNER_SAMPLING_FALLBACK_ENABLED=true` in the ignored
+  `adapters/claude/.env`; it is disabled by default and never implicitly reuses `OPENAI_API_KEY`.
+  Without either a capable client or a configured fallback, planning fails explicitly and no text
+  response or partial candidate is published. The fallback endpoint/model must accept image inputs
+  and required function/tool calling.
+- Clients that deliberately avoid Sampling may explicitly invoke
+  `$solidworks-create-drawing-views`. The current Codex model reads the immutable `native-v4` pack,
+  ViewPlan Schema, verified handoff reports and six images, generates exactly one candidate, and
+  submits it directly to `publish_validated_part_drawing_view_plan`. The Skill never writes or
+  repairs a candidate; the semantic MCP still owns validation, capability assessment, no-overwrite
+  publication, creation and verification. This route needs no separate planning API or key.
+- `RepositoryViewPlanValidator` applies the fail-closed gates in a fixed order: handoff integrity,
+  Draft 2020-12 Schema (including RFC 3339 formats), engineering semantics, feature coverage, then
+  sheet layout. An integrity or Schema failure marks every dependent gate `not_run`; no invalid
+  candidate reaches capability assessment or publication.
+- The selected planner profile deterministically derives the accepted `producer` name, prompt-pack
+  version, ruleset ID and immutable ruleset SHA-256. The validator recomputes that contract from the
+  repository prompt pack, so model output cannot claim an untrusted ruleset identity.
+- The C# Execution Service independently validates the complete structured ViewPlan with its
+  COM-free private `validate_frozen_part_drawing_view_plan` entry. Its runtime Schema is linked from the
+  repository contract and SHA-256 locked; successful parsing does not imply view-execution support,
+  start SolidWorks, or change executor state.
+- The B2 private execution slice compiles schema-valid plans into a topologically ordered,
+  fail-closed basic-view contract, then creates localized standard or exact named model views and
+  uniquely parented projected views through native SolidWorks APIs. SolidWorks 2025 SP5 in-memory
+  readback is verified. Explicit bases use an executor-owned read-only model and a fully restored
+  temporary named-view transaction. The B3 no-overwrite disk transaction re-hashes ten frozen
+  inputs before COM, saves and closes a new drawing, performs complete read-only reopen verification,
+  writes a SHA-256 audit sidecar, and rolls back partial output on failure. A twelve-case SolidWorks
+  2025 SP5 persisted matrix passed transaction-owned and independent reopen checks, so the public
+  capability registry reports `model_view` and `projected_view` as `supported/live`.
+- `drawing_planner/scripts/compile_prompt.py --request <request.json> --output <envelope.json>`
+  exposes the same compiler to external orchestrators and refuses output overwrite.
+- B4 registers the repository-native ViewPlan validate/create/verify tools as the only schema-1.4
+  execution path on the default MCP surface. D3 removed the superseded external bridge files and
+  Skill/CLI prompt path after the native validation/execution matrix passed.
+- C1 adds native `full_section`, `half_section`, `offset_section`, `aligned_section`, and
+  `removed_section` execution inside the private C# transaction. Frozen feature IDs and axes are
+  resolved before COM; section paths, labels, parentage, placement, segment structure, normalized
+  line geometry, partial/aligned/reversed flags, scale, and depth semantics are read back before
+  save, after close/read-only reopen, and during independent verification. The SolidWorks 2025 SP5
+  five-type persisted matrix passed, so capability manifest 0.6.0 reports these view types and
+  section labels as `supported/live`.
+- C2 adds native circular `broken_out_section` and parent-derived circular `detail_view` execution.
+  The private executor freezes and checks local-view geometry before COM, uses native
+  `CreateBreakOutSection`/`CreateDetailViewAt4`, and verifies boundary/profile geometry, depth,
+  parentage, labels, styles, outlines, scale, placement, and persistent handles before save, after
+  close/read-only reopen, and during independent verification. SolidWorks 2025 SP5 passed the
+  two-type persisted matrix plus a jagged-detail intensity case, so capability manifest 0.7.0
+  reports both C2 view types as `supported/live`; unsupported broken-out reversal still fails
+  before COM without downgrade.
+- C3 adds native parent-derived `auxiliary_view` execution with unique frozen visible-edge
+  resolution. The private executor verifies parent linkage, aligned/detached placement, scale,
+  label and arrow readback, and derives the actual flip state from the persisted orientation
+  transform because SolidWorks does not update `IView.FlipView`. SolidWorks 2025 SP5 passed both
+  alignment modes and both flip directions through transaction-owned and independent reopen, so
+  capability manifest 0.8.0 reports auxiliary views as `supported/live`. The native API ignores
+  `show_arrow=false` and has no visibility setter; at the C3 checkpoint, hidden arrows and explicit
+  auxiliary-label placement were therefore capability-blocked before COM.
+- C4 adds feature-bound native center marks and horizontal/vertical symmetry centerlines. Frozen
+  geometry resolves circular feature edges before COM; native style/group/count, attached linear
+  edges, color, document defaults, and absence of unplanned center elements are verified before
+  save, after close/read-only reopen, and during independent verification. It also adds strict
+  explicit detail-label placement using bounded native direction/readback inversion and explicit
+  auxiliary-label placement through a deterministic leaderless native note owned by the parent
+  view. The auxiliary renderer preserves the native projection arrow, clears only its
+  non-positionable text, copies its text format, and strictly verifies owner, name, visibility,
+  text, format, and position. SolidWorks 2025 SP5 passed persisted center-element, detail-label,
+  and aligned plus detached/flipped auxiliary-label cases through transaction-owned and independent
+  reopen. Capability manifest 1.0.0 reports all C4 elements as `supported/live`; hidden auxiliary
+  arrows remain capability-blocked because SolidWorks ignores `show_arrow=false` and exposes no
+  visibility setter.
+- D1 provides one repository-owned offline/integration/live matrix runner. It executes fixed
+  Planner, compiler, semantic MCP, Python bytecode, and 45 private C# ViewPlan contracts, then
+  builds the x64 Execution Service and runs 13 real SolidWorks cases from read-only `validation/`
+  inputs. Every case writes logs, hashes, return codes, new drawings, and audit sidecars only under
+  a fresh output directory. On SolidWorks 2025 SP5, all 13 cases passed in-memory, save/close/
+  read-only-reopen, and independent verification with identical normalized fingerprints; the
+  temporary service exited cleanly and the complete `validation/` tree remained byte-identical.
+  Hidden auxiliary arrows remain fail-closed because SolidWorks ignores `show_arrow=false`.
+- E0 closes the release candidate on the post-D4 codebase. The final six-case matrix passed all
+  offline, integration, and live lanes; its SolidWorks 2025 SP5 lane passed 13/13 persisted cases.
+  A separate real stdio MCP smoke then discovered only the three DrawingPlan 1.0 compatibility
+  tools and passed validate/create/verify with executor state `0 -> 1 -> 1`. Both runs preserved
+  the four-file `validation/` tree at SHA-256
+  `0638a043ab5bcec518a6437f879b4705f33fa0ad36b25676f4e34b47aa759d7e`.
+  See [the E0 release-candidate report](docs/E0_RELEASE_CANDIDATE_REPORT.md).
+The production profile uses the immutable `native-v4` view-selection-expert pack and prompt-request contract 3.0. The
+retired `baseline` pack remains unchanged as migration history but is not runtime-selectable. To add
+or tune a prompt set, create a new pack ID/version from `native-v4` and replace its Markdown
+templates while retaining the compiler-owned placeholders. Prompt text does not belong in
+`AGENTS.md`, tool descriptions, or the C# executor.
+
+## Explicit DrawingPlan 1.0 compatibility
+
+Native DrawingPlan 1.0 callers can explicitly start
+`adapters/claude/drawing_plan_compat_server.py`. It exposes only
+`validate_part_drawing_plan`, `create_part_drawing`, and `verify_part_drawing`, with the complete
+structured 1.0 Schema. It never accepts or converts ViewPlan 1.4 and routes create/verify only to
+the existing private C# DrawingPlan transactions. This server is deliberately absent from the
+default `.codex/config.toml`.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\start_drawing_plan_compat_mcp.ps1
+```
+
+Maintainers can reproduce the real stdio MCP validate/create/verify smoke with
+`scripts/run_drawing_plan_compat_live_smoke.py`; it requires a fresh output directory and a built
+x64 Execution Service, owns only the child processes it starts, and verifies that `validation/`
+remains byte-identical.
+
+For an explicit Codex registration:
+
+```powershell
+codex mcp add solidpilot-drawing-plan-v1 -- powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\src\solidpilot\scripts\start_drawing_plan_compat_mcp.ps1
+```
+
+## Legacy diagnostic surface
+
+`adapters/claude/legacy_server.py` retains the earlier 58-tool MCP adapter for maintainers and
+compiler compatibility. It is intentionally not used in the registration examples below. The
+private execution operations it exercises include the following areas:
 
 ### Document and lifecycle
 - `ensure_ready` — launches SolidWorks via COM and attaches if it is closed (does not open a document).
@@ -228,7 +469,8 @@ Example batch payload:
 
 ### Requirements
 
-- Windows and **SolidWorks 2026**.
+- Windows with **SolidWorks 2025 SP5 or 2026**. The semantic drawing transaction is live-verified
+  on 2025 SP5; several legacy modeling/simulation operations were originally developed on 2026.
 - **.NET Framework 4.8.1 Developer Pack** and MSBuild for the execution layer (available with Visual Studio 2022).
 - **Python 3.12** for the hash-pinned Windows dependency lock and CI parity.
 - An MCP client that can launch a local stdio server, such as Claude Desktop or Codex.
@@ -253,10 +495,14 @@ Contributors should install `requirements-dev.lock` instead; see [CONTRIBUTING.m
 Build the solution:
 
 ```powershell
+$env:SOLIDWORKS_INTEROP_DIR = "D:\SolidWorks 2025\SOLIDWORKS"
+$env:SOLIDWORKS_API_REDIST_DIR = "D:\SolidWorks 2025\SOLIDWORKS\api\redist"
 & "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" solidworks-execution\SolidworksExecution.sln /t:Build /p:Configuration=Debug
 ```
 
-Adjust `Community` if a different Visual Studio edition is installed. The adapter automatically
+Set the two Interop variables only when SolidWorks is not installed in the standard `C:\Program
+Files\SOLIDWORKS Corp\SOLIDWORKS` location. Adjust `Community` if a different Visual Studio edition
+is installed. The project compiles x64 because SolidWorks COM is x64. The adapter automatically
 starts the built execution server when `http://localhost:5000/health` is unavailable. To start it
 yourself for troubleshooting:
 
@@ -271,6 +517,9 @@ Run the stdio adapter directly for a smoke test:
 ```powershell
 & .\.venv\Scripts\python.exe .\adapters\claude\server.py
 ```
+
+Maintainers can explicitly launch `adapters\claude\legacy_server.py` for the historical broad
+diagnostic surface. Do not register that entry point for normal agent use.
 
 The adapter connects to the execution layer at `EXECUTION_BASE_URL` (default
 `http://localhost:5000`). See [adapters/claude/.env.example](adapters/claude/.env.example) for all
@@ -306,7 +555,18 @@ Restart Claude Desktop after saving the file.
 
 ### Codex registration
 
-Codex can register the stdio server from PowerShell:
+The repository includes `.codex/config.toml`, so a trusted Codex project discovers the `solidpilot`
+STDIO server automatically. It launches `adapters/codex/server.py` through the repository's `.venv`,
+allow-lists exactly the nine default semantic tools, and prompts before write-class operations. Confirm with:
+
+```powershell
+codex mcp list
+```
+
+Restart the Codex session after first trusting the project. Repository planning and execution are
+self-contained; no installed drawing-planner or ViewPlan-executor Skill/CLI is required at runtime.
+
+For a user-global registration instead, Codex can register the stdio server from PowerShell:
 
 ```powershell
 codex mcp add solidpilot -- "C:\src\solidpilot\.venv\Scripts\python.exe" "C:\src\solidpilot\adapters\claude\server.py"
@@ -324,7 +584,7 @@ args = ['C:\src\solidpilot\adapters\claude\server.py']
 EXECUTION_BASE_URL = 'http://localhost:5000'
 ```
 
-Start a new Codex task after changing MCP configuration so the 43-tool surface is discovered.
+Start a new Codex task after changing MCP configuration so the 9-tool semantic surface is discovered.
 
 ### Other MCP clients
 
@@ -345,7 +605,10 @@ internal adapter-to-execution connection and should not be exposed to another ma
 
 ## Project Status
 
-SolidPilot is a **working prototype / early alpha**. The low-level tools have been verified end-to-end against live SolidWorks; all COM calls are serialized on a single dedicated STA thread.
+SolidPilot is a **working prototype / early alpha** overall. The default part-drawing path is a
+transactional, disk-reopen-verified workflow, live-validated on SolidWorks 2025 SP5.0 with the
+repository's validation part and A3 template. Legacy domains remain at varying maturity. All COM
+calls are serialized on a single dedicated STA thread.
 
 **Parts:** the part-modeling surface is the most mature — sketches, extrude/revolve/sweep/loft, fillets/chamfers, patterns, sheet metal, reference geometry, plus editing (`modify_dimension`, `edit_feature`) and rich analysis. Initially only the tools needed for part creation existed.
 
@@ -355,10 +618,14 @@ SolidPilot is a **working prototype / early alpha**. The low-level tools have be
 
 The open problem — and the project's real research risk — is a **durable reference resolver**: the v0 geometric anchors reproduce a part exactly in a fresh document but do **not** survive upstream edits (a changed dimension moves the anchors). Making semantic references (`top_face`, a specific edge) robust across topology changes is the make-or-break module still ahead.
 
-> **Two IR doors, one compiler.** The mainline door is `rebuild_from_ir` (reproduce from an artifact). A second, *forward* door — `submit_feature_graph`, building from scratch — is scaffolded but intentionally **commented out** in `adapters/claude/server.py` (it collapses the low-level surface into one tool, which is future work); re-enabling it is a one-block uncomment. Both doors execute through the same `pycompiler`, so every replay lesson improves both at once.
+> **Two IR doors, one compiler.** The legacy adapter retains `rebuild_from_ir` (reproduce from an
+> artifact). A forward `submit_feature_graph` door remains future work because the existing compiler
+> is explicitly non-transactional; it will not join the default semantic surface until rollback and
+> disk-level verification meet the same contract as the drawing transaction.
 
-**Testing:** Windows CI installs `requirements-dev.lock` with hash verification, checks the 43-tool
-adapter/execution contract, runs the offline compiler tests, and compiles the Python sources.
+**Testing:** Windows CI installs `requirements-dev.lock` with hash verification, checks the 9-tool
+semantic contract and private execution dispatcher, runs strict drawing-plan tests and the offline
+compiler tests, and compiles the Python sources.
 Behavioral verification against live SolidWorks remains manual by design.
 
 Notes:

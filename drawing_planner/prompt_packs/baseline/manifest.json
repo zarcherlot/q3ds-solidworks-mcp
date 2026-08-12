@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "baseline",
+  "version": "2.0.0",
+  "description": "Baseline repository PlannerEngine policy for engineering-complete view selection, feature coverage and collision-free sheet layout.",
+  "output_contract": "solidworks-view-plan/1.4",
+  "supported_modes": ["json_schema", "mcp_tools"],
+  "allowed_mcp_tools": [
+    "validate_frozen_view_plan",
+    "execute_frozen_view_plan"
+  ],
+  "templates": {
+    "system": "system.md",
+    "task": "task.md"
+  }
+}

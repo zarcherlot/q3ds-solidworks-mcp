@@ -20,6 +20,9 @@ namespace SolidworksExecution
             var jsonSettings = config.Formatters.JsonFormatter.SerializerSettings;
             jsonSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
             jsonSettings.NullValueHandling = NullValueHandling.Ignore;
+            // Protocol validators must see the original JSON string so RFC 3339 and other lexical
+            // constraints are checked by the contract rather than pre-coerced into a Date token.
+            jsonSettings.DateParseHandling = DateParseHandling.None;
 
             app.UseWebApi(config);
         }

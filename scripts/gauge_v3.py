@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = Path(os.environ.get("SOLIDPILOT_OUTPUT_DIR", str(REPO_ROOT / "outputs"))).expanduser()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(REPO_ROOT / "adapters" / "claude"))
-import server as S
+import legacy_server as S
 
 MM = 0.001
 BASE = 6.8 * MM     # plate below groove floors

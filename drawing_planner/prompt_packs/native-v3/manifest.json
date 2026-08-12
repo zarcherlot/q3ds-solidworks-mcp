@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "id": "native-v3",
+  "version": "3.0.0",
+  "description": "Repository-native PlannerEngine policy for engineering-complete ViewPlan selection, coverage and layout without external Skill or CLI execution.",
+  "output_contract": "solidworks-view-plan/1.4",
+  "templates": {
+    "system": "system.md",
+    "task": "task.md"
+  }
+}

@@ -1,0 +1,1118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/solidworks/view-plan/1.4",
+  "title": "SolidWorks View Plan Protocol",
+  "description": "Frozen expert-system request consumed by the SolidWorks drawing-view CLI.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "protocol_id",
+    "schema_version",
+    "plan_id",
+    "created_at_utc",
+    "producer",
+    "execution_policy",
+    "model_path",
+    "model_sha256",
+    "drawing_path",
+    "drawing_sha256",
+    "geometry_report_path",
+    "geometry_report_sha256",
+    "readiness_report_path",
+    "readiness_report_sha256",
+    "standard_view_images",
+    "configuration",
+    "display_state",
+    "sheet",
+    "projection_method",
+    "sheet_scale",
+    "main_view_id",
+    "views",
+    "feature_coverage",
+    "inner_frame",
+    "clearance_policy",
+    "dimension_zones",
+    "reserved_zones",
+    "decision_summary",
+    "assumptions",
+    "open_questions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protocol_id": {
+      "const": "solidworks-view-plan"
+    },
+    "schema_version": {
+      "const": "1.4"
+    },
+    "plan_id": {
+      "$ref": "#/$defs/id"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "execution_policy": {
+      "$ref": "#/$defs/executionPolicy"
+    },
+    "model_path": {
+      "$ref": "#/$defs/path"
+    },
+    "model_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "drawing_path": {
+      "$ref": "#/$defs/path"
+    },
+    "drawing_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "geometry_report_path": {
+      "$ref": "#/$defs/path"
+    },
+    "geometry_report_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "readiness_report_path": {
+      "$ref": "#/$defs/path"
+    },
+    "readiness_report_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "standard_view_images": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/standardViewImage"
+      }
+    },
+    "configuration": {
+      "type": "string",
+      "minLength": 1
+    },
+    "display_state": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "sheet": {
+      "$ref": "#/$defs/sheet"
+    },
+    "projection_method": {
+      "enum": ["first_angle", "third_angle"]
+    },
+    "sheet_scale": {
+      "$ref": "#/$defs/scaleRatio"
+    },
+    "main_view_id": {
+      "$ref": "#/$defs/id"
+    },
+    "views": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/view"
+      }
+    },
+    "feature_coverage": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/featureCoverage"
+      }
+    },
+    "inner_frame": {
+      "$ref": "#/$defs/innerFrame"
+    },
+    "clearance_policy": {
+      "$ref": "#/$defs/clearancePolicy"
+    },
+    "dimension_zones": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimensionZone"
+      }
+    },
+    "reserved_zones": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reservedZone"
+      }
+    },
+    "decision_summary": {
+      "$ref": "#/$defs/decisionSummary"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "standardViewImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view", "path", "sha256"],
+      "properties": {
+        "view": { "enum": ["front", "back", "left", "right", "top", "bottom"] },
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "rgb": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 0, "maximum": 255 },
+        { "type": "integer", "minimum": 0, "maximum": 255 },
+        { "type": "integer", "minimum": 0, "maximum": 255 }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "point2": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "point3": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "rect2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x_min_m", "y_min_m", "x_max_m", "y_max_m"],
+      "properties": {
+        "x_min_m": { "type": "number" },
+        "y_min_m": { "type": "number" },
+        "x_max_m": { "type": "number" },
+        "y_max_m": { "type": "number" }
+      }
+    },
+    "scaleRatio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1 },
+        "denominator": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "ruleset_id", "ruleset_sha256"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "ruleset_id": { "$ref": "#/$defs/id" },
+        "ruleset_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "executionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_integrity_mismatch",
+        "on_selection_ambiguity",
+        "on_unsupported_view",
+        "on_layout_violation",
+        "allow_source_model_write",
+        "allow_source_drawing_overwrite",
+        "transient_model_view_policy"
+      ],
+      "properties": {
+        "on_integrity_mismatch": { "const": "fail" },
+        "on_selection_ambiguity": { "const": "fail" },
+        "on_unsupported_view": { "const": "fail" },
+        "on_layout_violation": { "const": "fail" },
+        "allow_source_model_write": { "const": false },
+        "allow_source_drawing_overwrite": { "const": false },
+        "transient_model_view_policy": {
+          "enum": ["forbid", "allow_in_memory_restore"]
+        }
+      }
+    },
+    "sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "format_name", "width_m", "height_m"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "format_name": { "type": ["string", "null"] },
+        "width_m": { "type": "number", "exclusiveMinimum": 0 },
+        "height_m": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_path", "json_pointer", "finding"],
+      "properties": {
+        "report_path": { "$ref": "#/$defs/path" },
+        "json_pointer": {
+          "type": "string",
+          "pattern": "^(/([^~/]|~0|~1)*)*$"
+        },
+        "finding": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rejectedAlternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alternative", "reason"],
+      "properties": {
+        "alternative": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "modelDocumentSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference"],
+      "properties": {
+        "kind": { "const": "model_document" },
+        "reference": { "const": "model" }
+      }
+    },
+    "parentViewSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "projection_direction"],
+      "properties": {
+        "kind": { "const": "parent_view" },
+        "reference": { "$ref": "#/$defs/id" },
+        "projection_direction": {
+          "type": ["string", "null"],
+          "enum": ["left", "right", "up", "down", null]
+        }
+      }
+    },
+    "standardOrientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "standard_view", "roll_angle_rad"],
+      "properties": {
+        "kind": { "const": "standard_model_view" },
+        "standard_view": {
+          "enum": ["front", "back", "left", "right", "top", "bottom", "isometric", "dimetric", "trimetric"]
+        },
+        "roll_angle_rad": { "type": "number" }
+      }
+    },
+    "namedOrientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name_exact", "roll_angle_rad"],
+      "properties": {
+        "kind": { "const": "named_model_view" },
+        "name_exact": { "type": "string", "minLength": 1 },
+        "roll_angle_rad": { "type": "number" }
+      }
+    },
+    "explicitOrientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "view_direction_model", "up_direction_model", "roll_angle_rad"],
+      "properties": {
+        "kind": { "const": "explicit_basis" },
+        "view_direction_model": { "$ref": "#/$defs/point3" },
+        "up_direction_model": { "$ref": "#/$defs/point3" },
+        "roll_angle_rad": { "type": "number" }
+      }
+    },
+    "derivedOrientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "const": "derived_from_parent" }
+      }
+    },
+    "orientation": {
+      "oneOf": [
+        { "$ref": "#/$defs/standardOrientation" },
+        { "$ref": "#/$defs/namedOrientation" },
+        { "$ref": "#/$defs/explicitOrientation" },
+        { "$ref": "#/$defs/derivedOrientation" }
+      ]
+    },
+    "displayStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "faceted", "edges"],
+      "properties": {
+        "mode": {
+          "enum": ["wireframe", "hidden_lines_visible", "hidden_lines_removed", "shaded", "shaded_with_edges"]
+        },
+        "faceted": { "type": "boolean" },
+        "edges": { "type": "boolean" }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "show", "position_mode"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "show": { "type": "boolean" },
+        "position_mode": { "enum": ["document_default", "explicit"] },
+        "position_sheet_m": { "$ref": "#/$defs/point2" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "position_mode": { "const": "explicit" } }
+          },
+          "then": {
+            "required": ["position_sheet_m"]
+          }
+        }
+      ]
+    },
+    "centerMark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "feature_ids",
+        "selection_strategy",
+        "deduplicate_by",
+        "expected_count",
+        "style",
+        "use_document_defaults",
+        "show_lines",
+        "propagate",
+        "slot",
+        "color_rgb"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "feature_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "selection_strategy": { "const": "visible_closed_circular_edges_by_feature" },
+        "deduplicate_by": { "const": "projected_center" },
+        "expected_count": { "type": "integer", "minimum": 1 },
+        "style": { "enum": ["single", "linear_group", "circular_group"] },
+        "use_document_defaults": { "type": "boolean" },
+        "show_lines": { "type": "boolean" },
+        "propagate": { "type": "boolean" },
+        "slot": { "type": "boolean" },
+        "color_rgb": { "$ref": "#/$defs/rgb" }
+      }
+    },
+    "symmetryCenterline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "axis",
+        "selection_strategy",
+        "minimum_edge_span_ratio",
+        "purpose",
+        "color_rgb",
+        "model_evidence"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "axis": { "enum": ["horizontal", "vertical"] },
+        "selection_strategy": { "const": "opposed_visible_linear_edges" },
+        "minimum_edge_span_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "color_rgb": { "$ref": "#/$defs/rgb" },
+        "model_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "sectionDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cutting_plane_mode",
+        "feature_ids",
+        "cutting_line_points_model_m",
+        "cutting_line_axis",
+        "line_extension_ratio",
+        "reverse_direction",
+        "section_depth_m"
+      ],
+      "properties": {
+        "cutting_plane_mode": {
+          "enum": [
+            "through_feature_axes",
+            "explicit_half",
+            "explicit_offset",
+            "explicit_aligned",
+            "explicit_removed",
+            "explicit_broken_out"
+          ]
+        },
+        "feature_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "cutting_line_points_model_m": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/point3" }
+        },
+        "cutting_line_axis": {
+          "type": ["string", "null"],
+          "enum": ["horizontal", "vertical", null]
+        },
+        "line_extension_ratio": {
+          "type": ["number", "null"],
+          "minimum": 0.02,
+          "maximum": 1.0
+        },
+        "reverse_direction": { "type": "boolean" },
+        "section_depth_m": { "type": "number", "minimum": 0 }
+      }
+    },
+    "brokenOutDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_view_mode", "boundary_mode", "center_offset_from_view_m", "radius_sheet_m", "depth_m"],
+      "properties": {
+        "base_view_mode": { "const": "model_orientation" },
+        "boundary_mode": { "const": "circle" },
+        "center_offset_from_view_m": { "$ref": "#/$defs/point2" },
+        "radius_sheet_m": { "type": "number", "exclusiveMinimum": 0 },
+        "depth_m": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "detailDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_mode",
+        "center_offset_from_parent_m",
+        "radius_sheet_m",
+        "style",
+        "show_type",
+        "full_outline",
+        "jagged_outline",
+        "no_outline",
+        "shape_intensity"
+      ],
+      "properties": {
+        "profile_mode": { "const": "circle" },
+        "center_offset_from_parent_m": { "$ref": "#/$defs/point2" },
+        "radius_sheet_m": { "type": "number", "exclusiveMinimum": 0 },
+        "style": { "enum": ["standard", "broken", "leader", "no_leader", "connected"] },
+        "show_type": { "enum": ["profile", "circle", "none"] },
+        "full_outline": { "type": "boolean" },
+        "jagged_outline": { "type": "boolean" },
+        "no_outline": { "type": "boolean" },
+        "shape_intensity": { "type": "integer", "minimum": 1, "maximum": 5 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "no_outline": { "const": true } }
+          },
+          "then": {
+            "properties": {
+              "full_outline": { "const": false },
+              "jagged_outline": { "const": false }
+            }
+          }
+        }
+      ]
+    },
+    "auxiliaryDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference_edge_start_model_m",
+        "reference_edge_end_model_m",
+        "match_tolerance_sheet_m",
+        "not_aligned",
+        "show_arrow",
+        "flip"
+      ],
+      "properties": {
+        "reference_edge_start_model_m": { "$ref": "#/$defs/point3" },
+        "reference_edge_end_model_m": { "$ref": "#/$defs/point3" },
+        "match_tolerance_sheet_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.005
+        },
+        "not_aligned": { "type": "boolean" },
+        "show_arrow": { "type": "boolean" },
+        "flip": { "type": "boolean" }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "purpose",
+        "model_evidence",
+        "expressed_features",
+        "source",
+        "orientation",
+        "parent_view_id",
+        "alignment",
+        "scale",
+        "scale_reason",
+        "layout_reason",
+        "rejected_alternatives",
+        "display_style",
+        "hidden_lines",
+        "tangent_edges",
+        "center_marks",
+        "symmetry_centerlines",
+        "section_definition",
+        "broken_out_definition",
+        "detail_definition",
+        "auxiliary_definition",
+        "position_sheet_m",
+        "placement_box",
+        "label"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": {
+          "enum": [
+            "model_view",
+            "projected_view",
+            "full_section",
+            "half_section",
+            "offset_section",
+            "aligned_section",
+            "broken_out_section",
+            "removed_section",
+            "detail_view",
+            "auxiliary_view"
+          ]
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "model_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "expressed_features": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "source": {
+          "oneOf": [
+            { "$ref": "#/$defs/modelDocumentSource" },
+            { "$ref": "#/$defs/parentViewSource" }
+          ]
+        },
+        "orientation": { "$ref": "#/$defs/orientation" },
+        "parent_view_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/id" },
+            { "type": "null" }
+          ]
+        },
+        "alignment": {
+          "enum": ["none", "projected", "horizontal", "vertical", "not_aligned"]
+        },
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "scale_reason": { "type": "string", "minLength": 1 },
+        "layout_reason": { "type": "string", "minLength": 1 },
+        "rejected_alternatives": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rejectedAlternative" }
+        },
+        "display_style": { "$ref": "#/$defs/displayStyle" },
+        "hidden_lines": { "enum": ["removed", "visible", "greyed"] },
+        "tangent_edges": { "enum": ["removed", "visible", "phantom"] },
+        "center_marks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/centerMark" }
+        },
+        "symmetry_centerlines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/symmetryCenterline" }
+        },
+        "section_definition": {
+          "oneOf": [
+            { "$ref": "#/$defs/sectionDefinition" },
+            { "type": "null" }
+          ]
+        },
+        "broken_out_definition": {
+          "oneOf": [
+            { "$ref": "#/$defs/brokenOutDefinition" },
+            { "type": "null" }
+          ]
+        },
+        "detail_definition": {
+          "oneOf": [
+            { "$ref": "#/$defs/detailDefinition" },
+            { "type": "null" }
+          ]
+        },
+        "auxiliary_definition": {
+          "oneOf": [
+            { "$ref": "#/$defs/auxiliaryDefinition" },
+            { "type": "null" }
+          ]
+        },
+        "position_sheet_m": { "$ref": "#/$defs/point2" },
+        "placement_box": { "$ref": "#/$defs/rect2" },
+        "label": {
+          "oneOf": [
+            { "$ref": "#/$defs/label" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "model_view" } } },
+          "then": {
+            "properties": {
+              "source": { "$ref": "#/$defs/modelDocumentSource" },
+              "orientation": {
+                "oneOf": [
+                  { "$ref": "#/$defs/standardOrientation" },
+                  { "$ref": "#/$defs/namedOrientation" },
+                  { "$ref": "#/$defs/explicitOrientation" }
+                ]
+              },
+              "parent_view_id": { "type": "null" },
+              "alignment": { "const": "none" },
+              "section_definition": { "type": "null" },
+              "broken_out_definition": { "type": "null" },
+              "detail_definition": { "type": "null" },
+              "auxiliary_definition": { "type": "null" },
+              "label": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "projected_view" } } },
+          "then": {
+            "properties": {
+              "source": {
+                "allOf": [
+                  { "$ref": "#/$defs/parentViewSource" },
+                  {
+                    "properties": {
+                      "projection_direction": { "enum": ["left", "right", "up", "down"] }
+                    }
+                  }
+                ]
+              },
+              "orientation": { "$ref": "#/$defs/derivedOrientation" },
+              "parent_view_id": { "$ref": "#/$defs/id" },
+              "alignment": { "enum": ["projected", "horizontal", "vertical"] },
+              "section_definition": { "type": "null" },
+              "broken_out_definition": { "type": "null" },
+              "detail_definition": { "type": "null" },
+              "auxiliary_definition": { "type": "null" },
+              "label": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["full_section", "half_section", "offset_section", "aligned_section", "removed_section"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "allOf": [
+                  { "$ref": "#/$defs/parentViewSource" },
+                  { "properties": { "projection_direction": { "type": "null" } } }
+                ]
+              },
+              "orientation": { "$ref": "#/$defs/derivedOrientation" },
+              "parent_view_id": { "$ref": "#/$defs/id" },
+              "alignment": { "enum": ["projected", "not_aligned"] },
+              "section_definition": { "$ref": "#/$defs/sectionDefinition" },
+              "broken_out_definition": { "type": "null" },
+              "detail_definition": { "type": "null" },
+              "auxiliary_definition": { "type": "null" },
+              "label": {
+                "allOf": [
+                  { "$ref": "#/$defs/label" },
+                  { "properties": { "show": { "const": true } } }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "full_section" } } },
+          "then": {
+            "properties": {
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "through_feature_axes" },
+                      "cutting_line_points_model_m": { "maxItems": 0 },
+                      "cutting_line_axis": { "enum": ["horizontal", "vertical"] },
+                      "line_extension_ratio": { "type": "number", "minimum": 0.02, "maximum": 1.0 },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "half_section" } } },
+          "then": {
+            "properties": {
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "explicit_half" },
+                      "cutting_line_points_model_m": { "minItems": 3, "maxItems": 3 },
+                      "cutting_line_axis": { "type": "null" },
+                      "line_extension_ratio": { "type": "null" },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "offset_section" } } },
+          "then": {
+            "properties": {
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "explicit_offset" },
+                      "cutting_line_points_model_m": { "minItems": 4 },
+                      "cutting_line_axis": { "type": "null" },
+                      "line_extension_ratio": { "type": "null" },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "aligned_section" } } },
+          "then": {
+            "properties": {
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "explicit_aligned" },
+                      "cutting_line_points_model_m": { "minItems": 3, "maxItems": 3 },
+                      "cutting_line_axis": { "type": "null" },
+                      "line_extension_ratio": { "type": "null" },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "removed_section" } } },
+          "then": {
+            "properties": {
+              "alignment": { "const": "not_aligned" },
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "explicit_removed" },
+                      "cutting_line_points_model_m": { "minItems": 2, "maxItems": 2 },
+                      "cutting_line_axis": { "type": "null" },
+                      "line_extension_ratio": { "type": "null" },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "broken_out_section" } } },
+          "then": {
+            "properties": {
+              "source": { "$ref": "#/$defs/modelDocumentSource" },
+              "orientation": {
+                "oneOf": [
+                  { "$ref": "#/$defs/standardOrientation" },
+                  { "$ref": "#/$defs/namedOrientation" },
+                  { "$ref": "#/$defs/explicitOrientation" }
+                ]
+              },
+              "parent_view_id": { "type": "null" },
+              "alignment": { "const": "none" },
+              "section_definition": {
+                "allOf": [
+                  { "$ref": "#/$defs/sectionDefinition" },
+                  {
+                    "properties": {
+                      "cutting_plane_mode": { "const": "explicit_broken_out" },
+                      "cutting_line_points_model_m": { "maxItems": 0 },
+                      "cutting_line_axis": { "type": "null" },
+                      "line_extension_ratio": { "type": "null" },
+                      "section_depth_m": { "const": 0 }
+                    }
+                  }
+                ]
+              },
+              "broken_out_definition": { "$ref": "#/$defs/brokenOutDefinition" },
+              "detail_definition": { "type": "null" },
+              "auxiliary_definition": { "type": "null" },
+              "label": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "detail_view" } } },
+          "then": {
+            "properties": {
+              "source": {
+                "allOf": [
+                  { "$ref": "#/$defs/parentViewSource" },
+                  { "properties": { "projection_direction": { "type": "null" } } }
+                ]
+              },
+              "orientation": { "$ref": "#/$defs/derivedOrientation" },
+              "parent_view_id": { "$ref": "#/$defs/id" },
+              "alignment": { "const": "none" },
+              "section_definition": { "type": "null" },
+              "broken_out_definition": { "type": "null" },
+              "detail_definition": { "$ref": "#/$defs/detailDefinition" },
+              "auxiliary_definition": { "type": "null" },
+              "label": {
+                "allOf": [
+                  { "$ref": "#/$defs/label" },
+                  { "properties": { "show": { "const": true } } }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "auxiliary_view" } } },
+          "then": {
+            "properties": {
+              "source": {
+                "allOf": [
+                  { "$ref": "#/$defs/parentViewSource" },
+                  { "properties": { "projection_direction": { "type": "null" } } }
+                ]
+              },
+              "orientation": { "$ref": "#/$defs/derivedOrientation" },
+              "parent_view_id": { "$ref": "#/$defs/id" },
+              "alignment": { "enum": ["projected", "not_aligned"] },
+              "section_definition": { "type": "null" },
+              "broken_out_definition": { "type": "null" },
+              "detail_definition": { "type": "null" },
+              "auxiliary_definition": { "$ref": "#/$defs/auxiliaryDefinition" },
+              "label": {
+                "allOf": [
+                  { "$ref": "#/$defs/label" },
+                  { "properties": { "show": { "const": true } } }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "featureCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_id", "feature_class", "requirements"],
+      "properties": {
+        "feature_id": { "$ref": "#/$defs/id" },
+        "feature_class": { "type": "string", "minLength": 1 },
+        "requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requirement_id", "required_mode", "expression_mode", "satisfied_by", "status"],
+            "properties": {
+              "requirement_id": { "$ref": "#/$defs/id" },
+              "required_mode": {
+                "enum": ["direct_opening_view", "section_through_axis", "true_shape_view", "cross_section", "direct_visible_profile"]
+              },
+              "expression_mode": {
+                "enum": ["direct_opening_view", "section_through_axis", "true_shape_view", "cross_section", "direct_visible_profile"]
+              },
+              "satisfied_by": { "$ref": "#/$defs/id" },
+              "status": { "enum": ["pass", "blocked"] }
+            }
+          }
+        }
+      }
+    },
+    "innerFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bounds_sheet_m", "safe_zone_sheet_m"],
+      "properties": {
+        "bounds_sheet_m": { "$ref": "#/$defs/rect2" },
+        "safe_zone_sheet_m": { "$ref": "#/$defs/rect2" }
+      }
+    },
+    "clearancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_clearance_m", "single_layer_dimension_depth_m", "multi_layer_dimension_depth_m"],
+      "properties": {
+        "frame_clearance_m": { "type": "number", "minimum": 0.01 },
+        "single_layer_dimension_depth_m": { "type": "number", "minimum": 0.025 },
+        "multi_layer_dimension_depth_m": { "type": "number", "minimum": 0.035 }
+      }
+    },
+    "dimensionZone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "view_id", "side", "dimension_layers", "required_depth_m", "bounds_sheet_m"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "view_id": { "$ref": "#/$defs/id" },
+        "side": { "enum": ["left", "right", "top", "bottom"] },
+        "dimension_layers": { "type": "integer", "minimum": 1 },
+        "required_depth_m": { "type": "number", "exclusiveMinimum": 0 },
+        "bounds_sheet_m": { "$ref": "#/$defs/rect2" }
+      }
+    },
+    "reservedZone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "bounds_sheet_m", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["title_block", "technical_requirements", "revision_block", "template_reserved"] },
+        "bounds_sheet_m": { "$ref": "#/$defs/rect2" },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "decisionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "main_orientation_comparison",
+        "final_minimum_view_set",
+        "scale_selection_process",
+        "layout_strategy",
+        "open_questions"
+      ],
+      "properties": {
+        "main_orientation_comparison": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["candidate", "advantages", "disadvantages", "selected"],
+            "properties": {
+              "candidate": { "type": "string", "minLength": 1 },
+              "advantages": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "disadvantages": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "selected": { "type": "boolean" }
+            }
+          }
+        },
+        "final_minimum_view_set": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["view_id", "omission_impact"],
+            "properties": {
+              "view_id": { "$ref": "#/$defs/id" },
+              "omission_impact": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "scale_selection_process": { "type": "string", "minLength": 1 },
+        "layout_strategy": { "type": "string", "minLength": 1 },
+        "open_questions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "protocol_id": "q3ds-solidworks-view-plan-capabilities",
+  "schema_version": "1.0",
+  "executor": "solidworks-execution-csharp",
+  "executor_version": "1.0.0",
+  "plan_protocol_id": "solidworks-view-plan",
+  "plan_schema_version": "1.4",
+  "view_types": {
+    "model_view": {
+      "status": "supported",
+      "reason": "Native standard, exact named, and isolated explicit-basis model-view creation is transactionally saved and verified after both transaction-owned and independent read-only reopen on SolidWorks 2025 SP5. Live coverage includes all nine standard orientations, roll, display/style readback, deterministic handles, sheet contract persistence, source-model cleanliness, and temporary-view cleanup.",
+      "verification": "live"
+    },
+    "projected_view": {
+      "status": "supported",
+      "reason": "Native projected-view creation with unique parent selection, inherited scale/configuration, deterministic naming, persisted parent relation, and full readback is verified after transaction-owned and independent read-only reopen on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "full_section": {
+      "status": "supported",
+      "reason": "Feature-axis-bound native full sections are compiled and resolved from frozen geometry before COM, then transactionally verified by exact parent, label, segment structure, projected alignment, normalized line geometry, scale, depth semantics, and read-only reopen on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "half_section": {
+      "status": "supported",
+      "reason": "Explicit perpendicular half-section paths are created natively and verified with partial-section, parent, label, segment, alignment, normalized geometry, scale, depth, and persisted readback on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "offset_section": {
+      "status": "supported",
+      "reason": "Explicit offset paths must intersect every frozen feature axis before COM and are natively created with exact segment-count and normalized persisted readback on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "aligned_section": {
+      "status": "supported",
+      "reason": "Non-collinear aligned-section paths are natively created and verified with IDrSection.IsAligned, exact label and parent, layout alignment, normalized geometry, and persisted readback on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "broken_out_section": {
+      "status": "supported",
+      "reason": "Native model-orientation broken-out sections use a frozen circular boundary and exact depth through CreateBreakOutSection. The transaction verifies view type, boundary center/radius/axis, feature count/type, depth, persistent handle, placement, scale, and stable normalized fingerprints before save, after close/read-only reopen, and during independent verification on SolidWorks 2025 SP5; unsupported reverse direction fails before COM.",
+      "verification": "live"
+    },
+    "removed_section": {
+      "status": "supported",
+      "reason": "Removed sections use mandatory not-aligned placement and are natively verified by exact parent, label, single-segment geometry, alignment zero, scale, depth semantics, and persisted readback on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "detail_view": {
+      "status": "supported",
+      "reason": "Native parent-derived circular detail views use CreateDetailViewAt4 with strict five-style/three-show-type mappings and exact label, outline, scale, profile, parent, placement, and persistent-handle readback. Standard, jagged-outline, and explicit-label-position live cases passed save/close/read-only-reopen and independent verification on SolidWorks 2025 SP5. Explicit label placement uses bounded native direction/readback inversion and still rejects any coordinate SolidWorks cannot reproduce within the frozen tolerance.",
+      "verification": "live"
+    },
+    "auxiliary_view": {
+      "status": "supported",
+      "reason": "Native auxiliary views uniquely resolve a frozen visible linear edge in the parent, create through CreateAuxiliaryViewAt2, and verify parent linkage, alignment, scale, flip orientation, exact reference geometry, persistent handle, and normalized rotation across save/close/read-only-reopen on SolidWorks 2025 SP5. Document-default projection-arrow labels remain native. Explicit labels use a deterministic leaderless parent-view-owned INote after clearing the non-positionable native arrow text; the managed label preserves the native view-arrow text format and is verified by exact owner, name, visibility, text, position, and normalized fingerprint. SolidWorks ignores show_arrow=false and exposes no visibility setter, so hidden arrows remain capability-blocked before COM.",
+      "verification": "live"
+    }
+  },
+  "elements": {
+    "center_marks": {
+      "status": "supported",
+      "reason": "Feature IDs are resolved uniquely from the hash-verified geometry report to visible native circular edges before mutation. Native single, linear-group, and circular-group center marks use strict style/count/default/show-lines/propagate/slot/color readback, reject SolidWorks style degradation, detect unplanned marks, and persist through transaction-owned and independent read-only reopen on SolidWorks 2025 SP5. Live C4 coverage proves a two-feature linear group with one native group object and two projected centers.",
+      "verification": "live"
+    },
+    "symmetry_centerlines": {
+      "status": "supported",
+      "reason": "Horizontal and vertical symmetry centerlines resolve a unique outermost opposed visible linear-edge pair under frozen axis, minimum-span, overlap, and symmetry constraints, then create native attached centerlines with exact color and attached-edge geometry readback. Unplanned lines and equally outermost ambiguity fail closed. Both axes passed save/close/read-only-reopen and independent verification on SolidWorks 2025 SP5.",
+      "verification": "live"
+    },
+    "view_labels": {
+      "status": "supported",
+      "reason": "Frozen section labels, document-default and explicit detail labels, document-default auxiliary projection-arrow labels, and explicit repository-managed auxiliary arrow labels are read back exactly in memory, after transaction-owned reopen, and during independent verification. Explicit detail placement and parent-view-owned leaderless auxiliary label placement are live on SolidWorks 2025 SP5; managed auxiliary labels copy the native arrow text format and never substitute a default position for an explicit coordinate.",
+      "verification": "live"
+    }
+  }
+}
