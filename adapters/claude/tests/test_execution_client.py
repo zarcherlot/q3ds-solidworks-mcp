@@ -4,6 +4,8 @@ import os
 import sys
 from unittest.mock import patch
 
+import httpx
+
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ADAPTER_DIR = os.path.dirname(_HERE)
@@ -56,6 +58,32 @@ def test_ensure_server_up_reports_stale_path_override_without_spawning():
     popen.assert_not_called()
     assert "EXECUTION_EXE_PATH" in message
     assert execution_client.EXECUTION_EXE_PATH in message
+
+
+def test_get_health_auto_starts_only_the_execution_service_after_connect_error():
+    health = _HostResponse(
+        200,
+        {
+            "service": "solidworks-execution",
+            "status": "UP",
+            "comAttached": False,
+            "stateVersion": 0,
+        },
+    )
+    with (
+        patch.object(
+            execution_client._client,
+            "get",
+            side_effect=[httpx.ConnectError("down"), health],
+        ) as get,
+        patch.object(execution_client, "_ensure_server_up") as ensure_server,
+    ):
+        result = execution_client.get_health()
+
+    ensure_server.assert_called_once_with()
+    assert get.call_count == 2
+    assert result["status"] == "UP"
+    assert result["comAttached"] is False
 
 
 def test_drawing_transactions_use_the_long_view_plan_timeout():

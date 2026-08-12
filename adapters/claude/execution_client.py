@@ -168,13 +168,14 @@ def _request_with_autostart(do_request, label: str):
 
 def get_health() -> dict:
     """GET /health — server status + COM attach state (does not touch state_version)."""
+    def _do():
+        return _client.get(HEALTH_ENDPOINT)
+
     try:
-        response = _client.get(HEALTH_ENDPOINT)
-    except httpx.ConnectError:
-        _log("<- health CONNECT_ERROR (server down?)")
-        raise ExecutionLayerError(
-            f"Cannot connect to solidworks-execution. Is the server running on {HEALTH_ENDPOINT}?"
-        )
+        # Starting the repository execution host is independent from attaching to or launching
+        # SolidWorks. Keep status read-only at the CAD layer while making the local service
+        # lifecycle consistent with every other execution request.
+        response = _request_with_autostart(_do, "health")
     except httpx.TimeoutException:
         _log("<- health TIMEOUT")
         raise ExecutionLayerError(f"Health request timed out after {HTTP_TIMEOUT}s.")
