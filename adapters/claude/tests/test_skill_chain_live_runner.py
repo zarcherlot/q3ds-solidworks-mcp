@@ -98,3 +98,18 @@ def test_runner_accepts_only_explicit_http_loopback_port() -> None:
         runner._loopback_address("https://example.com:5013")
     with pytest.raises(ValueError, match="explicit loopback port"):
         runner._loopback_address("http://localhost")
+
+
+def test_runner_excludes_solidworks_session_locks_from_protected_inputs(
+    tmp_path: Path,
+) -> None:
+    model = tmp_path / "part.SLDPRT"
+    drawing = tmp_path / "drawing.SLDDRW"
+    lock = tmp_path / "~$part.SLDPRT"
+    model.write_bytes(b"model")
+    drawing.write_bytes(b"drawing")
+    lock.write_bytes(b"session")
+
+    assert runner._files_under(tmp_path) == [drawing, model]
+    assert runner._is_solidworks_session_lock(lock)
+    assert not runner._is_solidworks_session_lock(model)

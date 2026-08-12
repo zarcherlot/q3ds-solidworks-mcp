@@ -440,7 +440,15 @@ def _handoff_files(manifest: dict[str, Any]) -> list[Path]:
 
 
 def _files_under(root: Path) -> list[Path]:
-    return sorted(path for path in root.rglob("*") if path.is_file())
+    return sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and not _is_solidworks_session_lock(path)
+    )
+
+
+def _is_solidworks_session_lock(path: Path) -> bool:
+    return path.name.startswith("~$")
 
 
 def _snapshot(paths: Iterable[Path]) -> dict[str, str]:
