@@ -30,6 +30,9 @@ class ExecutionLayerError(Exception):
 # spawn a duplicate exe.
 _spawn_lock = threading.Lock()
 
+_EXECUTION_SERVICE_ID = "solidworks-execution"
+_HOST_BOOTSTRAP_CAPABILITY = "host-bootstrap-v1"
+
 # Reuse localhost HTTP connections across tool calls. Creating a new client for
 # every sketch entity and analysis added avoidable setup overhead to long builds.
 _client = httpx.Client(
@@ -52,12 +55,44 @@ def _close_clients() -> None:
 atexit.register(_close_clients)
 
 
-def _server_is_up() -> bool:
-    """Cheap liveness probe — True if /health answers 200."""
+def _server_probe() -> tuple[str, str | None]:
+    """Return compatible, incompatible, or down for the configured execution endpoint."""
     try:
-        return _client.get(HEALTH_ENDPOINT, timeout=2.0).status_code == 200
+        response = _client.get(HEALTH_ENDPOINT, timeout=2.0)
     except Exception:
-        return False
+        return "down", None
+    if response.status_code != 200:
+        return "down", None
+    try:
+        body = response.json()
+    except ValueError:
+        return "incompatible", "the health response is not JSON"
+    capabilities = body.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = []
+    missing = []
+    if body.get("service") != _EXECUTION_SERVICE_ID:
+        missing.append(f"service={_EXECUTION_SERVICE_ID}")
+    if _HOST_BOOTSTRAP_CAPABILITY not in capabilities:
+        missing.append(_HOST_BOOTSTRAP_CAPABILITY)
+    if missing:
+        return "incompatible", "missing " + ", ".join(missing)
+    return "compatible", None
+
+
+def _server_is_up() -> bool:
+    """True only when /health identifies a compatible repository execution service."""
+    status, _ = _server_probe()
+    return status == "compatible"
+
+
+def _incompatible_server_error(detail: str | None) -> ExecutionLayerError:
+    reason = detail or "its health contract is incompatible"
+    return ExecutionLayerError(
+        f"{HEALTH_ENDPOINT} is occupied by an incompatible Execution Service ({reason}). "
+        "Stop the stale service or correct any EXECUTION_EXE_PATH override, then retry. "
+        f"The configured repository executable is {EXECUTION_EXE_PATH}."
+    )
 
 
 def _ensure_server_up() -> None:
@@ -69,8 +104,11 @@ def _ensure_server_up() -> None:
     Raises ExecutionLayerError if it can't be brought up (missing exe, or never came up).
     """
     with _spawn_lock:
-        if _server_is_up():
+        probe_status, probe_detail = _server_probe()
+        if probe_status == "compatible":
             return
+        if probe_status == "incompatible":
+            raise _incompatible_server_error(probe_detail)
         if not os.path.isfile(EXECUTION_EXE_PATH):
             _log(f"!! cannot auto-start server — exe not found at {EXECUTION_EXE_PATH}")
             raise ExecutionLayerError(
@@ -93,9 +131,12 @@ def _ensure_server_up() -> None:
 
         deadline = time.monotonic() + SERVER_SPAWN_TIMEOUT
         while time.monotonic() < deadline:
-            if _server_is_up():
+            probe_status, probe_detail = _server_probe()
+            if probe_status == "compatible":
                 _log("<- execution server is up")
                 return
+            if probe_status == "incompatible":
+                raise _incompatible_server_error(probe_detail)
             time.sleep(0.5)
         _log("!! execution server did not answer /health within timeout")
         raise ExecutionLayerError(
@@ -290,6 +331,11 @@ def bootstrap_host(payload: dict) -> dict:
         )
     else:
         raise ValueError("mode must be inspect, verify, or repair")
+
+    # Unlike executor operations, an older service can answer /health and still lack this
+    # independent lifecycle endpoint. Verify the service identity/capability before posting so a
+    # stale EXE or port collision produces an actionable error instead of an opaque HTTP 404.
+    _ensure_server_up()
 
     _log(f"-> host/bootstrap mode={mode}")
 

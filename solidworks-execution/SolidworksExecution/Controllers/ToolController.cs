@@ -47,6 +47,8 @@ namespace SolidworksExecution.Controllers
             var info = new Dictionary<string, object>
             {
                 ["status"] = "UP",
+                ["service"] = "solidworks-execution",
+                ["capabilities"] = new[] { "host-bootstrap-v1" },
                 ["stateVersion"] = _guard.GetCurrentStateVersion(),
                 ["serverTimeUtc"] = DateTime.UtcNow.ToString("o"),
             };

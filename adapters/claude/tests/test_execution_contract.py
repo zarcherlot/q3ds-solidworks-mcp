@@ -109,3 +109,10 @@ def test_host_bootstrap_is_an_independent_controlled_lifecycle_endpoint():
     assert "request.Arguments" not in runner
     assert 'JsonProperty("output_directory")' in request
     assert 'JsonProperty("drawing_template_path")' in request
+
+
+def test_health_identifies_the_execution_service_and_host_bootstrap_capability():
+    with open(_CONTROLLER, encoding="utf-8-sig") as handle:
+        controller = handle.read()
+    assert '["service"] = "solidworks-execution"' in controller
+    assert '["capabilities"] = new[] { "host-bootstrap-v1" }' in controller
