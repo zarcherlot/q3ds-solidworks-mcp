@@ -144,6 +144,9 @@ def test_initializer_routes_one_semantic_transaction_and_revalidates_handoff(tmp
     assert payload["ok"] is True
     assert payload["handoff_integrity"] == "pass"
     assert payload["planning_request"]["planner_profile"] == "production"
+    assert payload["planning_request_sha256"] == server._planning_request_sha256(
+        server.PlanningRequest(**payload["planning_request"])
+    )
     assert calls == [
         (
             "initialize_part_drawing_handoff",

@@ -5,8 +5,17 @@ description: Generate and verify the complete immutable initializer artifact han
 
 # Initialize SolidWorks Drawing Handoff
 
+This is stage 2 of the repository production chain defined by
+`adapters/claude/contracts/skill-chain.contract.json`. Run it only after the host stage completed
+without a blocker.
+
 Use the configured `solidpilot` MCP engineering-semantic tools. Do not call legacy tools,
 private executor operations, raw HTTP, Python bridges, or SolidWorks COM.
+
+## Allowed semantic tools
+
+- `solidworks_status`
+- `initialize_part_drawing_handoff`
 
 ## Required inputs
 
@@ -50,6 +59,8 @@ Treat the source model, template, and every successfully published artifact as i
    `planning_request` using the `production` profile.
 6. Report the manifest path/hash, blank drawing, reports, six images, configuration, display
    state, state version, and integrity result.
+7. Record the returned `planning_request_sha256`. Every downstream planning operation must return
+   the same value for the unchanged `planning_request`.
 
 The C# transaction owns source-document restoration, real standard-view capture, topology
 freezing, blank-drawing save/close/read-only-reopen verification, rollback, hashing, and

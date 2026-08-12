@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0 底层执行基线已完成；E1-E4 当前三 Skill 生产链收口待完成；F-H 待开发
+状态：E0-E3 已完成；E4 运行证据已通过，待最终 Git commit 冻结；F-H 待开发
 最后更新：2026-08-12
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -271,26 +271,26 @@ C# 私有协议使用 `initialize_part_drawing_handoff`、`validate_frozen_part_
   - [x] 通过独立 stdio MCP 完成 DrawingPlan 1.0 validate/create/verify 实机事务。
   - [x] `validation/` 四项输入在全部发布候选验证前后 SHA-256 完全不变。
   - [x] 发布候选报告、README 和 CHANGELOG 与最终证据同步。
-- [ ] E1：冻结当前三 Skill 的生产链合同。
-  - [ ] 固化 `bootstrap-solidworks-host` → `solidworks-initialize-drawing-handoff` →
+- [x] E1：冻结当前三 Skill 的生产链合同。
+  - [x] 固化 `bootstrap-solidworks-host` → `solidworks-initialize-drawing-handoff` →
     `solidworks-create-drawing-views` 的顺序、输入、输出、状态变化和停止条件。
-  - [ ] 固化默认十工具语义面、各 Skill allow-list 和零 prompts；三者与 Codex 配置及 MCP Schema 同步。
-  - [ ] 显式 Skill publish 分支作为当前 Codex 默认路径；PlannerEngine Sampling 分支仅在用户明确要求时使用，
+  - [x] 固化默认十工具语义面、各 Skill allow-list 和零 prompts；三者与 Codex 配置及 MCP Schema 同步。
+  - [x] 显式 Skill publish 分支作为当前 Codex 默认路径；PlannerEngine Sampling 分支仅在用户明确要求时使用，
     且一次任务两条分支互斥、只允许一个候选和一次发布。
-  - [ ] initializer 返回的完整 `planning_request` 在 publish/validate/create/verify 间原样复用。
-- [ ] E2：建立 Skill/MCP 边界合同测试。
-  - [ ] 校验三个 `SKILL.md` 的 front matter、引用文件、工具 allow-list 和仓库权威合同。
-  - [ ] 拒绝私有 executor 动词、原始 HTTP、第二 MCP client、Python COM、UI 自动化和 legacy 桥。
-  - [ ] 校验发布后计划不可修改或覆盖；`capability_blocked` 可发布但不可执行。
-  - [ ] 对 `.codex/config.toml`、FastMCP 实际发现结果和 `semantic-tools.schema.json` 执行三方漂移检查。
-- [ ] E3：完成真实用户入口端到端矩阵。
-  - [ ] 经仓库自有主机预检 Skill、initializer Skill、视图 Skill 和真实 stdio MCP 到 C# COM 事务运行。
-  - [ ] 初始化一次、候选一个、发布一次；create 后独立 verify，且不存在私有操作泄漏。
-  - [ ] 覆盖主机阻塞、handoff 哈希漂移、计划拒绝、能力阻塞、路径碰撞和核验不一致等负向案例。
-  - [ ] `validation/`、源模型、模板和全部已发布上游制品在运行前后保持不变。
+  - [x] initializer 返回的完整 `planning_request` 在 publish/validate/create/verify 间原样复用。
+- [x] E2：建立 Skill/MCP 边界合同测试。
+  - [x] 校验三个 `SKILL.md` 的 front matter、引用文件、工具 allow-list 和仓库权威合同。
+  - [x] 拒绝私有 executor 动词、原始 HTTP、第二 MCP client、Python COM、UI 自动化和 legacy 桥。
+  - [x] 校验发布后计划不可修改或覆盖；`capability_blocked` 可发布但不可执行。
+  - [x] 对 `.codex/config.toml`、FastMCP 实际发现结果和 `semantic-tools.schema.json` 执行三方漂移检查。
+- [x] E3：完成真实用户入口端到端矩阵。
+  - [x] 经仓库自有主机预检 Skill、initializer Skill、视图 Skill 和真实 stdio MCP 到 C# COM 事务运行。
+  - [x] 初始化一次、候选一个、发布一次；create 后独立 verify，且不存在私有操作泄漏。
+  - [x] 覆盖主机阻塞、handoff 哈希漂移、计划拒绝、能力阻塞、路径碰撞和核验不一致等负向案例。
+  - [x] `validation/`、源模型、模板和全部已发布上游制品在运行前后保持不变。
 - [ ] E4：冻结当前三 Skill 链的新发布候选证据。
   - [ ] 记录 Git commit、三个 Skill、Schema、`native-v4`、能力清单、C# runtime 和全部制品 SHA-256。
-  - [ ] 更新 README、CHANGELOG、复现命令和发布报告；DrawingPlan 1.0 仅作为兼容性附加门禁。
+  - [x] 更新 README、CHANGELOG、复现命令和发布报告；DrawingPlan 1.0 仅作为兼容性附加门禁。
 
 E0 的 45 项 C# 合同和 13 项 SolidWorks 实机矩阵继续作为底层回归基线，但不能单独证明当前三 Skill
 用户入口已完成发布验收；E1-E4 全部完成后，才可恢复“当前版本发布候选完成”的结论。

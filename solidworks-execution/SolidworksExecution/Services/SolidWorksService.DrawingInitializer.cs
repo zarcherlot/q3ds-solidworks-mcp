@@ -497,6 +497,8 @@ namespace SolidworksExecution.Services
                 throw new InvalidDataException("GetProperties2 returned invalid sheet properties.");
             double width = values[5];
             double height = values[6];
+            int scaleNumerator = PositiveScaleInteger(values[2], "numerator");
+            int scaleDenominator = PositiveScaleInteger(values[3], "denominator");
             double minimum = Math.Min(width, height);
             double frameMargin = Math.Min(0.01, minimum * 0.05);
             double safeMargin = Math.Min(frameMargin + 0.01, minimum * 0.10);
@@ -519,8 +521,8 @@ namespace SolidworksExecution.Services
                 ["projection_method"] = values[4] != 0.0 ? "first_angle" : "third_angle",
                 ["sheet_scale"] = new JObject
                 {
-                    ["numerator"] = R9(values[2]),
-                    ["denominator"] = R9(values[3])
+                    ["numerator"] = scaleNumerator,
+                    ["denominator"] = scaleDenominator
                 },
                 ["inner_frame"] = new JObject
                 {
@@ -812,5 +814,15 @@ namespace SolidworksExecution.Services
 
         private static double R9(double value) { return Math.Round(value, 9); }
         private static double R12(double value) { return Math.Round(value, 12); }
+
+        private static int PositiveScaleInteger(double value, string name)
+        {
+            double rounded = Math.Round(value);
+            if (Double.IsNaN(value) || Double.IsInfinity(value) || rounded < 1.0 ||
+                rounded > Int32.MaxValue || Math.Abs(value - rounded) > 1e-9)
+                throw new InvalidDataException(
+                    "Drawing sheet scale " + name + " must be a positive integer.");
+            return Convert.ToInt32(rounded, CultureInfo.InvariantCulture);
+        }
     }
 }

@@ -69,6 +69,20 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$hostBootstrapDirectory = New-Item -ItemType Directory -Path (Join-Path $output 'HostBootstrap')
+$hostBootstrapExecutable = Join-Path $hostBootstrapDirectory 'SolidWorksHostBootstrap.exe'
+$hostBootstrapSource = Join-Path $repo 'solidworks-execution\HostBootstrap\Program.cs'
+$hostBootstrapReferences = @(
+    (Join-Path $framework 'mscorlib.dll'),
+    (Join-Path $framework 'System.dll'),
+    (Join-Path $framework 'System.Core.dll'),
+    (Join-Path $framework 'System.Web.Extensions.dll')
+) | ForEach-Object { '/reference:' + $_ }
+& $compiler /nologo /nostdlib+ /target:exe /platform:x64 /langversion:latest /deterministic+ "/out:$hostBootstrapExecutable" $hostBootstrapReferences $hostBootstrapSource
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 foreach ($dependency in $referencePaths | Where-Object { $_ -notlike "$framework*" }) {
     Copy-Item -LiteralPath $dependency -Destination $output
 }
@@ -76,3 +90,4 @@ Copy-Item -LiteralPath (Join-Path $repo 'solidworks-execution\SolidworksExecutio
 $contracts = New-Item -ItemType Directory -Path (Join-Path $output 'contracts')
 Copy-Item -LiteralPath (Join-Path $repo 'drawing_planner\contracts\view-plan.schema.json') -Destination $contracts
 Get-FileHash -LiteralPath $executable -Algorithm SHA256 | Select-Object Path, Hash
+Get-FileHash -LiteralPath $hostBootstrapExecutable -Algorithm SHA256 | Select-Object Path, Hash

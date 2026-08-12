@@ -175,9 +175,9 @@ def test_publish_manual_candidate_refuses_existing_frozen_plan(tmp_path):
             server.publish_validated_part_drawing_view_plan(plan, request)
 
 
-def test_validate_viewplan_calls_only_the_private_com_free_entry():
+def test_validate_viewplan_calls_only_the_private_com_free_entry(tmp_path):
     plan = {"protocol_id": "solidworks-view-plan"}
-    request = SimpleNamespace()
+    request = _request(tmp_path)
     with patch.object(
         server,
         "_validate_view_plan",
@@ -187,6 +187,9 @@ def test_validate_viewplan_calls_only_the_private_com_free_entry():
 
     assert result["ok"] is True
     assert result["execution_readiness"] == "supported"
+    assert result["planning_request_sha256"] == server._planning_request_sha256(
+        request
+    )
     execute.assert_called_once_with(
         "validate_frozen_part_drawing_view_plan",
         {"plan": plan},
@@ -194,9 +197,34 @@ def test_validate_viewplan_calls_only_the_private_com_free_entry():
     )
 
 
+def test_validate_viewplan_fails_closed_on_executor_rejection(tmp_path):
+    plan = {"protocol_id": "solidworks-view-plan"}
+    request = _request(tmp_path)
+    rejected = {
+        "status": "FAILED",
+        "verified": False,
+        "stateVersion": 0,
+        "result_geometry": {"json_pointer": "/sheet_scale/numerator"},
+        "error": {
+            "code": "VIEW_PLAN_SCHEMA_INVALID",
+            "message": "Value does not match the required JSON type.",
+        },
+    }
+    with patch.object(
+        server,
+        "_validate_view_plan",
+        return_value=(plan, _passing_validation(), _supported()),
+    ), patch.object(server, "_execute", return_value=rejected):
+        result = json.loads(server.validate_part_drawing_view_plan(plan, request))
+
+    assert result["ok"] is False
+    assert result["status"] == "EXECUTOR_REJECTED"
+    assert result["executor"]["error"]["code"] == "VIEW_PLAN_SCHEMA_INVALID"
+
+
 def test_create_viewplan_uses_native_mutating_transaction(tmp_path):
     plan = {"protocol_id": "solidworks-view-plan"}
-    request = SimpleNamespace()
+    request = _request(tmp_path)
     output = tmp_path / "created.SLDDRW"
     with patch.object(
         server,
@@ -208,6 +236,12 @@ def test_create_viewplan_uses_native_mutating_transaction(tmp_path):
         )
 
     assert result["ok"] is True
+    assert result["planning_request_sha256"] == server._planning_request_sha256(
+        request
+    )
+    assert result["plan_canonical_sha256"] == canonical_json_sha256(
+        plan, "view plan"
+    )
     execute.assert_called_once_with(
         "execute_part_drawing_view_plan",
         {"plan": plan, "output_path": str(output.resolve())},
@@ -228,7 +262,7 @@ def test_create_viewplan_fails_before_executor_when_capability_is_blocked(tmp_pa
     ), patch.object(server, "_execute") as execute:
         with pytest.raises(ToolError, match="VIEW_PLAN_CAPABILITY_BLOCKED"):
             server.create_part_drawing_from_view_plan(
-                {}, SimpleNamespace(), str(tmp_path / "blocked.SLDDRW")
+                {}, _request(tmp_path), str(tmp_path / "blocked.SLDDRW")
             )
     execute.assert_not_called()
 
@@ -247,11 +281,14 @@ def test_verify_viewplan_uses_read_only_committed_entry(tmp_path):
     ), patch.object(server, "_execute", return_value=_completed()) as execute:
         result = json.loads(
             server.verify_part_drawing_view_plan(
-                plan, SimpleNamespace(), str(output)
+                plan, _request(tmp_path), str(output)
             )
         )
 
     assert result["ok"] is True
+    assert result["planning_request_sha256"] == server._planning_request_sha256(
+        _request(tmp_path)
+    )
     execute.assert_called_once_with(
         "verify_committed_part_drawing_view_plan",
         {"plan": plan, "output_path": str(output.resolve())},

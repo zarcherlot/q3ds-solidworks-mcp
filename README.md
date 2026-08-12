@@ -62,7 +62,7 @@ flowchart TD
     U(["User + AI client<br/>Claude · OpenClaw · OpenAI · local LLM"])
 
     subgraph ADAPT["adapters/* — MCP bridge · MCP BOUNDARY = top"]
-        LOW["9 semantic MCP tools (default)<br/>host preflight · status · initialize · ViewPlan 1.4"]
+        LOW["10 semantic MCP tools (default)<br/>host preflight · status · initialize · ViewPlan 1.4"]
         LEG["legacy_server.py (explicit diagnostics)<br/>historical 58-tool surface"]
         RIR["legacy: rebuild_from_ir · save_analysis · compare_parts"]
         SFG["submit_feature_graph<br/>forward single tool"]
@@ -317,6 +317,13 @@ semantic MCP
   the four-file `validation/` tree at SHA-256
   `0638a043ab5bcec518a6437f879b4705f33fa0ad36b25676f4e34b47aa759d7e`.
   See [the E0 release-candidate report](docs/E0_RELEASE_CANDIDATE_REPORT.md).
+- E1-E3 freeze and verify the current three-Skill production chain. The default stdio MCP exposes
+  exactly 10 semantic tools and zero prompts; the explicit Skill publication branch keeps one
+  initializer request, one candidate and one immutable publication. A real SolidWorks 2025 SP5 run
+  completed initialize, publish, validate, create and independent verify with identical request and
+  canonical-plan hashes while preserving the source model, template, `validation/`, handoff and
+  published plan. The E4 report records the evidence and remains pending only the final Git commit
+  hash. See [the E release-candidate report](docs/E_RELEASE_CANDIDATE_REPORT.md).
 The production profile uses the immutable `native-v4` view-selection-expert pack and prompt-request contract 3.0. The
 retired `baseline` pack remains unchanged as migration history but is not runtime-selectable. To add
 or tune a prompt set, create a new pack ID/version from `native-v4` and replace its Markdown
@@ -557,7 +564,7 @@ Restart Claude Desktop after saving the file.
 
 The repository includes `.codex/config.toml`, so a trusted Codex project discovers the `solidpilot`
 STDIO server automatically. It launches `adapters/codex/server.py` through the repository's `.venv`,
-allow-lists exactly the nine default semantic tools, and prompts before write-class operations. Confirm with:
+allow-lists exactly the ten default semantic tools, and prompts before write-class operations. Confirm with:
 
 ```powershell
 codex mcp list

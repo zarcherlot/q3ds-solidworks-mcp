@@ -25,7 +25,7 @@ namespace SolidworksExecution
             {
                 try
                 {
-                    string baseAddress = "http://localhost:5000/";
+                    string baseAddress = ResolveBaseAddress(args);
                     using (WebApp.Start<Startup>(url: baseAddress))
                     {
                         Console.WriteLine("SolidworksExecution server running at " + baseAddress);
@@ -53,6 +53,38 @@ namespace SolidworksExecution
                 Console.Error.WriteLine("Fatal error: " + threadException.Message);
                 Environment.Exit(1);
             }
+        }
+
+        private static string ResolveBaseAddress(string[] args)
+        {
+            string configured = null;
+            if (args != null && args.Length != 0)
+            {
+                if (args.Length != 2 || args[0] != "--base-url")
+                    throw new InvalidOperationException("Only --base-url <loopback-origin> is supported.");
+                configured = args[1];
+            }
+            if (String.IsNullOrWhiteSpace(configured))
+                configured = Environment.GetEnvironmentVariable("EXECUTION_BASE_URL");
+            if (String.IsNullOrWhiteSpace(configured))
+                return "http://localhost:5000/";
+
+            Uri uri;
+            if (!Uri.TryCreate(configured.Trim(), UriKind.Absolute, out uri) ||
+                !String.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                !uri.IsLoopback ||
+                uri.Port <= 0 ||
+                uri.AbsolutePath != "/" ||
+                !String.IsNullOrEmpty(uri.Query) ||
+                !String.IsNullOrEmpty(uri.Fragment))
+            {
+                throw new InvalidOperationException(
+                    "EXECUTION_BASE_URL must be an absolute loopback HTTP origin without a path, query, or fragment."
+                );
+            }
+            return uri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
+                ? uri.AbsoluteUri
+                : uri.AbsoluteUri + "/";
         }
     }
 }

@@ -129,6 +129,21 @@ def _semantic_response(response: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
+def _planning_request_sha256(request: PlanningRequest) -> str:
+    return canonical_json_sha256(
+        request.model_dump(mode="json"), "planning request"
+    )
+
+
+def _semantic_response_with_plan_binding(
+    response: dict, plan: dict, request: PlanningRequest
+) -> str:
+    payload = json.loads(_semantic_response(response))
+    payload["planning_request_sha256"] = _planning_request_sha256(request)
+    payload["plan_canonical_sha256"] = canonical_json_sha256(plan, "view plan")
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
 @mcp.tool(
     description=(
         "Report the local execution/SolidWorks readiness and authoritative state version. "
@@ -365,6 +380,7 @@ def initialize_part_drawing_handoff(
         )
     payload["handoff_integrity"] = "pass"
     payload["planning_request"] = request.model_dump(mode="json")
+    payload["planning_request_sha256"] = _planning_request_sha256(request)
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -427,9 +443,7 @@ def publish_validated_part_drawing_view_plan(
     plan: ViewPlan, request: PlanningRequest
 ) -> str:
     normalized, validation, assessment = _validate_view_plan(plan, request)
-    request_sha256 = canonical_json_sha256(
-        request.model_dump(mode="json"), "planning request"
-    )
+    request_sha256 = _planning_request_sha256(request)
     candidate_sha256 = canonical_json_sha256(normalized, "model plan candidate")
     if not validation.passed:
         return PlanPublicationResult(
@@ -486,6 +500,7 @@ def validate_part_drawing_view_plan(
     payload = {
         "ok": validation.passed,
         "status": "VALID" if validation.passed else "REJECTED",
+        "planning_request_sha256": _planning_request_sha256(request),
         "plan_canonical_sha256": canonical_json_sha256(normalized, "view plan"),
         "validation": validation.model_dump(mode="json"),
         "execution_readiness": assessment.status if assessment else "not_assessed",
@@ -533,7 +548,7 @@ def create_part_drawing_from_view_plan(
         {"plan": normalized, "output_path": output},
         mutating=True,
     )
-    return _semantic_response(response)
+    return _semantic_response_with_plan_binding(response, normalized, request)
 
 
 @mcp.tool(
@@ -563,7 +578,7 @@ def verify_part_drawing_view_plan(
         {"plan": normalized, "output_path": output},
         mutating=False,
     )
-    return _semantic_response(response)
+    return _semantic_response_with_plan_binding(response, normalized, request)
 
 
 def _validate_view_plan(plan: ViewPlan, request: PlanningRequest):

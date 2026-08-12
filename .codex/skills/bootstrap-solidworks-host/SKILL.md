@@ -5,9 +5,18 @@ description: Inspect, verify, diagnose, and explicitly repair a Windows SolidWor
 
 # Bootstrap SolidWorks Host
 
+This is stage 1 of the repository production chain defined by
+`adapters/claude/contracts/skill-chain.contract.json`. Do not skip or reorder it when later stages
+will touch SolidWorks.
+
 Use only the repository-owned semantic MCP tools `inspect_solidworks_host` and
 `bootstrap_solidworks_host`. Keep COM and process control inside the C# Execution Service and its
 native x64 helper.
+
+## Allowed semantic tools
+
+- `inspect_solidworks_host`
+- `bootstrap_solidworks_host`
 
 ## Choose the operation
 
@@ -49,6 +58,8 @@ started elevated.
    unrestricted interactive desktop with elevation, then request repair again. Do not attempt to
    elevate or bypass the gate.
 6. Do not repeatedly retry the same blocker. Preserve the report as diagnostic evidence.
+7. Continue to `solidworks-initialize-drawing-handoff` only after `pass` or an explicitly reported,
+   non-blocking `warning`. Stop on `blocked`.
 
 ## Hard boundaries
 

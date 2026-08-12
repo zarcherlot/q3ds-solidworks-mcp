@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "q3ds-solidworks-three-skill-production-chain",
+  "default_mcp": {
+    "config_path": ".codex/config.toml",
+    "schema_path": "adapters/claude/contracts/semantic-tools.schema.json",
+    "tool_count": 10,
+    "prompt_count": 0,
+    "tools": [
+      "solidworks_status",
+      "inspect_solidworks_host",
+      "bootstrap_solidworks_host",
+      "inspect_part_for_drawing",
+      "initialize_part_drawing_handoff",
+      "plan_part_drawing_views",
+      "publish_validated_part_drawing_view_plan",
+      "validate_part_drawing_view_plan",
+      "create_part_drawing_from_view_plan",
+      "verify_part_drawing_view_plan"
+    ]
+  },
+  "planning": {
+    "default_branch": "explicit_skill_publish",
+    "sampling_branch_requires_explicit_user_request": true,
+    "branches_are_mutually_exclusive": true,
+    "candidate_limit": 1,
+    "publication_limit": 1,
+    "published_plan_is_immutable": true,
+    "capability_blocked_may_publish": true,
+    "capability_blocked_may_execute": false
+  },
+  "request_continuity": {
+    "source": "initialize_part_drawing_handoff.result.planning_request",
+    "canonical_sha256_field": "planning_request_sha256",
+    "must_be_unchanged": true,
+    "operations": [
+      "publish_validated_part_drawing_view_plan",
+      "validate_part_drawing_view_plan",
+      "create_part_drawing_from_view_plan",
+      "verify_part_drawing_view_plan"
+    ]
+  },
+  "stages": [
+    {
+      "order": 1,
+      "skill": "bootstrap-solidworks-host",
+      "path": ".codex/skills/bootstrap-solidworks-host/SKILL.md",
+      "allowed_tools": [
+        "inspect_solidworks_host",
+        "bootstrap_solidworks_host"
+      ],
+      "success_states": ["pass", "warning"],
+      "stop_states": ["blocked"]
+    },
+    {
+      "order": 2,
+      "skill": "solidworks-initialize-drawing-handoff",
+      "path": ".codex/skills/solidworks-initialize-drawing-handoff/SKILL.md",
+      "allowed_tools": [
+        "solidworks_status",
+        "initialize_part_drawing_handoff"
+      ],
+      "success_states": ["COMPLETED"],
+      "stop_states": ["FAILED", "blocked"]
+    },
+    {
+      "order": 3,
+      "skill": "solidworks-create-drawing-views",
+      "path": ".codex/skills/solidworks-create-drawing-views/SKILL.md",
+      "allowed_tools": [
+        "solidworks_status",
+        "inspect_part_for_drawing",
+        "initialize_part_drawing_handoff",
+        "plan_part_drawing_views",
+        "publish_validated_part_drawing_view_plan",
+        "validate_part_drawing_view_plan",
+        "create_part_drawing_from_view_plan",
+        "verify_part_drawing_view_plan"
+      ],
+      "success_states": ["published", "VALID", "COMPLETED"],
+      "stop_states": [
+        "rejected",
+        "capability_blocked",
+        "EXECUTOR_REJECTED",
+        "FAILED"
+      ]
+    }
+  ],
+  "forbidden_agent_boundaries": [
+    "private_executor_tools",
+    "raw_http",
+    "second_mcp_client",
+    "python_com",
+    "ui_automation",
+    "legacy_drawing_plan_bridge"
+  ]
+}

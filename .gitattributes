@@ -1,0 +1,19 @@
+* text=auto
+
+# These contracts and prompt inputs are hashed from their exact repository bytes.
+/.codex/config.toml text eol=lf
+/.codex/skills/** text eol=lf
+/adapters/claude/contracts/*.json text eol=lf
+/drawing_planner/capabilities/*.json text eol=lf
+/drawing_planner/contracts/*.json text eol=lf
+/drawing_planner/prompt_packs/** text eol=lf
+/solidworks-execution/**/*.cs text eol=lf
+/solidworks-execution/**/*.csproj text eol=lf
+
+*.sldprt binary
+*.sldasm binary
+*.slddrw binary
+*.drwdot binary
+*.png binary
+*.jpg binary
+*.jpeg binary

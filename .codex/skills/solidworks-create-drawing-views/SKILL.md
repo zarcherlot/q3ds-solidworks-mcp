@@ -5,7 +5,21 @@ description: 通过仓库提供的 solidpilot 工程语义 MCP，基于已完成
 
 # SolidWorks 单零件工程图视图
 
+这是 `adapters/claude/contracts/skill-chain.contract.json` 定义的生产链第 3 阶段；只有主机预检和 initializer
+均未阻塞时才能进入。
+
 使用已配置的 `solidpilot` MCP 工程语义工具。默认采用本 Skill 作为显式上层规划器，读取本目录既有参考资料生成一个完整 ViewPlan 1.4 候选，再把候选提交给仓库的确定性门禁和 C# 事务。
+
+## Allowed semantic tools
+
+- `solidworks_status`
+- `inspect_part_for_drawing`
+- `initialize_part_drawing_handoff`
+- `plan_part_drawing_views`
+- `publish_validated_part_drawing_view_plan`
+- `validate_part_drawing_view_plan`
+- `create_part_drawing_from_view_plan`
+- `verify_part_drawing_view_plan`
 
 ## 运行边界
 
@@ -78,6 +92,8 @@ description: 通过仓库提供的 solidpilot 工程语义 MCP，基于已完成
 5. 严格按仓库 schema 在内存中生成且只生成一个完整候选。所有冻结路径、SHA-256、配置、显示状态、图纸上下文和投影法必须来自 handoff；所有长度和图纸坐标使用米。`producer` 必须精确匹配当前 `production` profile 的不可变 `native-v4` producer contract。
 6. 不因 `current.json` 的能力状态删减工程上必要内容，不自行写入 `view_plan.json`，不调用任何执行工具。
 7. 调用 `publish_validated_part_drawing_view_plan`，参数只包含该候选 `plan` 与原始 `planning_request` 作为 `request`。继续复用同一个内存候选和同一个 request。
+8. 要求 publish 返回的 `planning_request_sha256` 与 initializer 返回值一致；后续 validate/create/verify
+   每次返回值也必须相同，任一不一致立即停止。
 
 只有返回 `ok=true`、`status=published`，且 integrity、schema、semantics、coverage、layout 五层均为 `pass` 时才视为已发布。`execution_readiness=capability_blocked` 时保留已发布计划并报告 `unsupported_capabilities`，但立即停止，不得调用 create 或 verify。
 
