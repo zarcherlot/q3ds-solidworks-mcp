@@ -479,8 +479,8 @@ Example batch payload:
 
 - Windows with **SolidWorks 2025 SP5 or 2026**. The semantic drawing transaction is live-verified
   on 2025 SP5; several legacy modeling/simulation operations were originally developed on 2026.
-- **.NET Framework 4.8.1 Developer Pack** and MSBuild for the execution layer (available with Visual Studio 2022).
-- **Python 3.12** for the hash-pinned Windows dependency lock and CI parity.
+- **.NET Framework 4.8.1** for the execution layer. Visual Studio is not required.
+- **Python 3.12 x64** for the hash-pinned Windows dependency lock and CI parity.
 - An MCP client that can launch a local stdio server, such as Claude Desktop or Codex.
 
 Run the following commands from the repository root in PowerShell. The examples below assume the
@@ -497,10 +497,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_hos
 ```
 
 `Configure` creates the repository `.venv`, installs the hash-locked runtime dependencies, restores
-the C# packages, and builds the x64 Execution Service plus native HostBootstrap helper. It uses
-repository-local Roslyn when Visual Studio MSBuild is unavailable. By default it makes only
-repository-scoped changes; pass `-AllowSystemPackageInstall` only when you explicitly authorize
-`winget` to install a missing Python 3.12 runtime or Visual Studio Build Tools.
+the C# packages, and builds the x64 Execution Service plus native HostBootstrap helper with the
+pinned repository-local Roslyn compiler. A successful run records an ignored environment and output
+fingerprint, so unchanged later starts skip pip, NuGet and C# compilation. By default Configure
+makes only repository-scoped changes; the first Codex launch explicitly authorizes installation of
+a missing Python 3.12 runtime or .NET Framework Developer Pack. It never installs Visual Studio.
 
 `Verify` initializes the stdio MCP, checks its complete semantic tool surface, and runs the native
 no-launch host inspection. It does not launch SolidWorks. Each mode publishes the machine-readable

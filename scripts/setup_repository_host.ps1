@@ -30,12 +30,14 @@ $script:Blockers = [System.Collections.ArrayList]::new()
 $script:Warnings = [System.Collections.ArrayList]::new()
 $script:Outputs = [ordered]@{}
 $script:Python = $null
-$script:MsBuild = $null
 $script:NuGet = $null
 $script:Interop = $null
 $script:ApiRedist = $null
 $script:NuGetVersion = "6.11.1"
 $script:NuGetSha256 = "c0ddc9cb0633c4607da7e8028eb4f91248c8b74e45a68b0c79fcfa7d78c2a481"
+$script:SetupStatePath = Join-Path $script:RepoRoot ".host-setup\repository-host-setup-state.json"
+$script:SetupFingerprint = $null
+$script:PublishSetupState = $false
 
 function Add-Check {
     param([string]$Name, [string]$Status, [string]$Message, [object]$Details = $null)
@@ -75,6 +77,111 @@ function Get-FileSha256 {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Get-SetupInputFingerprint {
+    param([object]$Python, [string]$InteropDirectory, [string]$ApiRedistDirectory)
+    $lockFile = if ($DependencySet -eq "Development") { "requirements-dev.lock" } else { "requirements.lock" }
+    $relativeFiles = @(
+        $lockFile,
+        "scripts\setup_repository_host.ps1",
+        "scripts\build_view_plan_live_runtime.ps1",
+        "solidworks-execution\SolidworksExecution\packages.config",
+        "solidworks-execution\SolidworksExecution\app.config",
+        "drawing_planner\contracts\view-plan.schema.json",
+        "drawing_planner\taxonomies\mechanical-features-1.0.0-experimental.json"
+    )
+    $sourceRoot = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution"
+    $relativeFiles += @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter "*.cs" |
+        ForEach-Object { $_.FullName.Substring($script:RepoRoot.Length + 1) })
+    $relativeFiles += "solidworks-execution\HostBootstrap\Program.cs"
+    $repositoryInputs = foreach ($relative in $relativeFiles | Sort-Object -Unique) {
+        $path = Join-Path $script:RepoRoot $relative
+        [ordered]@{ path = $relative; sha256 = Get-FileSha256 $path }
+    }
+    $externalInputs = foreach ($path in @(
+        $Python.executable,
+        (Join-Path $InteropDirectory "SolidWorks.Interop.sldworks.dll"),
+        (Join-Path $InteropDirectory "SolidWorks.Interop.swconst.dll"),
+        (Join-Path $InteropDirectory "SolidWorks.Interop.swpublished.dll"),
+        (Join-Path $ApiRedistDirectory "SolidWorks.Interop.cosworks.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.Core.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.Drawing.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.Net.Http.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.Web.dll"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\System.Web.Extensions.dll")
+    )) {
+        [ordered]@{ path = $path; sha256 = Get-FileSha256 $path }
+    }
+    $payload = [ordered]@{
+        schema_version = 1
+        machine_name = [Environment]::MachineName
+        os_version = [Environment]::OSVersion.VersionString
+        configuration = $Configuration
+        dependency_set = $DependencySet
+        python = [ordered]@{
+            executable = $Python.executable
+            version = $Python.version
+            architecture = $Python.architecture
+        }
+        repository_inputs = @($repositoryInputs)
+        external_inputs = @($externalInputs)
+    }
+    $json = $payload | ConvertTo-Json -Depth 10 -Compress
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $algorithm.ComputeHash($bytes) } finally { $algorithm.Dispose() }
+    return (($hash | ForEach-Object { $_.ToString("x2") }) -join "")
+}
+
+function Read-SetupState {
+    if (-not (Test-Path -LiteralPath $script:SetupStatePath -PathType Leaf)) { return $null }
+    try { return Get-Content -LiteralPath $script:SetupStatePath -Raw | ConvertFrom-Json } catch { return $null }
+}
+
+function Test-SetupState {
+    param([string]$Fingerprint)
+    $state = Read-SetupState
+    if ($null -eq $state -or $state.schema_version -ne 1 -or $state.fingerprint -ne $Fingerprint) { return $false }
+    if (@($state.outputs).Count -eq 0) { return $false }
+    foreach ($output in @($state.outputs)) {
+        if (-not (Test-Path -LiteralPath $output.path -PathType Leaf) -or
+            (Get-FileSha256 $output.path) -ne $output.sha256) { return $false }
+    }
+    $probe = & $script:Python.executable -c "import fastmcp,httpx,jsonschema,dotenv" 2>$null
+    return $LASTEXITCODE -eq 0
+}
+
+function Write-SetupState {
+    param([string]$Fingerprint)
+    $deploymentRoot = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution\bin\$Configuration"
+    $outputPaths = @(Get-ChildItem -LiteralPath $deploymentRoot -Recurse -File |
+        Where-Object { $_.Extension -notin @(".log", ".tmp") } |
+        ForEach-Object { $_.FullName })
+    $outputPaths += Join-Path $script:RepoRoot "solidworks-execution\packages\Microsoft.Net.Compilers.Toolset\tasks\net472\csc.exe"
+    $outputPaths += Join-Path $script:RepoRoot (".host-setup\tools\nuget-" + $script:NuGetVersion + ".exe")
+    $outputPaths = @($outputPaths | Sort-Object -Unique)
+    $state = [ordered]@{
+        schema_version = 1
+        fingerprint = $Fingerprint
+        generated_at = [DateTime]::UtcNow.ToString("o")
+        outputs = @($outputPaths | ForEach-Object { [ordered]@{ path = $_; sha256 = Get-FileSha256 $_ } })
+    }
+    New-Item -ItemType Directory -Path (Split-Path -Parent $script:SetupStatePath) -Force | Out-Null
+    $temporary = $script:SetupStatePath + "." + [guid]::NewGuid().ToString("N") + ".tmp"
+    [System.IO.File]::WriteAllText($temporary, ($state | ConvertTo-Json -Depth 6) + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    Publish-AtomicFile $temporary $script:SetupStatePath
+    $script:Outputs["setup_state"] = $script:SetupStatePath
+    $script:Outputs["setup_fingerprint"] = $Fingerprint
+}
+
+function Get-MissingFrameworkReferences {
+    $framework = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319"
+    return @("mscorlib.dll", "System.dll", "System.Core.dll", "System.Drawing.dll", "System.Net.Http.dll", "System.Web.dll", "System.Web.Extensions.dll" |
+        ForEach-Object { Join-Path $framework $_ } |
+        Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
 }
 
 function Publish-AtomicFile {
@@ -144,16 +251,18 @@ function Write-SetupReport {
 function Test-PythonInvocation {
     param([string]$Command, [string[]]$PrefixArguments = @())
     try {
-        $probe = & $Command @PrefixArguments -c "import json,platform,sys; print(json.dumps({'executable':sys.executable,'version':platform.python_version(),'major':sys.version_info.major,'minor':sys.version_info.minor,'bits':platform.architecture()[0]}))" 2>$null
+        $probe = & $Command @PrefixArguments -c "import json,platform,sys,sysconfig; print(json.dumps({'executable':sys.executable,'version':platform.python_version(),'major':sys.version_info.major,'minor':sys.version_info.minor,'bits':platform.architecture()[0],'runtime_platform':sysconfig.get_platform()}))" 2>$null
         if ($LASTEXITCODE -ne 0 -or @($probe).Count -eq 0) { return $null }
         $value = (@($probe)[-1] | ConvertFrom-Json)
-        if ($value.major -ne 3 -or $value.minor -ne 12 -or $value.bits -ne "64bit") { return $null }
+        if ($value.major -ne 3 -or $value.minor -ne 12 -or $value.bits -ne "64bit" -or
+            [string]$value.runtime_platform -notmatch '^win-') { return $null }
         return [ordered]@{
             command = $Command
             prefix_arguments = @($PrefixArguments)
             executable = [System.IO.Path]::GetFullPath([string]$value.executable)
             version = [string]$value.version
             architecture = [string]$value.bits
+            runtime_platform = [string]$value.runtime_platform
         }
     } catch {
         return $null
@@ -196,22 +305,6 @@ function Find-VenvPython {
     $path = Join-Path $script:RepoRoot ".venv\Scripts\python.exe"
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
     return Test-PythonInvocation $path
-}
-
-function Find-MsBuild {
-    $command = Get-Command msbuild.exe -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
-    $vswhereCandidates = @(
-        (Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"),
-        (Join-Path $env:ProgramFiles "Microsoft Visual Studio\Installer\vswhere.exe")
-    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_ -PathType Leaf) }
-    foreach ($vswhere in $vswhereCandidates) {
-        $found = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" 2>$null
-        if (@($found).Count -gt 0 -and (Test-Path -LiteralPath @($found)[0] -PathType Leaf)) {
-            return [System.IO.Path]::GetFullPath(@($found)[0])
-        }
-    }
-    return $null
 }
 
 function Ensure-RoslynCompiler {
@@ -336,20 +429,20 @@ function Ensure-NuGet {
 }
 
 function Invoke-Configure {
-    $basePython = Find-BasePython
-    if ($null -eq $basePython -and $AllowSystemPackageInstall) {
-        [void](Install-SystemPackage "Python.Python.3.12")
-        $basePython = Find-BasePython
-    }
-    if ($null -eq $basePython) {
-        Add-Blocker "PYTHON_312_X64_MISSING" "Python 3.12 x64 was not found." "Install Python 3.12 x64, pass -PythonExecutable, or explicitly authorize winget with -AllowSystemPackageInstall."
-        return
-    }
     $venvPath = Join-Path $script:RepoRoot ".venv"
     $venvPython = Find-VenvPython
     if ($null -eq $venvPython) {
         if (Test-Path -LiteralPath $venvPath) {
             Add-Blocker "VENV_INCOMPLETE" "The existing repository .venv is incomplete or is not Python 3.12 x64." "Move the existing .venv aside after preserving anything needed, then rerun Configure."
+            return
+        }
+        $basePython = Find-BasePython
+        if ($null -eq $basePython -and $AllowSystemPackageInstall) {
+            [void](Install-SystemPackage "Python.Python.3.12")
+            $basePython = Find-BasePython
+        }
+        if ($null -eq $basePython) {
+            Add-Blocker "PYTHON_312_X64_MISSING" "Python 3.12 x64 was not found." "Install Python 3.12 x64, pass -PythonExecutable, or explicitly authorize winget with -AllowSystemPackageInstall."
             return
         }
         & $basePython.command @($basePython.prefix_arguments) -m venv $venvPath
@@ -360,6 +453,7 @@ function Invoke-Configure {
         Add-Action "create_virtual_environment" "not_needed" "The repository Python 3.12 virtual environment already exists." @{ path = $venvPath }
     }
     if ($null -eq $venvPython) { throw "The repository virtual environment was not usable after creation." }
+    $script:Python = $venvPython
     & $venvPython.executable -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('pip') else 1)"
     if ($LASTEXITCODE -ne 0) {
         & $venvPython.executable -m ensurepip --upgrade
@@ -368,14 +462,6 @@ function Invoke-Configure {
     } else {
         Add-Action "bootstrap_pip" "not_needed" "pip is already available inside the repository virtual environment."
     }
-    $lockName = if ($DependencySet -eq "Development") { "requirements-dev.lock" } else { "requirements.lock" }
-    $lockPath = Join-Path $script:RepoRoot $lockName
-    & $venvPython.executable -m pip install --disable-pip-version-check --require-hashes -r $lockPath
-    if ($LASTEXITCODE -ne 0) { throw "Hash-locked Python dependency installation failed with exit code $LASTEXITCODE." }
-    Add-Action "install_python_dependencies" "completed" "Installed the hash-locked $DependencySet dependency set." @{
-        lock_path = $lockPath
-        lock_sha256 = Get-FileSha256 $lockPath
-    }
     $environmentPath = Join-Path $script:RepoRoot "adapters\claude\.env"
     if (-not (Test-Path -LiteralPath $environmentPath -PathType Leaf)) {
         Copy-Item -LiteralPath (Join-Path $script:RepoRoot "adapters\claude\.env.example") -Destination $environmentPath
@@ -383,17 +469,6 @@ function Invoke-Configure {
     } else {
         Add-Action "create_local_environment_file" "not_needed" "The local .env already exists and was not overwritten." @{ path = $environmentPath }
     }
-    $script:MsBuild = Find-MsBuild
-    if ($null -eq $script:MsBuild -and $AllowSystemPackageInstall) {
-        [void](Install-SystemPackage "Microsoft.VisualStudio.2022.BuildTools" @("--override", "--wait --passive --norestart --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools --includeRecommended"))
-        $script:MsBuild = Find-MsBuild
-    }
-    $script:NuGet = Ensure-NuGet
-    $packagesConfig = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution\packages.config"
-    $packagesDirectory = Join-Path $script:RepoRoot "solidworks-execution\packages"
-    & $script:NuGet install $packagesConfig -OutputDirectory $packagesDirectory -NonInteractive -Verbosity quiet
-    if ($LASTEXITCODE -ne 0) { throw "NuGet package restore failed with exit code $LASTEXITCODE." }
-    Add-Action "restore_csharp_packages" "completed" "Restored the execution-service packages.config dependencies." @{ path = $packagesDirectory }
     $script:Interop = Find-InteropDirectory
     if ($null -eq $script:Interop) {
         Add-Blocker "SOLIDWORKS_INTEROP_MISSING" "SolidWorks Interop assemblies were not found, so the execution service cannot be built." "Install SolidWorks outside this script or pass -SolidWorksInteropDirectory."
@@ -404,58 +479,67 @@ function Invoke-Configure {
         Add-Blocker "SOLIDWORKS_COSWORKS_INTEROP_MISSING" "SolidWorks.Interop.cosworks.dll was not found." "Pass -SolidWorksApiRedistDirectory or repair the external SolidWorks installation."
         return
     }
-    $solution = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution.sln"
-    if ($null -ne $script:MsBuild) {
-        & $script:MsBuild $solution /t:Build "/p:Configuration=$Configuration" "/p:SolidWorksInteropDir=$script:Interop" "/p:SolidWorksApiRedistDir=$script:ApiRedist" /v:minimal
-        if ($LASTEXITCODE -ne 0) { throw "C# execution-service MSBuild failed with exit code $LASTEXITCODE." }
-        Add-Action "build_execution_service" "completed" "Built the x64 C# Execution Service and repository-owned HostBootstrap helper with Visual Studio MSBuild." @{
-            configuration = $Configuration
-            solution = $solution
-            builder = $script:MsBuild
+    $missingFramework = @(Get-MissingFrameworkReferences)
+    if ($missingFramework.Count -gt 0 -and $AllowSystemPackageInstall) {
+        [void](Install-SystemPackage "Microsoft.DotNet.Framework.DeveloperPack_4")
+        $missingFramework = @(Get-MissingFrameworkReferences)
+    }
+    if ($missingFramework.Count -gt 0) {
+        Add-Blocker "DOTNET_FRAMEWORK_RUNTIME_MISSING" "Required .NET Framework x64 runtime references were not found." "Install the .NET Framework 4.8.1 Developer Pack, or explicitly authorize winget with -AllowSystemPackageInstall. Visual Studio is not required."
+        return
+    }
+    $script:SetupFingerprint = Get-SetupInputFingerprint $venvPython $script:Interop $script:ApiRedist
+    $script:Outputs["setup_fingerprint"] = $script:SetupFingerprint
+    if (Test-SetupState $script:SetupFingerprint) {
+        $script:Outputs["setup_state"] = $script:SetupStatePath
+        Add-Action "configure_repository_runtime" "not_needed" "The host and repository inputs match the completed bootstrap state; dependency restore and compilation were skipped." @{
+            state_path = $script:SetupStatePath
+            fingerprint = $script:SetupFingerprint
         }
-    } else {
-        $roslynCompiler = Ensure-RoslynCompiler $script:NuGet
-        $output = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution\bin\$Configuration"
-        $stagedBuild = $false
-        if (Test-Path -LiteralPath $output -PathType Container) {
-            # The existing build script deliberately requires a new or empty destination. Use a
-            # transaction-local staging directory and publish only after compilation succeeds.
-            $output = Join-Path $script:RepoRoot (".host-setup\runtime-build-" + [guid]::NewGuid().ToString("N"))
-            $stagedBuild = $true
-        }
+        return
+    }
+    $lockName = if ($DependencySet -eq "Development") { "requirements-dev.lock" } else { "requirements.lock" }
+    $lockPath = Join-Path $script:RepoRoot $lockName
+    & $venvPython.executable -m pip install --quiet --disable-pip-version-check --require-hashes -r $lockPath
+    if ($LASTEXITCODE -ne 0) { throw "Hash-locked Python dependency installation failed with exit code $LASTEXITCODE." }
+    Add-Action "install_python_dependencies" "completed" "Installed the hash-locked $DependencySet dependency set." @{
+        lock_path = $lockPath
+        lock_sha256 = Get-FileSha256 $lockPath
+    }
+    $script:NuGet = Ensure-NuGet
+    $packagesConfig = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution\packages.config"
+    $packagesDirectory = Join-Path $script:RepoRoot "solidworks-execution\packages"
+    & $script:NuGet install $packagesConfig -OutputDirectory $packagesDirectory -NonInteractive -Verbosity quiet
+    if ($LASTEXITCODE -ne 0) { throw "NuGet package restore failed with exit code $LASTEXITCODE." }
+    Add-Action "restore_csharp_packages" "completed" "Restored the execution-service packages.config dependencies." @{ path = $packagesDirectory }
+    [void](Ensure-RoslynCompiler $script:NuGet)
+    $output = Join-Path $script:RepoRoot (".host-setup\runtime-build-" + [guid]::NewGuid().ToString("N"))
+    try {
         $buildScript = Join-Path $script:RepoRoot "scripts\build_view_plan_live_runtime.ps1"
-        & $buildScript -RepositoryRoot $script:RepoRoot -OutputDirectory $output -SolidWorksInteropDirectory $script:Interop -SolidWorksApiRedistDirectory $script:ApiRedist | Out-Null
+        $buildArguments = @{
+            RepositoryRoot = $script:RepoRoot
+            OutputDirectory = $output
+            SolidWorksInteropDirectory = $script:Interop
+        }
+        if ((Get-Command $buildScript).Parameters.ContainsKey("SolidWorksApiRedistDirectory")) {
+            $buildArguments["SolidWorksApiRedistDirectory"] = $script:ApiRedist
+        } elseif (-not $script:ApiRedist.StartsWith($script:Interop, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "The repository build script cannot accept a separate SolidWorks API redist directory."
+        }
+        & $buildScript @buildArguments | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "Repository-local Roslyn execution-service build failed with exit code $LASTEXITCODE." }
         $finalOutput = Join-Path $script:RepoRoot "solidworks-execution\SolidworksExecution\bin\$Configuration"
         New-Item -ItemType Directory -Path $finalOutput -Force | Out-Null
         Copy-Item -Path (Join-Path $output "*") -Destination $finalOutput -Recurse -Force
-        $helperOutput = Join-Path $finalOutput "HostBootstrap"
-        New-Item -ItemType Directory -Path $helperOutput -Force | Out-Null
-        $framework = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319"
-        $helperExecutable = Join-Path $helperOutput "SolidWorksHostBootstrap.exe"
-        $helperReferences = @(
-            (Join-Path $framework "mscorlib.dll"),
-            (Join-Path $framework "System.dll"),
-            (Join-Path $framework "System.Core.dll"),
-            (Join-Path $framework "System.Web.Extensions.dll")
-        )
-        foreach ($reference in $helperReferences) {
-            if (-not (Test-Path -LiteralPath $reference -PathType Leaf)) {
-                throw "Required .NET Framework runtime reference is missing: $reference"
-            }
-        }
-        $helperReferenceArguments = @($helperReferences | ForEach-Object { "/reference:" + $_ })
-        & $roslynCompiler /nologo /nostdlib+ /target:exe /platform:x64 /deterministic+ "/out:$helperExecutable" $helperReferenceArguments (Join-Path $script:RepoRoot "solidworks-execution\HostBootstrap\Program.cs")
-        if ($LASTEXITCODE -ne 0) { throw "Repository-local Roslyn HostBootstrap build failed with exit code $LASTEXITCODE." }
-        if ($stagedBuild -and $output.StartsWith((Join-Path $script:RepoRoot ".host-setup\runtime-build-"), [StringComparison]::OrdinalIgnoreCase)) {
-            Remove-Item -LiteralPath $output -Recurse -Force
-        }
-        Add-Action "build_execution_service" "completed" "Built the x64 C# Execution Service with the repository-local pinned Roslyn compiler and deployed the native HostBootstrap helper." @{
-            configuration = $Configuration
-            builder = "Microsoft.Net.Compilers.Toolset/4.14.0"
-            output = $finalOutput
-        }
+    } finally {
+        if (Test-Path -LiteralPath $output -PathType Container) { Remove-Item -LiteralPath $output -Recurse -Force }
     }
+    Add-Action "build_execution_service" "completed" "Built the x64 C# Execution Service and native HostBootstrap helper with the pinned repository-local Roslyn compiler." @{
+        configuration = $Configuration
+        builder = "Microsoft.Net.Compilers.Toolset/4.14.0"
+        output = $finalOutput
+    }
+    $script:PublishSetupState = $true
 }
 
 function Collect-ReadinessChecks {
@@ -482,15 +566,19 @@ function Collect-ReadinessChecks {
         Add-Check "repository_python" "pass" "The repository .venv uses Python 3.12 x64." $script:Python
         $script:Outputs["python_executable"] = $script:Python.executable
     }
-    $script:MsBuild = Find-MsBuild
     $roslyn = Join-Path $script:RepoRoot "solidworks-execution\packages\Microsoft.Net.Compilers.Toolset\tasks\net472\csc.exe"
-    if ($null -ne $script:MsBuild) {
-        Add-Check "msbuild" "pass" "MSBuild is available." @{ path = $script:MsBuild }
-    } elseif (Test-Path -LiteralPath $roslyn -PathType Leaf) {
+    if (Test-Path -LiteralPath $roslyn -PathType Leaf) {
         Add-Check "csharp_builder" "pass" "The repository-local Roslyn x64 compiler is available." @{ path = $roslyn; sha256 = Get-FileSha256 $roslyn }
     } else {
-        Add-Check "csharp_builder" "fail" "Neither Visual Studio MSBuild nor the repository-local Roslyn compiler is available."
-        Add-Blocker "CSHARP_BUILDER_NOT_READY" "The C# execution service cannot be rebuilt." "Run Configure to restore the pinned Roslyn compiler, or install Visual Studio 2022 Build Tools."
+        Add-Check "csharp_builder" "fail" "The pinned repository-local Roslyn compiler is unavailable."
+        Add-Blocker "CSHARP_BUILDER_NOT_READY" "The C# execution service cannot be rebuilt." "Run Configure to restore the pinned Roslyn compiler. Visual Studio is not required."
+    }
+    $missingFramework = @(Get-MissingFrameworkReferences)
+    if ($missingFramework.Count -eq 0) {
+        Add-Check "dotnet_framework_runtime" "pass" "Required .NET Framework x64 runtime references are available."
+    } else {
+        Add-Check "dotnet_framework_runtime" "fail" "Required .NET Framework x64 runtime references are missing." @{ missing = $missingFramework }
+        Add-Blocker "DOTNET_FRAMEWORK_RUNTIME_MISSING" "The C# runtime cannot be built or started." "Install the .NET Framework 4.8.1 Developer Pack or run Configure with explicit system-package authorization. Visual Studio is not required."
     }
     $script:NuGet = Find-NuGet
     if ($null -eq $script:NuGet) {
@@ -574,6 +662,9 @@ $unhandled = $null
 try {
     if ($Mode -eq "Configure") { Invoke-Configure }
     Collect-ReadinessChecks
+    if ($Mode -eq "Configure" -and $script:PublishSetupState -and $script:Blockers.Count -eq 0) {
+        Write-SetupState $script:SetupFingerprint
+    }
     if ($Mode -eq "Verify") { Invoke-Verify }
 } catch {
     $unhandled = $_.Exception.Message

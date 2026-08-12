@@ -9,7 +9,7 @@ args = [
   "scripts\\start_codex_mcp.ps1",
 ]
 cwd = "."
-startup_timeout_sec = 30
+startup_timeout_sec = 900
 tool_timeout_sec = 240
 enabled_tools = [
   "solidworks_status",

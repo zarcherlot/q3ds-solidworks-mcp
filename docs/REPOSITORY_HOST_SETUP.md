@@ -53,9 +53,21 @@ the repository. It can:
 - download the pinned NuGet 6.11.1 CLI into `.host-setup/tools`, after validating its Microsoft
   Authenticode signature;
 - restore fixed C# packages;
-- use Visual Studio MSBuild when available, otherwise restore and use the pinned repository-local
-  Roslyn 4.14.0 compiler;
+- restore and use the pinned repository-local Roslyn 4.14.0 compiler; Visual Studio is not required;
 - build the x64 Execution Service and native HostBootstrap helper.
+
+After a successful Configure run, the script atomically writes
+`.host-setup/repository-host-setup-state.json`. The state fingerprints the machine, Python runtime,
+selected dependency lock, C# sources, build script, .NET Framework references and SolidWorks
+Interop assemblies, and records hashes for the prepared outputs. A later Configure run skips pip,
+NuGet and C# compilation when that fingerprint and every output hash still match. Missing or changed
+inputs invalidate the state and trigger the necessary setup again.
+
+The Codex stdio launcher invokes this idempotence gate before starting MCP. On the first launch,
+identified by a missing state file, it authorizes installation of only the contracted Python and
+.NET Framework prerequisites. Later launches do not carry system-install authorization and normally
+finish at the fast state check. The client startup timeout allows the first dependency restore and
+native build to finish.
 
 Pass nonstandard SolidWorks API locations explicitly when registry discovery cannot resolve them:
 
@@ -67,9 +79,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup_repository_hos
 ```
 
 `-AllowSystemPackageInstall` explicitly authorizes `winget` installation of a missing Python 3.12
-runtime or Visual Studio Build Tools. The script never elevates itself; organizational policy or an
-installer may still require the user to run an appropriate shell. System installation is not
-attempted without this switch.
+runtime or .NET Framework 4.8.1 Developer Pack. It never installs Visual Studio or Visual Studio
+Build Tools. The script never elevates itself; organizational policy or an installer may still
+require the user to run an appropriate shell. System installation is not attempted without this
+switch.
 
 ## Hard boundaries
 
