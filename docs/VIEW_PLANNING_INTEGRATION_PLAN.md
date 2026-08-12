@@ -1,26 +1,34 @@
-# 原 MCP 内置工程图视图规划开发计划
+# 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0 发布候选已完成  
-最后更新：2026-08-11  
-目标协议：`solidworks-view-plan` schema 1.4
+状态：E0 底层执行基线已完成；E1-E4 当前三 Skill 生产链收口待完成；F-H 待开发
+最后更新：2026-08-12
+目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
+`solidworks-drawing-layout-plan` 1.0
 
 ## 1. 目标
 
-将主视图选择、最小视图集、剖视/断面/局部/辅助视图决策、特征覆盖和图纸布局规划
-建设为本仓库的正式业务能力。`solidworks-plan-drawing-views` 仅作为工程规则和契约设计
-的参考来源，不作为生产运行时依赖。
+将主视图选择、最小视图集、剖视/断面/局部/辅助视图决策、特征覆盖、尺寸标注和最终工程图
+排版建设为本仓库的正式业务能力。旧 `$solidworks-plan-drawing-views` 仅作为历史工程规则和契约
+设计来源，不作为生产运行时依赖；当前仓库自有 Codex Skills 是用户入口和显式上层编排器。
 
 生产调用链必须保持：
 
 ```text
-Codex / MCP client
-  -> repository semantic MCP
-  -> repository PlannerEngine or explicit upper-layer planning Skill
+User / Codex
+  -> bootstrap-solidworks-host
+  -> solidworks-initialize-drawing-handoff
+  -> solidworks-create-drawing-views
+  -> [F] solidworks-dimension-drawing
+  -> [G] solidworks-finalize-drawing-layout
+  -> repository semantic MCP (adapters/codex/server.py -> adapters/claude/server.py)
   -> repository execution_client
   -> repository C# Execution Service
   -> private atomic SolidWorks COM operations
-  -> save / close / read-only reopen / verify
+  -> save / close / read-only reopen / independent verify
 ```
+
+当前版本以前三个 Skill 为生产入口。完成 F/G 后扩展为五 Skill；每个下游阶段读取并哈希绑定上游
+不可变计划、工程图和核验侧车，再创建新的后继 `.SLDDRW`，不得原地修改已验收的上游图纸。
 
 ## 2. 不可违反的边界
 
@@ -31,13 +39,21 @@ Codex / MCP client
 - 工程正确性与当前执行能力分离。执行器缺少能力时返回 `capability_blocked`，不得删除
   视图、替换视图类型、使用隐藏线代替剖视或修改冻结几何。
 - 创建类操作必须使用新输出路径，执行事务必须保存、关闭、只读重开并核验持久化结果。
+- ViewPlan、DimensionPlan 和 DrawingLayoutPlan 必须是独立、严格、不可变、可哈希绑定的协议；不得
+  把后续尺寸和最终排版字段无边界地塞入 ViewPlan 1.4，也不得翻译到 DrawingPlan 1.0。
+- 尺寸值、公差、配合、螺纹等级、形位公差和表面要求必须来自受信模型数据或用户批准输入；不得从
+  PNG、屏幕像素或图纸比例推测制造要求。几何测量值只能按协议显式标记为参考尺寸。
+- 最终排版只能改变允许对象的位置、对齐和批准的比例，不得改变尺寸语义、视图覆盖、配置、显示状态、
+  投影法、剖切定义或模型关联。
 - `validation/` 是验证数据，只读使用，不得由开发测试覆盖或清理。
 
-## 3. 目标语义工具面
+## 3. 当前语义工具面
 
 | 工具 | 责任 | SolidWorks 写入 |
 |---|---|---:|
 | `solidworks_status` | 报告 MCP、Planner、执行器和 SolidWorks 状态 | 可选启动 |
+| `inspect_solidworks_host` | 仓库自有的 no-launch 主机、安装、注册和文件系统预检 | 否 |
+| `bootstrap_solidworks_host` | 仓库自有的隔离有界 COM 激活验证；注册修复必须显式授权 | 可选启动/修复 |
 | `inspect_part_for_drawing` | 只读检查零件、配置、本地化标准视图名和包围盒 | 否 |
 | `initialize_part_drawing_handoff` | C# 事务生成空白图纸、两份报告、六视图图片及 manifest-last 冻结交接 | 是 |
 | `plan_part_drawing_views` | 调用 PlannerEngine，发布通过确定性校验的冻结计划 | 否 |
@@ -46,7 +62,33 @@ Codex / MCP client
 | `create_part_drawing_from_view_plan` | 事务执行完整冻结计划 | 是 |
 | `verify_part_drawing_view_plan` | 对已有工程图进行独立只读核验 | 否 |
 
+默认 MCP 当前共十项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
+`semantic-tools.schema.json` 必须保持精确一致；三个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
+`plan_part_drawing_views` 与显式 Skill + `publish_validated_part_drawing_view_plan` 是互斥规划分支；当前
+Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP Sampling 时才使用 PlannerEngine 分支。
+
 旧 `DrawingPlan` 1.0 已移出默认工具面，并通过独立三工具 MCP 接入显式兼容入口；C# 私有事务继续复用。
+
+### 3.1 F/G 计划新增的语义工具
+
+尺寸阶段拟新增：
+
+- `initialize_part_drawing_dimension_handoff`
+- `publish_validated_part_drawing_dimension_plan`
+- `validate_part_drawing_dimension_plan`
+- `create_dimensioned_part_drawing`
+- `verify_dimensioned_part_drawing`
+
+最终排版阶段拟新增：
+
+- `initialize_part_drawing_layout_handoff`
+- `publish_validated_part_drawing_layout_plan`
+- `validate_part_drawing_layout_plan`
+- `create_final_part_drawing`
+- `verify_final_part_drawing`
+
+新增工具只能是工程语义级完整事务。旧 `auto_dimension_drawing`、`add_drawing_dimension` 等 legacy 动词
+只可用于 API 调研，不得直接注册到默认生产面或作为新协议执行后端。
 
 ## 4. 内部模块
 
@@ -71,7 +113,35 @@ drawing_planner/
     executor-capabilities.schema.json
   capabilities/
     current.json
+
+dimension_planner/             [F]
+  planning_models.py
+  plan_store.py
+  validators/
+  contracts/
+    dimension-plan.schema.json
+    dimension-planning-request.schema.json
+    dimension-planning-result.schema.json
+    dimension-executor-capabilities.schema.json
+  capabilities/
+    current.json
+
+drawing_layout_planner/        [G]
+  planning_models.py
+  constraint_engine.py
+  plan_store.py
+  validators/
+  contracts/
+    drawing-layout-plan.schema.json
+    drawing-layout-request.schema.json
+    drawing-layout-result.schema.json
+    drawing-layout-executor-capabilities.schema.json
+  capabilities/
+    current.json
 ```
+
+F/G 可在实现阶段按仓库复用情况共享基础 canonical JSON、哈希、验证结果和原子发布组件，但三个业务协议、
+能力清单和验证入口必须保持明确分离，不能以复用为由将尺寸或最终排版静默并入 ViewPlan 执行链。
 
 ## 5. Prompt 注入设计
 
@@ -193,29 +263,153 @@ C# 私有协议使用 `initialize_part_drawing_handoff`、`validate_frozen_part_
 - [x] D3：移除外部 Skill/CLI 运行时依赖。
 - [x] D4：旧 DrawingPlan 1.0 移至显式兼容入口。
 
-### E. 发布候选
+### E. 当前三 Skill 生产链发布收口
 
-- [x] E0：发布候选收口。
+- [x] E0：底层执行基线收口（历史发布候选）。
   - [x] 基于 D4 最终代码重跑 offline/integration/live 六案例统一矩阵。
   - [x] SolidWorks 2025 SP5 全能力 live 矩阵 13/13 通过。
   - [x] 通过独立 stdio MCP 完成 DrawingPlan 1.0 validate/create/verify 实机事务。
   - [x] `validation/` 四项输入在全部发布候选验证前后 SHA-256 完全不变。
   - [x] 发布候选报告、README 和 CHANGELOG 与最终证据同步。
+- [ ] E1：冻结当前三 Skill 的生产链合同。
+  - [ ] 固化 `bootstrap-solidworks-host` → `solidworks-initialize-drawing-handoff` →
+    `solidworks-create-drawing-views` 的顺序、输入、输出、状态变化和停止条件。
+  - [ ] 固化默认十工具语义面、各 Skill allow-list 和零 prompts；三者与 Codex 配置及 MCP Schema 同步。
+  - [ ] 显式 Skill publish 分支作为当前 Codex 默认路径；PlannerEngine Sampling 分支仅在用户明确要求时使用，
+    且一次任务两条分支互斥、只允许一个候选和一次发布。
+  - [ ] initializer 返回的完整 `planning_request` 在 publish/validate/create/verify 间原样复用。
+- [ ] E2：建立 Skill/MCP 边界合同测试。
+  - [ ] 校验三个 `SKILL.md` 的 front matter、引用文件、工具 allow-list 和仓库权威合同。
+  - [ ] 拒绝私有 executor 动词、原始 HTTP、第二 MCP client、Python COM、UI 自动化和 legacy 桥。
+  - [ ] 校验发布后计划不可修改或覆盖；`capability_blocked` 可发布但不可执行。
+  - [ ] 对 `.codex/config.toml`、FastMCP 实际发现结果和 `semantic-tools.schema.json` 执行三方漂移检查。
+- [ ] E3：完成真实用户入口端到端矩阵。
+  - [ ] 经仓库自有主机预检 Skill、initializer Skill、视图 Skill 和真实 stdio MCP 到 C# COM 事务运行。
+  - [ ] 初始化一次、候选一个、发布一次；create 后独立 verify，且不存在私有操作泄漏。
+  - [ ] 覆盖主机阻塞、handoff 哈希漂移、计划拒绝、能力阻塞、路径碰撞和核验不一致等负向案例。
+  - [ ] `validation/`、源模型、模板和全部已发布上游制品在运行前后保持不变。
+- [ ] E4：冻结当前三 Skill 链的新发布候选证据。
+  - [ ] 记录 Git commit、三个 Skill、Schema、`native-v4`、能力清单、C# runtime 和全部制品 SHA-256。
+  - [ ] 更新 README、CHANGELOG、复现命令和发布报告；DrawingPlan 1.0 仅作为兼容性附加门禁。
+
+E0 的 45 项 C# 合同和 13 项 SolidWorks 实机矩阵继续作为底层回归基线，但不能单独证明当前三 Skill
+用户入口已完成发布验收；E1-E4 全部完成后，才可恢复“当前版本发布候选完成”的结论。
+
+### F. 尺寸标注
+
+尺寸阶段使用独立 `solidworks-dimension-plan` 1.0，并从已核验的视图图纸创建新的后继工程图；当前
+ViewPlan 的 `dimension_zones` 仅表示预留空间，不是尺寸语义、尺寸创建结果或最终排版结果。
+
+- [ ] F0：冻结尺寸范围并完成 SolidWorks 2025 SP5 原生 API 实证。
+  - [ ] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
+  - [ ] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
+  - [ ] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
+- [ ] F1：实现不可变尺寸规划 handoff。
+  - [ ] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
+    视图边界、现有注释边界和 `dimension_zones`。
+  - [ ] 尺寸来源按“模型/PMI和已批准数据 → 用户确认输入 → 仅参考的几何测量值”分级并记录溯源。
+  - [ ] 发布 `dimension-planning-handoff.json` last；源模型及上游图纸不得变脏或被覆盖。
+- [ ] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
+  - [ ] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
+    总体尺寸、台阶、凸台、槽、倒角、圆角和对称尺寸。
+  - [ ] 每个尺寸绑定来源、目标视图、附着实体、特征、数值模式、显示格式、尺寸区、层级和核验公差。
+  - [ ] 形位公差、基准、粗糙度、焊接符号和无来源制造要求不属于 DimensionPlan 1.0 首版。
+- [ ] F3：实现尺寸确定性门禁。
+  - [ ] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
+  - [ ] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。
+  - [ ] 工程上有效但执行器不支持的计划允许发布为 `capability_blocked`，创建事务必须拒绝。
+- [ ] F4：实现 C# 原生尺寸 MVP 和无覆盖事务。
+  - [ ] 支持线性、直径、半径、角度、参考尺寸、基本孔标注、前后缀、数量、精度和冻结初始位置。
+  - [ ] 从上游图纸复制到事务临时文件，创建后重建、内存回读、保存、关闭、只读重开并原子提交新图纸/侧车。
+  - [ ] 精确核验尺寸身份、数值、类型、目标视图、附着实体、文字和位置；禁止未计划尺寸和部分提交。
+- [ ] F5：补齐高级尺寸能力。
+  - [ ] 沉孔、沉头、锪平孔、盲孔、螺纹、槽/键槽、组合倒角/圆角、基线尺寸、坐标尺寸和阵列标注。
+  - [ ] 上下偏差、极限尺寸和配合代号仅在受信输入存在时执行，并完成原生格式与持久化回读。
+- [ ] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
+  - [ ] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
+  - [ ] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。
+- [ ] F7：完成尺寸离线、合同和真实 SolidWorks 矩阵。
+  - [ ] 覆盖板类、轴套类、支架类、法兰类、槽腔类和螺纹零件。
+  - [ ] 验收无悬空、重复、未计划尺寸；源模型和上游图纸不变，保存重开规范化指纹一致。
+
+### G. 最终工程图排版布局
+
+G 必须在 F 的真实尺寸执行后运行。最终排版依据 SolidWorks 重建后读取的实际视图、尺寸文字、箭头、
+界线、引线、标签和中心元素边界，不得仅凭 ViewPlan 的计划框或尺寸带猜测最终坐标。
+G 只负责已有视图、尺寸和注释的最终空间整理；标题栏内容填写、技术要求编制、形位公差/基准/粗糙度
+创建以及 PDF/DWG/DXF 导出不在本阶段范围内。
+
+- [ ] G0：验证真实注释边界和重建漂移。
+  - [ ] 实测视图轮廓、尺寸文字/线/箭头、孔标注/引线、标签、剖切符号、中心元素、图框和标题栏边界。
+  - [ ] 记录重建前后及保存重开漂移；原生 API 无可靠边界时建立有实机误差证据的确定性近似并 fail-closed。
+- [ ] G1：实现不可变布局 handoff。
+  - [ ] 冻结上游 DimensionPlan、尺寸图纸和侧车哈希，以及全部实际对象边界、约束、锁定区和最小间距。
+  - [ ] 发布 `drawing-layout-handoff.json` last；不得改变上游尺寸数量、数值、附着关系或图纸文件。
+- [ ] G2：加入 DrawingLayoutPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
+  - [ ] 计划可移动尺寸/注释/允许的视图，调整尺寸层级、引线、局部比例、主比例及经授权的图幅。
+  - [ ] 计划不得删除必要内容、改变制造语义、配置/显示状态/投影法、剖切定义、模型关联或冻结几何。
+- [ ] G3：实现仓库确定性排版引擎和门禁。
+  - [ ] 使用规则加约束求解；Skill/模型表达优先级和布局意图，合法最终坐标由仓库引擎求解。
+  - [ ] 固定调整顺序：尺寸文字/层级 → 引线/标签 → 可移动视图 → 局部比例 → 主比例 → 授权图幅。
+  - [ ] 校验安全区、标题栏/保留区、对象碰撞、尺寸穿越、投影对齐、最小间距、字体和箭头可读性。
+- [ ] G4：实现 C# 最终排版事务。
+  - [ ] 原生移动尺寸、注释、引线和视图，保持投影关系，并执行计划允许的比例/图幅调整。
+  - [ ] 采用有界“应用 → 重建 → 真实边界回读 → 碰撞检查 → 有限调整”流程；超限稳定失败。
+  - [ ] 保存、关闭、只读重开后提交新的最终图纸和验证侧车，不覆盖尺寸阶段图纸。
+- [ ] G5：实现最终布局独立核验器。
+  - [ ] 核对尺寸值/数量/附着实体和视图语义不变，无悬空对象、越界、正面积碰撞或保留区侵占。
+  - [ ] 规范化布局指纹在内存、事务重开和独立验证之间一致；截图/PDF 仅作附加视觉 QA。
+- [ ] G6：新增 `solidworks-finalize-drawing-layout` Skill 和五项布局语义工具。
+  - [ ] Skill 必须绑定尺寸阶段返回的不可变 request，不能跳回视图基线或绕过尺寸核验。
+- [ ] G7：完成布局离线、合同和真实 SolidWorks 矩阵。
+  - [ ] 覆盖少尺寸、多视图、剖视、详图、辅助视图、孔阵列、高密度尺寸、缩放和授权/未授权换图幅。
+
+### H. 五 Skill 完整生产链发布候选
+
+- [ ] H0：完成用户入口到 COM 再独立回读的五 Skill 发布候选。
+  - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
+  - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
+  - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
+  - [ ] 最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
+  - [ ] 冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希，并同步文档。
+
+### 开发顺序、关键路径和里程碑
+
+必须按 `E → F → G → H` 进入发布门禁。G0 的只读 API 实证可在 F4/F5 期间并行，但 G1 及之后必须消费
+F 已执行并核验的真实尺寸图纸，不得基于模拟注释或仅依据 ViewPlan 尺寸带提前验收。
+
+单主开发者、固定 SolidWorks 2025 SP5 实机环境下的初步估算：E1-E4 为 1-2 周，F 为 9-12 周，G 为
+8-10 周，H 为 1-2 周；考虑 G0 与 F 后半段并行后的总关键路径约 18-25 周。F0/G0 原生 API 实证完成后
+必须根据实际可回读能力重新校准排期，不得以进度压力将不可靠能力标记为 `supported`。
+
+里程碑：
+
+1. M1：当前三 Skill 用户入口发布候选通过（E4）。
+2. M2：DimensionPlan Schema、尺寸 handoff 和确定性门禁冻结（F3）。
+3. M3：尺寸完整实机矩阵通过，第四 Skill 可用（F7）。
+4. M4：真实注释边界和确定性布局求解器完成（G3）。
+5. M5：高密度最终排版矩阵通过，第五 Skill 可用（G7）。
+6. M6：五 Skill 完整生产链发布候选通过（H0）。
 
 ## 9. 每次提交的完成定义
 
 - 默认 MCP 工具契约测试通过；
-- Planner 单元和 JSON Schema 测试通过；
-- C# 合同测试 `45/45` 不回归；
+- 当前涉及的 View/Dimension/Layout Planner 单元和 JSON Schema 测试通过；
+- C# ViewPlan 合同测试 `45/45` 不回归；F/G 新增各自独立合同套件，禁止用修改既有 45 项断言代替增量覆盖；
+- 三 Skill 生产链完成前，三个现有 `SKILL.md` 合同和 Codex/MCP/Schema 三方工具面漂移测试通过；
+- F/G 开始后，相应 Skill、handoff、计划、能力清单和语义工具合同测试通过；
 - Python `compileall` 和 `git diff --check` 通过；
 - C# 改动完成 x64 构建；
 - COM 行为改动必须记录 SolidWorks 版本及真实验证结果；
+- 创建事务只写全新输出；上游计划、图纸、侧车、模型、模板和 `validation/` 哈希不变；
+- 实机验收必须包含保存、关闭、只读重开及独立验证，不以截图或人工观察替代结构化核验；
 - 文档中的阶段勾选和能力清单与代码同步。
 
 ## 10. 当前迁移说明
 
-上一版 `drawing_planner/executor_bridge.py` 及其两个外部执行器动词已在 D3 删除。生产链不再发现
-Codex Skill 目录、调用 `Invoke-ViewPlanCli.ps1` 或通过 PowerShell 子进程执行冻结计划。
+上一版 `drawing_planner/executor_bridge.py` 及其两个外部执行器动词已在 D3 删除。生产链不再发现或调用
+外部 `$solidworks-plan-drawing-views` Skill、`Invoke-ViewPlanCli.ps1` 或 PowerShell 执行桥。当前生产链会由
+Codex 正常发现仓库自有 `.codex/skills/`，但这些 Skill 只能编排默认 semantic MCP，不能成为第二执行层。
 
 A2/A3 已完成：PromptCompiler 只读取仓库内锁定的 ViewPlan 1.4 Schema；完整性校验会重算
 handoff manifest、模型、空白工程图、两份报告和六张图片的 SHA-256，并核对计划中的路径、
@@ -368,3 +562,16 @@ validate/create/verify 顺序完成四视图工程图事务；执行状态严格
 事务共同使用长事务超时并由测试锁定。两轮实机验证前后 `validation/` 四项输入的树哈希均保持
 `0638a043ab5bcec518a6437f879b4705f33fa0ad36b25676f4e34b47aa759d7e`。完整证据和复现命令见
 `docs/E0_RELEASE_CANDIDATE_REPORT.md`。
+
+E0 之后生产入口发生了架构演进：默认 Codex MCP 入口现在经 `adapters/codex/server.py` 委托共享 semantic
+MCP，默认工具面扩展为十项，并由仓库自有 `bootstrap-solidworks-host`、
+`solidworks-initialize-drawing-handoff` 和 `solidworks-create-drawing-views` 三个 Skill 在上层显式编排。
+显式视图 Skill 读取仓库锁定的 `native-v4`、ViewPlan Schema、完整 handoff 和参考路由，只生成一个候选并
+提交 `publish_validated_part_drawing_view_plan`；MCP 仍拥有全部确定性门禁、能力评估、原子发布和 C# 事务。
+仓库自有主机预检也已迁入 `inspect_solidworks_host`/`bootstrap_solidworks_host` semantic tools，经受控
+`/host/bootstrap` 入口运行仓库构建的 x64 helper，不再依赖用户目录中的旧 bootstrap Skill 二进制。
+
+因此 E0 的 45/45 C# 合同、13/13 ViewPlan 实机矩阵和 DrawingPlan 兼容 smoke 作为底层历史基线继续有效，
+但其“六工具”和旧主机预检证据不能单独代表当前三 Skill 用户链路已经发布。E1-E4 将重新冻结真实用户
+入口、Skill/MCP 边界和仓库自有 HostBootstrap 证据；F/G 随后分别交付尺寸标注和基于真实注释边界的
+最终工程图排版，H 再对五 Skill 全链执行最终发布候选收口。
