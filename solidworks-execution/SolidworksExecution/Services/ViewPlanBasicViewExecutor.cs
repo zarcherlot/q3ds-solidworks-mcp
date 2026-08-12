@@ -2110,7 +2110,7 @@ namespace SolidworksExecution.Services
                 contract["label_position_sheet_m"] = new JArray(
                     Quantize(labelX), Quantize(labelY));
                 contract["managed_label"] = managedLabel == null
-                    ? JValue.CreateNull() : managedLabel;
+                    ? (JToken)JValue.CreateNull() : managedLabel;
                 return true;
             }
             catch (Exception ex)

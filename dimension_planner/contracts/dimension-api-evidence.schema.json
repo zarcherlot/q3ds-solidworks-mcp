@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-api-evidence.schema.json",
+  "title": "SolidWorks Dimension Native API Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "probe_id",
+    "created_at",
+    "execution_mode",
+    "source_kind",
+    "solidworks",
+    "source_request_sha256",
+    "upstream_immutability",
+    "capabilities"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-api-evidence" },
+    "schema_version": { "const": "1.0" },
+    "probe_id": { "type": "string", "pattern": "^DPE-[A-Za-z0-9._-]+$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "execution_mode": { "enum": ["offline", "live"] },
+    "source_kind": {
+      "enum": ["research_model_drawing_pair", "frozen_viewplan_drawing"]
+    },
+    "solidworks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major_version", "service_pack", "revision"],
+      "properties": {
+        "major_version": { "type": "integer", "minimum": 2025 },
+        "service_pack": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source_request_sha256": { "$ref": "#/$defs/sha256" },
+    "upstream_immutability": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/immutability" }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": { "$ref": "#/$defs/capability" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "capabilityId": {
+      "enum": [
+        "model_dimension_import",
+        "display_dimension_iteration",
+        "attachment_persistent_reference",
+        "annotation_position",
+        "annotation_text_bounds",
+        "linear_dimension",
+        "diameter_dimension",
+        "radius_dimension",
+        "angular_dimension",
+        "hole_callout",
+        "chamfer_dimension",
+        "dimension_tolerance",
+        "dimension_prefix_suffix",
+        "save_reopen_stable_identity"
+      ]
+    },
+    "immutability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256_before", "sha256_after"],
+      "properties": {
+        "role": {
+          "enum": ["view_plan", "verified_drawing", "verification_sidecar", "source_model", "source_drawing", "drawing_template"]
+        },
+        "path": { "type": "string", "minLength": 3 },
+        "sha256_before": { "$ref": "#/$defs/sha256" },
+        "sha256_after": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "native_api_invoked",
+        "in_memory_readback",
+        "save_close_readonly_reopen",
+        "stable_identity",
+        "attachment_readback",
+        "position_readback",
+        "text_bounds_readback"
+      ],
+      "properties": {
+        "native_api_invoked": { "type": "boolean" },
+        "in_memory_readback": { "type": "boolean" },
+        "save_close_readonly_reopen": { "type": "boolean" },
+        "stable_identity": { "type": "boolean" },
+        "attachment_readback": { "type": "boolean" },
+        "position_readback": { "type": "boolean" },
+        "text_bounds_readback": { "type": "boolean" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "checks", "evidence", "limitations"],
+      "properties": {
+        "id": { "$ref": "#/$defs/capabilityId" },
+        "status": { "enum": ["supported", "planned", "unsupported"] },
+        "checks": { "$ref": "#/$defs/checks" },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

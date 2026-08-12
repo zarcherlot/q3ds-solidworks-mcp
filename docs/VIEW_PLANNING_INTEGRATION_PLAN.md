@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0 已完成；F1-H 待开发
 最后更新：2026-08-12
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -300,10 +300,24 @@ E0 的 45 项 C# 合同和 13 项 SolidWorks 实机矩阵继续作为底层回�
 尺寸阶段使用独立 `solidworks-dimension-plan` 1.0，并从已核验的视图图纸创建新的后继工程图；当前
 ViewPlan 的 `dimension_zones` 仅表示预留空间，不是尺寸语义、尺寸创建结果或最终排版结果。
 
-- [ ] F0：冻结尺寸范围并完成 SolidWorks 2025 SP5 原生 API 实证。
-  - [ ] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
-  - [ ] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
-  - [ ] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
+F0 已建立 COM-free 探测请求/实证报告合同、固定十四项能力目录、确定性证据评估器、独立 C#
+尺寸合同套件和仓库 Execution Service 内部 live 探测链，并支持哈希绑定的研究模型/工程图语料对
+与生产冻结上游两类显式来源；详见 `docs/F0_DIMENSION_API_SCOPE.md`。在 SolidWorks 2025 SP5
+四组研究语料矩阵已覆盖线性、直径、半径、角度、孔标注、倒角、非零公差和前后缀，并证明 70 个
+显示尺寸跨完全关闭/只读重开的规范化稳定身份和值；无选择稳定失败案例也已完成。47 个含附件记录的
+79/79 个有效原始持久引用在只读重开后解析成功，另有两个 `type=0/entity=null` COM 占位槽被显式记录
+并排除。十四项研究覆盖均为 `covered`，精确文字边界按实证判定为 `unsupported`。随后确认字节级
+复制 initializer 会使 SolidWorks 对副本 `Save3(errors=1)`；B3 事务改用原生
+`ISldWorks.CopyDocument`，在无打开文档的明确前置条件下保持 initializer 哈希不变并成功创建、
+保存、只读重开和独立核验四个模型关联视图。最终 build18 矩阵包含四个研究案例和一个生产冻结案例，
+5/5 为 `evidence_ready`、`production_frozen_case_count=1`、`overall_status=complete`；冻结图纸导入
+18 个模型尺寸并通过保存重开证据门禁。十三项能力保持 `planned`，`annotation_text_bounds` 为
+`unsupported`，未提前提升能力状态。
+
+- [x] F0：冻结尺寸范围并完成 SolidWorks 2025 SP5 原生 API 实证。
+  - [x] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
+  - [x] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
+  - [x] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
 - [ ] F1：实现不可变尺寸规划 handoff。
   - [ ] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
     视图边界、现有注释边界和 `dimension_zones`。

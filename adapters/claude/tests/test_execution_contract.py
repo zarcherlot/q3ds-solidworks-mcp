@@ -18,6 +18,13 @@ _CONTROLLER = os.path.join(
 _CONTRACT = os.path.join(
     _ROOT, "solidworks-execution", "contracts", "tool-schemas.json"
 )
+_VIEW_PLAN_TRANSACTION = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Services",
+    "ViewPlanBasicDrawingTransaction.cs",
+)
 
 
 def test_every_dispatched_operation_has_a_contract():
@@ -116,3 +123,14 @@ def test_health_identifies_the_execution_service_and_host_bootstrap_capability()
         controller = handle.read()
     assert '["service"] = "solidworks-execution"' in controller
     assert '["capabilities"] = new[] { "host-bootstrap-v1" }' in controller
+
+
+def test_viewplan_transaction_uses_native_copy_document_for_initializer():
+    with open(_VIEW_PLAN_TRANSACTION, encoding="utf-8-sig") as handle:
+        source = handle.read()
+
+    assert "_solidWorks.CopyDocument(plan.DrawingPath, temporaryDrawing" in source
+    assert "swMoveCopyError_e.swMoveCopyErrorNone" in source
+    assert '"VIEW_PLAN_COPY_REQUIRES_NO_OPEN_DOCUMENTS"' in source
+    assert "File.Copy(plan.DrawingPath, temporaryDrawing" not in source
+    assert '".tmp.SLDDRW"' not in source

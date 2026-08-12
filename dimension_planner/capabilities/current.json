@@ -1,0 +1,25 @@
+{
+  "protocol_id": "solidworks-dimension-executor-capabilities",
+  "schema_version": "1.0",
+  "registry_version": "0.1.0",
+  "solidworks_target": "2025 SP5",
+  "solidworks_revision": "33.5.0",
+  "promotion_policy": "No capability becomes supported without native creation, in-memory readback, save/close/read-only reopen, stable identity, attachment, position, and text-bound evidence.",
+  "live_evidence": null,
+  "capabilities": [
+    { "id": "model_dimension_import", "status": "planned" },
+    { "id": "display_dimension_iteration", "status": "planned" },
+    { "id": "attachment_persistent_reference", "status": "planned" },
+    { "id": "annotation_position", "status": "planned" },
+    { "id": "annotation_text_bounds", "status": "planned" },
+    { "id": "linear_dimension", "status": "planned" },
+    { "id": "diameter_dimension", "status": "planned" },
+    { "id": "radius_dimension", "status": "planned" },
+    { "id": "angular_dimension", "status": "planned" },
+    { "id": "hole_callout", "status": "planned" },
+    { "id": "chamfer_dimension", "status": "planned" },
+    { "id": "dimension_tolerance", "status": "planned" },
+    { "id": "dimension_prefix_suffix", "status": "planned" },
+    { "id": "save_reopen_stable_identity", "status": "planned" }
+  ]
+}

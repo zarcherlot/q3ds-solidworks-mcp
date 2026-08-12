@@ -7,15 +7,16 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using SolidworksExecution.Contracts;
 
 namespace SolidworksExecution.Services
 {
     /// <summary>
     /// B3 disk transaction for the executable ViewPlan basic-view subset. Inputs are hash-bound
-    /// before COM, the ready drawing is copied to a same-directory temporary artifact, and only a
-    /// save/close/read-only-reopen verified result is committed. The source drawing is never opened
-    /// for write and neither final path may pre-exist.
+    /// before COM, the ready drawing is copied through SolidWorks CopyDocument to a same-directory
+    /// temporary artifact, and only a save/close/read-only-reopen verified result is committed. The
+    /// source drawing is never opened for write and neither final path may pre-exist.
     /// </summary>
     internal sealed class ViewPlanBasicDrawingTransaction
     {
@@ -55,7 +56,7 @@ namespace SolidworksExecution.Services
             string fileName = Path.GetFileNameWithoutExtension(outputPath);
             string nonce = Guid.NewGuid().ToString("N");
             string temporaryDrawing = Path.Combine(directory,
-                "." + fileName + ".q3ds-vp-" + nonce + ".tmp.SLDDRW");
+                fileName + ".q3ds-vp-" + nonce + ".SLDDRW");
             string temporaryReport = Path.Combine(directory,
                 "." + fileName + ".q3ds-vp-" + nonce + ".tmp.verification.json");
 
@@ -69,7 +70,36 @@ namespace SolidworksExecution.Services
             bool completed = false;
             try
             {
-                File.Copy(plan.DrawingPath, temporaryDrawing, false);
+                string initializerSha256Before = ComputeFileSha256(plan.DrawingPath);
+                if (_solidWorks.IGetFirstDocument2() != null)
+                {
+                    result["open_documents"] = BuildOpenDocumentList();
+                    return Fail("VIEW_PLAN_COPY_REQUIRES_NO_OPEN_DOCUMENTS",
+                        "SolidWorks CopyDocument requires all documents to be closed; refusing " +
+                        "to close or alter the existing user session.", result, out error);
+                }
+                int copyResult = _solidWorks.CopyDocument(plan.DrawingPath, temporaryDrawing,
+                    null, null, 0);
+                string initializerSha256After = ComputeFileSha256(plan.DrawingPath);
+                var initializerCopy = new JObject
+                {
+                    ["strategy"] = "solidworks_copy_document",
+                    ["source_sha256_before"] = initializerSha256Before,
+                    ["source_sha256_after"] = initializerSha256After,
+                    ["copy_result"] = copyResult,
+                    ["temporary_exists"] = File.Exists(temporaryDrawing)
+                };
+                result["initializer_copy"] = initializerCopy;
+                if (copyResult != (int)swMoveCopyError_e.swMoveCopyErrorNone ||
+                    !File.Exists(temporaryDrawing))
+                    return Fail("VIEW_PLAN_DRAWING_COPY_FAILED",
+                        "SolidWorks CopyDocument failed (result=" + copyResult + ").",
+                        result, out error);
+                if (!string.Equals(initializerSha256Before, initializerSha256After,
+                    StringComparison.OrdinalIgnoreCase))
+                    return Fail("VIEW_PLAN_INITIALIZER_MUTATED",
+                        "The immutable initializer drawing changed during CopyDocument.",
+                        result, out error);
 
                 sourceModel = _solidWorks.GetOpenDocumentByName(plan.ModelPath) as IModelDoc2;
                 sourceOwned = sourceModel == null;
@@ -90,9 +120,9 @@ namespace SolidworksExecution.Services
                 drawingModel = _solidWorks.OpenDoc6(temporaryDrawing, 3, 1, "",
                     ref drawingErrors, ref drawingWarnings) as IModelDoc2;
                 var drawing = drawingModel as IDrawingDoc;
-                if (drawing == null)
+                if (drawing == null || drawingModel.IsOpenedReadOnly())
                     return Fail("VIEW_PLAN_DRAWING_OPEN_FAILED",
-                        "Temporary drawing open failed (errors=" + drawingErrors +
+                        "Writable transaction drawing open failed (errors=" + drawingErrors +
                         ", warnings=" + drawingWarnings + ").", result, out error);
 
                 ViewPlanBasicViewExecutionResult creation;
@@ -104,11 +134,20 @@ namespace SolidworksExecution.Services
                 result["in_memory_verification"] = creation.InMemoryReadback;
 
                 drawingModel.ClearSelection2(true);
-                drawingModel.ForceRebuild3(false);
+                bool rebuildResult = drawingModel.ForceRebuild3(false);
                 drawingModel.GraphicsRedraw2();
+                var saveDiagnostics = BuildSaveDiagnostics(
+                    drawingModel, temporaryDrawing, rebuildResult);
+                result["save_diagnostics"] = saveDiagnostics;
                 int saveErrors = 0;
                 int saveWarnings = 0;
                 bool saved = drawingModel.Save3(1, ref saveErrors, ref saveWarnings);
+                saveDiagnostics["save_returned"] = saved;
+                saveDiagnostics["save_errors"] = saveErrors;
+                saveDiagnostics["save_warnings"] = saveWarnings;
+                saveDiagnostics["save_flag_after"] = SafeGetSaveFlag(drawingModel);
+                saveDiagnostics["file_exists_after"] = File.Exists(temporaryDrawing);
+                saveDiagnostics["file_length_after"] = SafeFileLength(temporaryDrawing);
                 if (!saved || saveErrors != 0 || !File.Exists(temporaryDrawing))
                     return Fail("VIEW_PLAN_DRAWING_SAVE_FAILED",
                         "Save3 failed (errors=" + saveErrors + ", warnings=" + saveWarnings + ").",
@@ -236,6 +275,73 @@ namespace SolidworksExecution.Services
                 var active = _solidWorks.IActiveDoc2 as IModelDoc2;
                 return active != null ? active.GetTitle() : null;
             }
+            catch { return null; }
+        }
+
+        private JArray BuildOpenDocumentList()
+        {
+            var documents = new JArray();
+            try
+            {
+                IModelDoc2 current = _solidWorks.IGetFirstDocument2();
+                while (current != null)
+                {
+                    documents.Add(new JObject
+                    {
+                        ["title"] = SafeDocumentTitle(current),
+                        ["path"] = SafeDocumentPath(current),
+                        ["read_only"] = SafeIsOpenedReadOnly(current)
+                    });
+                    current = current.IGetNext();
+                }
+            }
+            catch { }
+            return documents;
+        }
+
+        private JObject BuildSaveDiagnostics(IModelDoc2 drawingModel,
+            string temporaryDrawing, bool rebuildResult)
+        {
+            var diagnostics = new JObject
+            {
+                ["document_path"] = SafeDocumentPath(drawingModel),
+                ["document_title"] = SafeDocumentTitle(drawingModel),
+                ["opened_read_only"] = SafeIsOpenedReadOnly(drawingModel),
+                ["save_flag_before"] = SafeGetSaveFlag(drawingModel),
+                ["rebuild_result"] = rebuildResult,
+                ["file_exists_before"] = File.Exists(temporaryDrawing),
+                ["file_length_before"] = SafeFileLength(temporaryDrawing)
+            };
+            return diagnostics;
+        }
+
+        private static string SafeDocumentPath(IModelDoc2 model)
+        {
+            try { return model != null ? model.GetPathName() : null; }
+            catch { return null; }
+        }
+
+        private static string SafeDocumentTitle(IModelDoc2 model)
+        {
+            try { return model != null ? model.GetTitle() : null; }
+            catch { return null; }
+        }
+
+        private static bool? SafeIsOpenedReadOnly(IModelDoc2 model)
+        {
+            try { return model != null ? (bool?)model.IsOpenedReadOnly() : null; }
+            catch { return null; }
+        }
+
+        private static bool? SafeGetSaveFlag(IModelDoc2 model)
+        {
+            try { return model != null ? (bool?)model.GetSaveFlag() : null; }
+            catch { return null; }
+        }
+
+        private static long? SafeFileLength(string path)
+        {
+            try { return File.Exists(path) ? (long?)new FileInfo(path).Length : null; }
             catch { return null; }
         }
 

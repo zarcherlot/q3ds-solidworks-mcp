@@ -16,6 +16,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <LangVersion>latest</LangVersion>
     <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == ''">$(SOLIDWORKS_INTEROP_DIR)</SolidWorksInteropDir>
     <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == '' and Exists('C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SolidWorks.Interop.sldworks.dll')">C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS</SolidWorksInteropDir>
     <SolidWorksInteropDir Condition="'$(SolidWorksInteropDir)' == '' and Exists('C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.sldworks.dll')">C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist</SolidWorksInteropDir>
@@ -94,8 +95,10 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controllers\DimensionApiProbeController.cs" />
     <Compile Include="Controllers\HostBootstrapController.cs" />
     <Compile Include="Controllers\ToolController.cs" />
+    <Compile Include="Contracts\DimensionApiProbeContract.cs" />
     <Compile Include="Contracts\ViewPlanBasicExecutionCompiler.cs" />
     <Compile Include="Contracts\ViewPlanBasicTransactionPreflight.cs" />
     <Compile Include="Contracts\ViewPlanBasicVerificationPreflight.cs" />
@@ -113,12 +116,14 @@
     <Compile Include="Models\ToolRequest.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Services\SolidWorksService.cs" />
+    <Compile Include="Services\SolidWorksService.DimensionApiProbe.cs" />
     <Compile Include="Services\SolidWorksService.DrawingInitializer.cs" />
     <Compile Include="Services\SolidWorksService.DrawingPlan.cs" />
     <Compile Include="Services\SolidWorksService.ViewPlan.cs" />
     <Compile Include="Services\SolidWorksService.ViewPlanExecution.cs" />
     <Compile Include="Services\SolidWorksService.Simulation.cs" />
     <Compile Include="Services\HostBootstrapRunner.cs" />
+    <Compile Include="Services\DimensionApiProbeExecutor.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />
     <Compile Include="Services\ViewPlanBasicViewExecutor.cs" />
