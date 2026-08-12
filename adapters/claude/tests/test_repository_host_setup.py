@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SETUP_SCRIPT = ROOT / "scripts" / "setup_repository_host.ps1"
 MCP_VERIFIER = ROOT / "scripts" / "verify_repository_mcp.py"
 MCP_LAUNCHER = ROOT / "scripts" / "start_codex_mcp.ps1"
+HOST_BOOTSTRAP_CONTRACT_TESTS = ROOT / "scripts" / "run_host_bootstrap_contract_tests.ps1"
 CODEX_CONFIG = ROOT / ".codex" / "config.toml"
 
 
@@ -126,6 +127,13 @@ def test_mcp_verifier_uses_the_repository_contract_as_its_tool_allow_list() -> N
     assert "start_codex_mcp.ps1" in source
     assert "session.list_tools()" in source
     assert "session.call_tool" not in source
+
+
+def test_host_bootstrap_contract_runner_clears_expected_probe_exit_code() -> None:
+    source = HOST_BOOTSTRAP_CONTRACT_TESTS.read_text(encoding="utf-8")
+
+    assert "$malformedExit = $LASTEXITCODE" in source
+    assert source.rstrip().endswith('Write-Output "HostBootstrap native contract passed."\nexit 0')
 
 
 def test_codex_launcher_runs_the_idempotent_bootstrap_gate() -> None:

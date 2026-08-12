@@ -93,3 +93,4 @@ try {
 }
 
 Write-Output "HostBootstrap native contract passed."
+exit 0
