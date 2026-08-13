@@ -4,7 +4,7 @@
   "default_mcp": {
     "config_path": ".codex/config.toml",
     "schema_path": "adapters/claude/contracts/semantic-tools.schema.json",
-    "tool_count": 15,
+    "tool_count": 17,
     "prompt_count": 0,
     "tools": [
       "solidworks_status",
@@ -20,6 +20,8 @@
       "initialize_part_drawing_dimension_handoff",
       "publish_validated_part_drawing_dimension_plan",
       "validate_part_drawing_dimension_plan",
+      "qualify_dimensioned_part_drawing",
+      "verify_qualified_dimensioned_part_drawing",
       "create_dimensioned_part_drawing",
       "verify_dimensioned_part_drawing"
     ]
@@ -54,6 +56,17 @@
       "validate_part_drawing_dimension_plan",
       "create_dimensioned_part_drawing",
       "verify_dimensioned_part_drawing"
+    ]
+  },
+  "dimension_qualification": {
+    "scope": "f7_live_evidence_only",
+    "matrix_bound": true,
+    "allows_planned_capabilities": true,
+    "allows_unsupported_capabilities": false,
+    "mutates_capability_manifest": false,
+    "operations": [
+      "qualify_dimensioned_part_drawing",
+      "verify_qualified_dimensioned_part_drawing"
     ]
   },
   "stages": [

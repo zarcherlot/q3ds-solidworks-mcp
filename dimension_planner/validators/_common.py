@@ -58,6 +58,15 @@ def finite(value: object) -> bool:
 
 
 def rect(value: object) -> Rect | None:
+    if isinstance(value, Mapping):
+        if set(value) != {"x_min_m", "y_min_m", "x_max_m", "y_max_m"}:
+            return None
+        value = (
+            value["x_min_m"],
+            value["y_min_m"],
+            value["x_max_m"],
+            value["y_max_m"],
+        )
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return None
     if len(value) != 4 or not all(finite(item) for item in value):

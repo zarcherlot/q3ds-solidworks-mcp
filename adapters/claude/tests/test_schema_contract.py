@@ -113,6 +113,14 @@ def _contract_tools():
             {"plan", "request", "output_path"},
             {"plan", "request", "output_path"},
         ),
+        "qualify_dimensioned_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
+        "verify_qualified_dimensioned_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
     }
     for name in required_tools:
         parameters, required = expected[name]
@@ -220,6 +228,8 @@ def test_dimension_tools_publish_the_exact_structured_dimension_contract():
         "validate_part_drawing_dimension_plan",
         "create_dimensioned_part_drawing",
         "verify_dimensioned_part_drawing",
+        "qualify_dimensioned_part_drawing",
+        "verify_qualified_dimensioned_part_drawing",
     ):
         plan = by_name[name].parameters["properties"]["plan"]
         assert plan["type"] == "object"

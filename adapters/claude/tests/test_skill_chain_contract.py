@@ -100,7 +100,7 @@ def test_skill_references_are_local_present_and_have_no_executable_escape_hatche
 def test_contract_locks_default_tools_zero_prompts_and_codex_allow_list():
     contract = _contract()["default_mcp"]
     expected = contract["tools"]
-    assert len(expected) == contract["tool_count"] == 15
+    assert len(expected) == contract["tool_count"] == 17
     assert len(expected) == len(set(expected))
     assert contract["prompt_count"] == 0
 
@@ -154,6 +154,17 @@ def test_contract_freezes_branch_and_request_continuity_rules():
             "validate_part_drawing_dimension_plan",
             "create_dimensioned_part_drawing",
             "verify_dimensioned_part_drawing",
+        ],
+    }
+    assert contract["dimension_qualification"] == {
+        "scope": "f7_live_evidence_only",
+        "matrix_bound": True,
+        "allows_planned_capabilities": True,
+        "allows_unsupported_capabilities": False,
+        "mutates_capability_manifest": False,
+        "operations": [
+            "qualify_dimensioned_part_drawing",
+            "verify_qualified_dimensioned_part_drawing",
         ],
     }
     assert set(contract["forbidden_agent_boundaries"]) == {

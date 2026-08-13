@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-dimension-f7-summary-1.0.schema.json",
+  "title": "Dimension F7 Live Matrix Summary 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "generated_at_utc", "solidworks_revision",
+    "f0_evidence", "case_evidence", "category_coverage", "dimension_kind_coverage",
+    "element_coverage", "source_hashes_unchanged", "all_cases_independently_verified",
+    "overall_status"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-f7-live-matrix-summary" },
+    "schema_version": { "const": "1.0" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "f0_evidence": { "$ref": "#/$defs/artifact" },
+    "case_evidence": {
+      "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/caseBinding" }
+    },
+    "category_coverage": { "$ref": "#/$defs/categoryCoverage" },
+    "dimension_kind_coverage": { "$ref": "#/$defs/kindCoverage" },
+    "element_coverage": { "$ref": "#/$defs/elementCoverage" },
+    "source_hashes_unchanged": { "type": "boolean" },
+    "all_cases_independently_verified": { "type": "boolean" },
+    "overall_status": { "enum": ["complete", "incomplete"] }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "caseBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "category", "path", "sha256"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "category": { "enum": ["plate", "shaft_sleeve", "bracket", "flange", "slot_cavity", "threaded"] },
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "categoryCoverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plate", "shaft_sleeve", "bracket", "flange", "slot_cavity", "threaded"],
+      "properties": {
+        "plate": { "type": "integer", "minimum": 0 },
+        "shaft_sleeve": { "type": "integer", "minimum": 0 },
+        "bracket": { "type": "integer", "minimum": 0 },
+        "flange": { "type": "integer", "minimum": 0 },
+        "slot_cavity": { "type": "integer", "minimum": 0 },
+        "threaded": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "kindCoverage": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "linear", "aligned", "diameter", "radius", "angular", "reference",
+        "hole_diameter", "hole_depth", "hole_quantity", "hole_spacing",
+        "hole_group_location", "overall", "step", "boss", "slot", "chamfer",
+        "fillet", "symmetric"
+      ],
+      "properties": {
+        "linear": { "type": "integer", "minimum": 0 },
+        "aligned": { "type": "integer", "minimum": 0 },
+        "diameter": { "type": "integer", "minimum": 0 },
+        "radius": { "type": "integer", "minimum": 0 },
+        "angular": { "type": "integer", "minimum": 0 },
+        "reference": { "type": "integer", "minimum": 0 },
+        "hole_diameter": { "type": "integer", "minimum": 0 },
+        "hole_depth": { "type": "integer", "minimum": 0 },
+        "hole_quantity": { "type": "integer", "minimum": 0 },
+        "hole_spacing": { "type": "integer", "minimum": 0 },
+        "hole_group_location": { "type": "integer", "minimum": 0 },
+        "overall": { "type": "integer", "minimum": 0 },
+        "step": { "type": "integer", "minimum": 0 },
+        "boss": { "type": "integer", "minimum": 0 },
+        "slot": { "type": "integer", "minimum": 0 },
+        "chamfer": { "type": "integer", "minimum": 0 },
+        "fillet": { "type": "integer", "minimum": 0 },
+        "symmetric": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "elementCoverage": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "model_dimension_import", "attachment_persistent_reference", "annotation_position",
+        "dimension_tolerance", "dimension_prefix_suffix", "save_reopen_stable_identity"
+      ],
+      "properties": {
+        "model_dimension_import": { "type": "integer", "minimum": 0 },
+        "attachment_persistent_reference": { "type": "integer", "minimum": 0 },
+        "annotation_position": { "type": "integer", "minimum": 0 },
+        "dimension_tolerance": { "type": "integer", "minimum": 0 },
+        "dimension_prefix_suffix": { "type": "integer", "minimum": 0 },
+        "save_reopen_stable_identity": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

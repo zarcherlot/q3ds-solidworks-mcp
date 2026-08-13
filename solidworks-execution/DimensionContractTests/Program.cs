@@ -173,8 +173,8 @@ namespace DimensionContractTests
                         "usage: DimensionContractTests.exe [probe-request-directory]");
                 }
 
-                Console.WriteLine("Dimension F0-F5 contract tests passed: " + _passed + "/17" +
-                    "; F4: " + f4Contracts + "/6; F5: " + f5Contracts +
+                Console.WriteLine("Dimension F0-F7 contract tests passed: " + _passed + "/17" +
+                    "; F4/F7: " + f4Contracts + "/8; F5: " + f5Contracts +
                     "/9; corpus requests: " + corpusRequests);
                 return 0;
             }

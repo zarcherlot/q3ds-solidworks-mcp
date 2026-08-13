@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using Newtonsoft.Json.Linq;
 using SolidworksExecution.Infrastructure;
 using SolidworksExecution.Models;
 using SolidworksExecution.Services;
@@ -48,7 +49,7 @@ namespace SolidworksExecution.Controllers
             {
                 ["status"] = "UP",
                 ["service"] = "solidworks-execution",
-                ["capabilities"] = new[] { "host-bootstrap-v1" },
+                ["capabilities"] = new[] { "host-bootstrap-v1", "managed-semantic-lifecycle-v1" },
                 ["stateVersion"] = _guard.GetCurrentStateVersion(),
                 ["serverTimeUtc"] = DateTime.UtcNow.ToString("o"),
             };
@@ -99,6 +100,36 @@ namespace SolidworksExecution.Controllers
             info.TryGetValue("swLaunched", out launched);
             ExecLog.Write($"<- ensure_ready UP comAttached={attached} swLaunched={launched}");
             return Request.CreateResponse(HttpStatusCode.OK, info);
+        }
+
+        [HttpPost]
+        [Route("~/release_owned_session")]
+        public HttpResponseMessage ReleaseOwnedSession()
+        {
+            JObject result;
+            try
+            {
+                result = StaExecutor.Instance.Run(() =>
+                    _service.CleanupOwnedSolidWorksSession());
+            }
+            catch (Exception exception)
+            {
+                result = new JObject
+                {
+                    ["status"] = "blocked",
+                    ["error"] = new JObject
+                    {
+                        ["code"] = "SOLIDWORKS_SESSION_RELEASE_FAILED",
+                        ["message"] = exception.Message
+                    }
+                };
+            }
+            string status = result.Value<string>("status");
+            ExecLog.Write("<- release_owned_session " + status);
+            return Request.CreateResponse(
+                String.Equals(status, "blocked", StringComparison.Ordinal)
+                    ? HttpStatusCode.Conflict : HttpStatusCode.OK,
+                result);
         }
 
         [HttpPost]
@@ -171,16 +202,28 @@ namespace SolidworksExecution.Controllers
                 case "auto_center_marks":      return _service.AutoCenterMarks(request);
                 case "add_hole_callout":       return _service.AddHoleCallout(request);
                 case "add_section_view":       return _service.AddSectionView(request);
-                case "inspect_part_for_drawing": return _service.InspectPartForDrawing(request);
-                case "initialize_part_drawing_handoff": return _service.InitializePartDrawingHandoff(request);
+                case "inspect_part_for_drawing": return ManagedSemanticTask(request,
+                    () => _service.InspectPartForDrawing(request));
+                case "initialize_part_drawing_handoff": return ManagedSemanticTask(request,
+                    () => _service.InitializePartDrawingHandoff(request));
                 case "validate_frozen_part_drawing_view_plan": return _service.ValidatePartDrawingViewPlan(request);
-                case "execute_part_drawing_view_plan": return _service.ExecutePartDrawingViewPlan(request);
-                case "verify_committed_part_drawing_view_plan": return _service.VerifyCommittedPartDrawingViewPlan(request);
+                case "execute_part_drawing_view_plan": return ManagedSemanticTask(request,
+                    () => _service.ExecutePartDrawingViewPlan(request));
+                case "verify_committed_part_drawing_view_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyCommittedPartDrawingViewPlan(request));
                 case "validate_frozen_part_drawing_dimension_plan": return _service.ValidatePartDrawingDimensionPlan(request);
-                case "execute_part_drawing_dimension_plan": return _service.ExecutePartDrawingDimensionPlan(request);
-                case "verify_committed_part_drawing_dimension_plan": return _service.VerifyCommittedPartDrawingDimensionPlan(request);
-                case "execute_drawing_plan":   return _service.ExecuteDrawingPlan(request);
-                case "verify_drawing_plan":    return _service.VerifyDrawingPlan(request);
+                case "execute_part_drawing_dimension_plan": return ManagedSemanticTask(request,
+                    () => _service.ExecutePartDrawingDimensionPlan(request));
+                case "verify_committed_part_drawing_dimension_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyCommittedPartDrawingDimensionPlan(request));
+                case "qualify_part_drawing_dimension_plan": return ManagedSemanticTask(request,
+                    () => _service.QualifyPartDrawingDimensionPlan(request));
+                case "verify_qualified_part_drawing_dimension_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyQualifiedPartDrawingDimensionPlan(request));
+                case "execute_drawing_plan": return ManagedSemanticTask(request,
+                    () => _service.ExecuteDrawingPlan(request));
+                case "verify_drawing_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyDrawingPlan(request));
                 case "save_document":          return _service.SaveDocument(request);
                 case "export_document":        return _service.ExportDocument(request);
                 case "knit_surfaces":          return _service.KnitSurfaces(request);
@@ -209,6 +252,12 @@ namespace SolidworksExecution.Controllers
                 case "sim_delete_study":       return _service.SimDeleteStudy(request);
                 default:                       return null;
             }
+        }
+
+        private ExecutionResponse ManagedSemanticTask(ToolRequest request,
+            Func<ExecutionResponse> operation)
+        {
+            return _service.RunManagedSemanticTask(request.Tool, operation);
         }
     }
 }

@@ -409,6 +409,40 @@ F6 已将默认工程语义 MCP 扩展为 15 项工具，并新增尺寸 handoff
   - [ ] 覆盖板类、轴套类、支架类、法兰类、槽腔类和螺纹零件。
   - [ ] 验收无悬空、重复、未计划尺寸；源模型和上游图纸不变，保存重开规范化指纹一致。
 
+F7 已完成离线证据门禁及首次资格事务候选：新增不可变矩阵请求、单案例证据和汇总三项 Schema，固定六类
+零件、DimensionPlan 1.0 全部 18 类尺寸及六项生产执行元素的覆盖要求。默认 MCP 增加两项仅供 F7 实证的
+`qualify_dimensioned_part_drawing` / `verify_qualified_dimensioned_part_drawing` 工程语义工具；它们要求计划、
+原始请求、输出路径和矩阵案例逐项哈希绑定，只允许 `planned` 能力取证，已知 `unsupported` 仍在 COM 前
+拒绝，并且绝不修改能力清单。生产 `create/verify` 的 `supported + live + evidence_sha256` 门禁保持不变。
+矩阵运行器对每个案例执行 `validate(capability_blocked) → qualify → independent qualification verify`，逐阶段
+核对 canonical/request 哈希，并在 C# 事务侧车已通过内存回读、保存关闭、只读重开及独立核验后才原子
+发布案例证据。汇总器重新
+哈希计划、输出、侧车和全部冻结上游输入，拒绝悬空、重复、未计划或身份/指纹不一致；只有六类、18 类
+尺寸和所需元素全部具有真实证据时，才允许生成单独的 `0.4.0/0.3.0` 能力清单晋级候选，且不会自动覆盖
+`current.json`。当前仓库仅有 4 组 F0 模型/图纸语料、1 组 F1 尺寸 handoff，尚无覆盖六类零件的已发布
+DimensionPlan，因此完整真实 SolidWorks 矩阵及 F4/F5 勾选仍保持未完成；能力清单继续为
+`planned/unsupported`，生产创建继续失败关闭。
+
+F7 首个固定环资格案例现已在 SolidWorks 2025 SP5 完成原生创建和独立新进程只读核验：直径值、持久引用、
+保存关闭/重开指纹及源模型丢弃后干净重开均通过。所有默认工程语义 COM 事务改由后台 C# Execution Service
+在确定性门禁之后按需启动 SolidWorks，并在每个事务后只退出其拥有的会话；PID 与进程启动时间通过本机
+所有权租约跨 Execution Service 重启核验。任务自有文档无法正常关闭时，只有精确所有权或显式只读恢复集
+门禁通过后才允许有界进程兜底。资格创建 PID 和独立核验 PID 均在返回前确认 `remaining_process_ids=[]`。
+该单案例证据不替代五个真实零件的六类完整矩阵，也不触发能力晋级。
+
+为先建立可调优基线，仓库现提供证据绑定的 first-draft 生成器及固定环代理配置。它已从现有唯一完整 F1
+handoff 生成六份独立 candidate，按三类尺寸/份覆盖全部 18 类 DimensionPlan 联合；每份均通过完整性、
+Schema、来源、附着、语义、覆盖、冗余和布局八项工程门禁。汇总制品强制记录
+`category_evidence=proxy`、`eligible_for_f7_promotion=false`，候选文件也不使用生产发布名
+`dimension_plan.json`。因此这批输出可用于后续效果调优和真实零件绑定替换，但不计作六类真实 SolidWorks
+证据，也不解除 `capability_blocked`。
+
+五个真实零件现已完成六类实机验收矩阵：板、C 型夹、支撑板、固定环和 `ACCCMD-12/12345`
+分别覆盖 plate、bracket、threaded、shaft_sleeve、flange、slot_cavity；每个案例均完成资格创建、
+保存关闭/只读重开和独立核验，并发布图纸、验证侧车和案例证据。该结果满足“五个真实零件可顺利完成
+标注”的开发验收口径，但矩阵当前只包含 linear/diameter 两类尺寸，未达到 F7 正式能力晋级所需的全部
+18 类尺寸覆盖。因此能力清单仍不晋级，`current.json` 保持不变，正式 F7 promotion 继续失败关闭。
+
 ### G. 最终工程图排版布局
 
 G 必须在 F 的真实尺寸执行后运行。最终排版依据 SolidWorks 重建后读取的实际视图、尺寸文字、箭头、

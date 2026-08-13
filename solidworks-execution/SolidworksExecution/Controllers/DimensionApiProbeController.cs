@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
@@ -73,9 +74,13 @@ namespace SolidworksExecution.Controllers
             int expectedProcessId = candidate != null
                 ? candidate.Value<int?>("expected_process_id") ?? 0
                 : 0;
+            string[] expectedOpenDocuments = candidate != null &&
+                candidate["expected_open_document_paths"] is JArray
+                ? candidate["expected_open_document_paths"].Values<string>().ToArray()
+                : new string[0];
             JObject result = StaExecutor.Instance.Run(() =>
                 _service.CleanupExplicitIdleSolidWorksSession(expectedProcessId,
-                    authorized));
+                    authorized, expectedOpenDocuments));
             string status = result.Value<string>("status");
             ExecLog.Write("<- dimension-probe cleanup-session " + status + " " +
                 result.ToString(Newtonsoft.Json.Formatting.None));

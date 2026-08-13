@@ -102,6 +102,7 @@
     <Compile Include="Contracts\DimensionApiProbeContract.cs" />
     <Compile Include="Contracts\DimensionPlanningHandoffContract.cs" />
     <Compile Include="Contracts\DimensionPlanCapabilityPreflight.cs" />
+    <Compile Include="Contracts\DimensionPlanQualificationPreflight.cs" />
     <Compile Include="Contracts\DimensionPlanContractValidator.cs" />
     <Compile Include="Contracts\DimensionPlanExecutionCompiler.cs" />
     <Compile Include="Contracts\DimensionPlanTransactionPreflight.cs" />

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using Newtonsoft.Json.Linq;
 using SolidworksExecution.Contracts;
 
@@ -61,7 +62,51 @@ namespace DimensionContractTests
                 error.Code == "DIMENSION_CAPABILITY_BLOCKED",
                 "planned capabilities were promoted without live evidence");
             Console.WriteLine("ok - F4 production execution requires live capability evidence");
-            return 6;
+            Assert(new DimensionPlanCapabilityPreflight().TryValidateQualification(compiled,
+                Path.GetFullPath(registryPath), out error), Format(error));
+            Console.WriteLine("ok - F7 qualification accepts planned capabilities without promotion");
+
+            string matrixPath = Path.Combine(Path.GetTempPath(), "dimension-f7-binding-" +
+                Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                string planPath = Path.Combine(Path.GetTempPath(), "dimension_plan.json");
+                string outputPath = Path.Combine(Path.GetTempPath(), "qualified.SLDDRW");
+                string planFileSha = new string('c', 64);
+                string requestSha = new string('d', 64);
+                string matrixCanonicalSha = new string('e', 64);
+                var matrix = new JObject
+                {
+                    ["protocol_id"] = "solidworks-dimension-f7-matrix-request",
+                    ["schema_version"] = "1.0",
+                    ["solidworks_revision"] = "33.5.0",
+                    ["cases"] = new JArray(new JObject
+                    {
+                        ["case_id"] = "F7-CONTRACT",
+                        ["plan_path"] = planPath,
+                        ["plan_file_sha256"] = planFileSha,
+                        ["plan_canonical_sha256"] = matrixCanonicalSha,
+                        ["planning_request_sha256"] = requestSha,
+                        ["output_path"] = outputPath
+                    })
+                };
+                File.WriteAllText(matrixPath, matrix.ToString(), new UTF8Encoding(false));
+                string matrixSha = DimensionPlanContractValidator.FileSha256(matrixPath);
+                string acceptedCanonicalSha;
+                Assert(new DimensionPlanQualificationPreflight().TryValidate(compiled,
+                    planPath, planFileSha, outputPath, matrixPath, matrixSha, requestSha,
+                    "F7-CONTRACT", out acceptedCanonicalSha, out error), Format(error));
+                Assert(acceptedCanonicalSha == matrixCanonicalSha,
+                    "F7 matrix canonical hash was not propagated to the qualification transaction");
+                Assert(acceptedCanonicalSha != compiled.PlanSha256,
+                    "cross-language canonical hash fixture did not exercise the mismatch");
+            }
+            finally
+            {
+                if (File.Exists(matrixPath)) File.Delete(matrixPath);
+            }
+            Console.WriteLine("ok - F7 matrix canonical hash survives cross-language formatting");
+            return 8;
         }
 
         private static JObject BuildPlan(string kind)

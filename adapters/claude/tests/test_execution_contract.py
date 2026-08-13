@@ -39,6 +39,33 @@ _DIMENSION_SERVICE = os.path.join(
     "Services",
     "SolidWorksService.DimensionApiProbe.cs",
 )
+_DIMENSION_HANDOFF_CONTRACT = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Contracts",
+    "DimensionPlanningHandoffContract.cs",
+)
+_DIMENSION_HANDOFF_EXECUTOR = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Services",
+    "DimensionPlanningHandoffExecutor.cs",
+)
+_DIMENSION_HANDOFF_SCHEMA = os.path.join(
+    _ROOT,
+    "dimension_planner",
+    "contracts",
+    "dimension-planning-handoff.schema.json",
+)
+_DIMENSION_NATIVE_EXECUTOR = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Services",
+    "DimensionPlanNativeExecutor.cs",
+)
 _F0_LIVE_RUNNER = os.path.join(
     _ROOT, "scripts", "run_dimension_f0_live_probes.py"
 )
@@ -142,7 +169,10 @@ def test_health_identifies_the_execution_service_and_host_bootstrap_capability()
     with open(_CONTROLLER, encoding="utf-8-sig") as handle:
         controller = handle.read()
     assert '["service"] = "solidworks-execution"' in controller
-    assert '["capabilities"] = new[] { "host-bootstrap-v1" }' in controller
+    assert (
+        '["capabilities"] = new[] { "host-bootstrap-v1", '
+        '"managed-semantic-lifecycle-v1" }' in controller
+    )
 
 
 def test_viewplan_transaction_uses_native_copy_document_for_initializer():
@@ -161,11 +191,19 @@ def test_f0_probe_owns_launch_and_bounded_cleanup_inside_execution_service():
         controller = handle.read()
     with open(_DIMENSION_SERVICE, encoding="utf-8-sig") as handle:
         service = handle.read()
+    with open(_DIMENSION_HANDOFF_CONTRACT, encoding="utf-8-sig") as handle:
+        handoff_contract = handle.read()
 
     assert "RunManagedDimensionApiProbe" in controller
     assert 'Route("cleanup-session")' in controller
     assert 'Value<int?>("expected_process_id")' in controller
     assert 'Value<bool?>("allow_unowned_idle_session")' in controller
+    assert 'candidate["expected_open_document_paths"].Values<string>()' in controller
+    assert "A persisted ownership lease can outlive the ROT entry" in service
+    assert 'ownership, "execution_service_owned_session"' in service
+    assert '["com_attach_failed"] = true' in service
+    assert "DateParseHandling = DateParseHandling.None" in handoff_contract
+    assert "Frozen JSON strings must remain strings" in handoff_contract
     assert "Dictionary<string, object> readiness = EnsureReady();" in service
     assert "CleanupOwnedSolidWorksSession()" in service
     assert "application.UserControl = false;" in service
@@ -189,6 +227,98 @@ def test_f0_probe_owns_launch_and_bounded_cleanup_inside_execution_service():
     ) as handle:
         core_service = handle.read()
     assert "EnsureVisible(false);" in core_service
+
+
+def test_semantic_transactions_own_solidworks_start_and_exit_in_execution_service():
+    with open(_CONTROLLER, encoding="utf-8-sig") as handle:
+        controller = handle.read()
+    with open(_DIMENSION_SERVICE, encoding="utf-8-sig") as handle:
+        service = handle.read()
+
+    assert 'Route("~/release_owned_session")' in controller
+    for operation in (
+        "inspect_part_for_drawing",
+        "initialize_part_drawing_handoff",
+        "execute_part_drawing_view_plan",
+        "verify_committed_part_drawing_view_plan",
+        "execute_part_drawing_dimension_plan",
+        "verify_committed_part_drawing_dimension_plan",
+        "qualify_part_drawing_dimension_plan",
+        "verify_qualified_part_drawing_dimension_plan",
+    ):
+        assert f'case "{operation}": return ManagedSemanticTask' in controller
+    assert "RunManagedSemanticTask" in service
+    assert "EnsureManagedSemanticConnection" in service
+    assert 'cleanup.Value<string>("status"), "pass"' in service
+    assert '"SOLIDWORKS_SESSION_CLEANUP_BLOCKED"' in service
+    assert "WriteOwnershipLease" in service
+    assert 'process.StartTime.ToUniversalTime().Ticks' in service
+    assert '"q3ds-solidworks-session-"' in service
+    assert '"execution_service_owned_session"' in service
+    assert "document.IsOpenedReadOnly()" in service
+
+
+def test_dimension_handoff_freezes_ordinary_body_features():
+    with open(_DIMENSION_HANDOFF_EXECUTOR, encoding="utf-8-sig") as handle:
+        executor = handle.read()
+    with open(_DIMENSION_HANDOFF_SCHEMA, encoding="utf-8") as handle:
+        schema = json.load(handle)
+
+    assert 'return "model_feature"' in executor
+    assert '"boss"' in executor
+    assert '"extrude"' in executor
+    classifications = schema["$defs"]["manufacturingFeature"]["properties"][
+        "classification"
+    ]["enum"]
+    assert "model_feature" in classifications
+
+
+def test_dimension_handoff_preserves_distinct_projected_edges():
+    with open(_DIMENSION_HANDOFF_EXECUTOR, encoding="utf-8-sig") as handle:
+        executor = handle.read()
+
+    assert "int ordinaryEntityIndex = 0;" in executor
+    assert 'viewId + "|entity|" +' in executor
+    assert "ordinaryEntityIndex++" in executor
+    assert 'StableToken(viewId + "|" + persist)' not in executor
+    assert 'viewId + "|" + measurementKind + "|" + entityId' in executor
+
+
+def test_dimension_reopen_readback_retries_transient_server_fault_as_one_snapshot():
+    with open(_DIMENSION_NATIVE_EXECUTOR, encoding="utf-8-sig") as handle:
+        executor = handle.read()
+
+    assert "for (int attempt = 0; attempt < 3; attempt++)" in executor
+    assert "0x80010105U" in executor
+    assert "ReadAll(drawingModel, drawing)" in executor
+    assert "DIMENSION_PERSISTED_READBACK_UNAVAILABLE" in executor
+    assert "GetDimensionIds4" in executor
+    assert "GetDimensionInfo7" in executor
+    assert "AggregateIdentityMatches" in executor
+    assert "IsFinite(aggregate.ValueSi)" in executor
+    assert "aggregate.ValueSi > 0" in executor
+    assert "dimensionValueOffset = 47" in executor
+    assert "ReadReferencedModelValue(referenced, viewName" in executor
+    assert "FindModelDimension(referenced, fullName)" in executor
+    assert "feature.GetNextDisplayDimension(current)" in executor
+    assert "ReadModelDimensionValue(sourceDimension)" in executor
+    assert 'dimension.GetSystemValue2("")' in executor
+    assert "PopulateImportedModelValues(plan, memory, sourceModel, drawing," in executor
+    assert "ReadPlannedSourceValues(" in executor
+    assert "sourceValues.TryGetValue(" in executor
+
+
+def test_dimension_import_matches_live_view_aggregate_identity():
+    with open(_DIMENSION_NATIVE_EXECUTOR, encoding="utf-8-sig") as handle:
+        executor = handle.read()
+
+    import_block = executor.split("drawing.InsertModelAnnotations3(", 1)[1].split(
+        "DeleteUnplannedImported", 1
+    )[0]
+    assert "ReadViewDimensionAggregates(candidate.View)" in import_block
+    assert "AggregateIdentityMatches(aggregateId" in import_block
+    assert "item.ModelDimensionFullName == fullName ||" in import_block
+    assert "Imported identities in target view:" in executor
 
 
 def test_f0_runner_fails_closed_when_service_cleanup_does_not_complete():

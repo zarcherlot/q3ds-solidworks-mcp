@@ -527,6 +527,20 @@ def test_layout_gate_rejects_unstable_position(tmp_path: Path) -> None:
     }
 
 
+def test_layout_gate_accepts_viewplan_object_zone_bounds(tmp_path: Path) -> None:
+    plan, request, handoff = _fixture(tmp_path)
+    handoff["dimension_zones"][0]["bounds_sheet_m"] = {
+        "x_min_m": 0.05,
+        "y_min_m": 0.22,
+        "x_max_m": 0.25,
+        "y_max_m": 0.27,
+    }
+    request = _republish_handoff(plan, request, handoff)
+    result = RepositoryDimensionPlanValidator().validate(plan, request)
+    assert result.layout == "pass"
+    assert result.engineering_passed is True
+
+
 def test_rejected_engine_does_not_publish(tmp_path: Path) -> None:
     plan, request, _ = _fixture(tmp_path)
     plan["dimensions"][0]["source"]["source_ids"] = ["MD-missing"]

@@ -58,6 +58,10 @@ class DimensionExecutionCapabilityError(ValueError):
     """Raised when native creation is requested for a blocked DimensionPlan."""
 
 
+class DimensionQualificationCapabilityError(ValueError):
+    """Raised when an F7 qualification plan requests a known-unsupported capability."""
+
+
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -207,6 +211,32 @@ class DimensionCapabilityRegistry:
             raise DimensionExecutionCapabilityError(
                 "DimensionPlan execution is capability_blocked: "
                 + ", ".join(assessment.unsupported_capabilities)
+            )
+
+    def require_qualification_eligible(self, plan: Mapping[str, object]) -> None:
+        """Allow planned capabilities for F7 evidence, but never known-unsupported ones.
+
+        This is deliberately separate from :meth:`require_supported`: it does not change the
+        production assessment and it does not make a plan executable through the normal create
+        transaction.  The caller must additionally bind the plan to an immutable F7 matrix case.
+        """
+
+        assessment = self.assess(plan)
+        blocked = assessment.unsupported_capabilities
+        unsupported = []
+        for capability in blocked:
+            namespace, name = capability.split(".", 1)
+            collection = (
+                self.manifest.dimension_types
+                if namespace == "dimension_type"
+                else self.manifest.elements
+            )
+            if collection[name].status == "unsupported":
+                unsupported.append(capability)
+        if unsupported:
+            raise DimensionQualificationCapabilityError(
+                "DimensionPlan qualification requests known-unsupported capabilities: "
+                + ", ".join(sorted(unsupported))
             )
 
     def _assess(self, namespace: str, name: str, blocked: set[str]) -> None:

@@ -15,6 +15,14 @@ namespace SolidworksExecution.Contracts
     {
         public bool TryValidate(DimensionPlanExecutionPlan plan, string registryPath,
             out DimensionPlanContractError error)
+        { return TryValidateCore(plan, registryPath, false, out error); }
+
+        public bool TryValidateQualification(DimensionPlanExecutionPlan plan,
+            string registryPath, out DimensionPlanContractError error)
+        { return TryValidateCore(plan, registryPath, true, out error); }
+
+        private bool TryValidateCore(DimensionPlanExecutionPlan plan, string registryPath,
+            bool qualification, out DimensionPlanContractError error)
         {
             error = null;
             JObject registry;
@@ -79,7 +87,8 @@ namespace SolidworksExecution.Contracts
             JObject types = registry["dimension_types"] as JObject;
             JObject elements = registry["elements"] as JObject;
             JObject liveEvidence = registry["live_evidence"] as JObject;
-            if (liveEvidence == null || !IsHash(liveEvidence.Value<string>("summary_sha256")))
+            if (!qualification && (liveEvidence == null ||
+                !IsHash(liveEvidence.Value<string>("summary_sha256"))))
                 return Fail("DIMENSION_CAPABILITY_REGISTRY_INVALID", "",
                     "Capability registry has no hash-bound live evidence summary.", out error);
             var capabilityStates = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -98,18 +107,32 @@ namespace SolidworksExecution.Contracts
             foreach (string id in requiredCapabilities)
             {
                 string status;
-                if (!capabilityStates.TryGetValue(id, out status) || status != "supported")
-                    return Fail("DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
-                        "Native capability is not live-supported: " + id + ".", out error);
+                if (!capabilityStates.TryGetValue(id, out status) ||
+                    (qualification ? status == "unsupported" : status != "supported"))
+                    return Fail(qualification ? "DIMENSION_QUALIFICATION_BLOCKED" :
+                        "DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
+                        qualification
+                            ? "Native capability is known-unsupported: " + id + "."
+                            : "Native capability is not live-supported: " + id + ".", out error);
             }
             foreach (string id in requiredTypes)
-                if (!Supported(types != null ? types[id] as JObject : null))
-                    return Fail("DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
-                        "Dimension capability is not live-supported: " + id + ".", out error);
+                if (qualification
+                    ? !QualificationEligible(types != null ? types[id] as JObject : null)
+                    : !Supported(types != null ? types[id] as JObject : null))
+                    return Fail(qualification ? "DIMENSION_QUALIFICATION_BLOCKED" :
+                        "DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
+                        qualification
+                            ? "Dimension capability is known-unsupported: " + id + "."
+                            : "Dimension capability is not live-supported: " + id + ".", out error);
             foreach (string id in requiredElements)
-                if (!Supported(elements != null ? elements[id] as JObject : null))
-                    return Fail("DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
-                        "Required execution element is not live-supported: " + id + ".", out error);
+                if (qualification
+                    ? !QualificationEligible(elements != null ? elements[id] as JObject : null)
+                    : !Supported(elements != null ? elements[id] as JObject : null))
+                    return Fail(qualification ? "DIMENSION_QUALIFICATION_BLOCKED" :
+                        "DIMENSION_CAPABILITY_BLOCKED", "/dimensions",
+                        qualification
+                            ? "Required execution element is known-unsupported: " + id + "."
+                            : "Required execution element is not live-supported: " + id + ".", out error);
             return true;
         }
 
@@ -117,6 +140,9 @@ namespace SolidworksExecution.Contracts
             item.Value<string>("status") == "supported" &&
             item.Value<string>("verification") == "live" &&
             IsHash(item.Value<string>("evidence_sha256"));
+        private static bool QualificationEligible(JObject item) => item != null &&
+            (item.Value<string>("status") == "planned" ||
+             item.Value<string>("status") == "supported");
         private static bool IsHash(string value) => value != null && value.Length == 64 &&
             value.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
         private static bool Fail(string code, string pointer, string message,

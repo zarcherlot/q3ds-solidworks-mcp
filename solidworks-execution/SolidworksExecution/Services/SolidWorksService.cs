@@ -60,6 +60,8 @@ namespace SolidworksExecution.Services
         private bool EnsureConnected()
         {
             if (_solidWorks != null) return true;
+            if (_managedSemanticTask)
+                return EnsureManagedSemanticConnection();
             return Connect();
         }
 

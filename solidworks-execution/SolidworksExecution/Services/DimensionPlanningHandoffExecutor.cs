@@ -246,7 +246,7 @@ namespace SolidworksExecution.Services
             string viewId, JArray measurements)
         {
             var result = new JArray();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            int ordinaryEntityIndex = 0;
             Array components = view.GetVisibleComponents() as Array;
             if (components == null) return result;
             foreach (object componentObject in components)
@@ -263,8 +263,15 @@ namespace SolidworksExecution.Services
                     if (String.IsNullOrEmpty(persist))
                         throw new InvalidOperationException(
                             "DIMENSION_HANDOFF_PERSIST_REFERENCE_MISSING: " + viewId);
-                    string entityId = "GE-" + StableToken(viewId + "|" + persist);
-                    if (!seen.Add(entityId)) continue;
+                    // SolidWorks can return the same model-context persistent reference for
+                    // several distinct drawing-view edges.  The previous reference-only key
+                    // collapsed a rectangle to one edge, making every two-attachment dimension
+                    // impossible to plan.  Preserve deterministic traversal order in the frozen
+                    // ID while retaining the exact persistent reference used for execution.
+                    string entityId = "GE-" + StableToken(viewId + "|entity|" +
+                        ordinaryEntityIndex.ToString(CultureInfo.InvariantCulture) + "|" +
+                        persist);
+                    ordinaryEntityIndex++;
                     var curve = edge.GetCurve() as ICurve;
                     string kind = "other_curve";
                     JArray geometry = new JArray();
@@ -312,7 +319,7 @@ namespace SolidworksExecution.Services
                         measurements.Add(new JObject
                         {
                             ["measurement_id"] = "RM-" + StableToken(
-                                viewId + "|" + measurementKind + "|" + persist),
+                                viewId + "|" + measurementKind + "|" + entityId),
                             ["view_id"] = viewId,
                             ["kind"] = measurementKind,
                             ["value_si"] = Round(measurement),
@@ -576,6 +583,20 @@ namespace SolidworksExecution.Services
                 return "circular_pattern";
             if (value.Contains("lpattern") || value.Contains("linearpattern"))
                 return "linear_pattern";
+            // Every non-reference DimensionPlan dimension must bind a frozen model feature.
+            // Keeping only holes and patterns made ordinary extruded/revolved parts
+            // undimensionable despite their trusted model-driven dimensions.  Preserve the
+            // specialised classifications above and include body-forming/editing features as
+            // neutral bindings; sketches, planes, folders and UI nodes remain excluded.
+            string featureType = (type ?? "").ToLowerInvariant();
+            string[] modelFeatureTokens =
+            {
+                "boss", "extrude", "cut", "revolve", "sweep", "loft",
+                "boundary", "rib", "shell", "draft", "fillet", "chamfer",
+                "dome", "thicken", "deform", "flex", "combine", "moveface",
+                "deleteface", "split", "mirrorpattern", "bodymove"
+            };
+            if (modelFeatureTokens.Any(featureType.Contains)) return "model_feature";
             return null;
         }
 

@@ -40,6 +40,7 @@ namespace SolidworksExecution.Services
             string temporaryReport = Path.Combine(directory, "." + stem + ".q3ds-dim-" + nonce + ".tmp.json");
             IModelDoc2 sourceModel = null, drawingModel = null, reopenedModel = null;
             bool outputMoved = false, reportMoved = false, complete = false;
+            string stage = "preflight";
             var before = FrozenHashes(plan, paths.PlanPath);
             try
             {
@@ -47,6 +48,7 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_COPY_REQUIRES_NO_OPEN_DOCUMENTS", "",
                         "CopyDocument requires a clean SolidWorks session; existing documents are never closed implicitly.",
                         result, out error);
+                stage = "copy_source_drawing";
                 int copy = _solidWorks.CopyDocument(plan.SourceDrawing.Path, temporaryDrawing,
                     null, null, 0);
                 result["copy"] = new JObject { ["strategy"] = "solidworks_copy_document",
@@ -58,6 +60,7 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_FROZEN_INPUT_MUTATED", "",
                         "A frozen input changed during CopyDocument.", result, out error);
 
+                stage = "open_source_model";
                 int errors = 0, warnings = 0;
                 sourceModel = _solidWorks.OpenDoc6(plan.SourceModel.Path,
                     (int)swDocumentTypes_e.swDocPART,
@@ -69,6 +72,7 @@ namespace SolidworksExecution.Services
                         "The source model could not be opened read-only.", result, out error);
                 bool sourceSaveFlagBefore = sourceModel.GetSaveFlag();
 
+                stage = "open_transaction_drawing";
                 errors = 0; warnings = 0;
                 drawingModel = _solidWorks.OpenDoc6(temporaryDrawing,
                     (int)swDocumentTypes_e.swDocDRAWING,
@@ -79,12 +83,14 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_DRAWING_OPEN_FAILED", "",
                         "The transaction drawing could not be opened writable.", result, out error);
 
+                stage = "create_and_verify_in_memory";
                 DimensionPlanNativeResult created; DimensionPlanNativeError nativeError;
                 if (!_executor.TryCreate(drawingModel, drawing, sourceModel, plan,
                     out created, out nativeError))
                     return Fail(nativeError.Code, DimensionPointer(nativeError.DimensionId),
                         nativeError.Message, result, out error);
                 result["in_memory_verification"] = created.InMemoryVerification;
+                stage = "save_transaction_drawing";
                 drawingModel.ClearSelection2(true);
                 bool rebuilt = drawingModel.ForceRebuild3(false);
                 drawingModel.GraphicsRedraw2();
@@ -101,6 +107,7 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_DRAWING_CLOSE_FAILED", "",
                         "The transaction drawing remained open after CloseDoc.", result, out error);
 
+                stage = "reopen_transaction_drawing_read_only";
                 errors = 0; warnings = 0;
                 reopenedModel = _solidWorks.OpenDoc6(temporaryDrawing,
                     (int)swDocumentTypes_e.swDocDRAWING,
@@ -112,6 +119,7 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_DRAWING_REOPEN_FAILED", "",
                         "The saved drawing could not be reopened read-only.", result, out error);
                 reopenedModel.ForceRebuild3(false);
+                stage = "verify_persisted_drawing";
                 JObject persisted;
                 if (!_executor.TryVerifyPersisted(reopenedModel, reopenedDrawing, plan,
                     created.BaselineCount, created.Handles, created.PersistenceFingerprints,
@@ -121,14 +129,43 @@ namespace SolidworksExecution.Services
                 result["reopen_verification"] = persisted;
                 Close(ref reopenedModel);
 
-                if (sourceModel.GetSaveFlag() != sourceSaveFlagBefore)
-                    return Fail("DIMENSION_SOURCE_MODEL_DIRTY", "",
-                        "The source model save flag changed during the transaction.", result, out error);
+                bool sourceSaveFlagAfterOperation = sourceModel.GetSaveFlag();
                 Close(ref sourceModel);
                 if (!FrozenHashesEqual(before, FrozenHashes(plan, paths.PlanPath)))
                     return Fail("DIMENSION_FROZEN_INPUT_MUTATED", "",
                         "A frozen input changed during dimension creation.", result, out error);
 
+                // InsertModelAnnotations3 can mark its read-only referenced model dirty in memory
+                // even though no source bytes are written. Discard that task-owned read-only RCW,
+                // reopen the source from disk, and require both the frozen hash and a clean reopen.
+                // This preserves the no-source-write invariant without weakening it to a stale
+                // in-session save flag.
+                stage = "verify_source_model_clean_reopen";
+                errors = 0; warnings = 0;
+                sourceModel = _solidWorks.OpenDoc6(plan.SourceModel.Path,
+                    (int)swDocumentTypes_e.swDocPART,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent |
+                    (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly,
+                    plan.Configuration, ref errors, ref warnings) as IModelDoc2;
+                if (sourceModel == null || !sourceModel.IsOpenedReadOnly())
+                    return Fail("DIMENSION_SOURCE_MODEL_REOPEN_FAILED", "",
+                        "The unchanged source model could not be reopened read-only.", result, out error);
+                bool sourceSaveFlagAfterReopen = sourceModel.GetSaveFlag();
+                result["source_model_state"] = new JObject
+                {
+                    ["opened_read_only"] = true,
+                    ["save_flag_before"] = sourceSaveFlagBefore,
+                    ["save_flag_after_dimension_import"] = sourceSaveFlagAfterOperation,
+                    ["save_flag_after_discard_and_reopen"] = sourceSaveFlagAfterReopen,
+                    ["frozen_hash_unchanged"] = true
+                };
+                if (sourceSaveFlagAfterReopen != sourceSaveFlagBefore)
+                    return Fail("DIMENSION_SOURCE_MODEL_DIRTY", "",
+                        "The source model did not return to its original save flag after read-only discard/reopen.",
+                        result, out error);
+                Close(ref sourceModel);
+
+                stage = "commit_output_and_sidecar";
                 string artifactHash = DimensionPlanContractValidator.FileSha256(temporaryDrawing);
                 JObject audit = new JObject
                 {
@@ -159,10 +196,17 @@ namespace SolidworksExecution.Services
                 return true;
             }
             catch (Exception ex)
-            { return Fail("DIMENSION_TRANSACTION_FAILED", "", ex.Message, result, out error); }
+            { return Fail("DIMENSION_TRANSACTION_FAILED", "", stage + ": " + ex.Message,
+                result, out error); }
             finally
             {
                 Close(ref reopenedModel); Close(ref drawingModel); Close(ref sourceModel);
+                // The transaction starts only from a clean SolidWorks session and therefore owns
+                // documents opened at these two paths. A reopened drawing can keep its referenced
+                // model loaded after the original COM wrapper is released, so close by exact path
+                // as a second bounded cleanup pass instead of leaving a business document open.
+                CloseByPath(temporaryDrawing);
+                CloseByPath(plan.SourceModel.Path);
                 if (!complete)
                 {
                     TryDelete(temporaryDrawing); TryDelete(temporaryReport);
@@ -193,6 +237,20 @@ namespace SolidworksExecution.Services
         private void Close(ref IModelDoc2 document)
         { if (document == null) return; try { _solidWorks.CloseDoc(document.GetTitle()); } catch { }
             document = null; }
+        private void CloseByPath(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path)) return;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    IModelDoc2 document = _solidWorks.GetOpenDocumentByName(path) as IModelDoc2;
+                    if (document == null) return;
+                    _solidWorks.CloseDoc(document.GetTitle());
+                }
+                catch { return; }
+            }
+        }
         private static void TryDelete(string path)
         { try { if (!string.IsNullOrEmpty(path) && File.Exists(path)) File.Delete(path); } catch { } }
         private static string DimensionPointer(string id) => string.IsNullOrEmpty(id) ? "" : id;

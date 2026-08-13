@@ -37,6 +37,7 @@ $sources = @(
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanContractValidator.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanExecutionCompiler.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanCapabilityPreflight.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanQualificationPreflight.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanTransactionPreflight.cs')
 )
 $required = @($compiler, $newtonsoft, (Join-Path $framework 'mscorlib.dll')) + $sources

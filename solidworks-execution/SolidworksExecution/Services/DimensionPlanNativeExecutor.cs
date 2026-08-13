@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using SolidWorks.Interop.sldworks;
@@ -21,9 +22,13 @@ namespace SolidworksExecution.Services
             try
             {
                 List<NativeDimensionRecord> baseline = ReadAll(drawingModel, drawing);
+                Dictionary<string, double> sourceValues = ReadPlannedSourceValues(
+                    sourceModel, plan);
                 var baselineNames = new HashSet<string>(baseline.Select(item => item.SelectionName),
                     StringComparer.Ordinal);
                 var created = new Dictionary<string, IDisplayDimension>(StringComparer.Ordinal);
+                var importedIdentitiesByView = new Dictionary<string, List<string>>(
+                    StringComparer.Ordinal);
 
                 if (plan.Dimensions.Any(item => item.ImportModelDimension))
                 {
@@ -38,14 +43,46 @@ namespace SolidworksExecution.Services
                         (int)swImportModelItemsSource_e.swImportModelItemsFromEntireModel,
                         types, true, true, false, true);
                     drawingModel.ForceRebuild3(false);
+                    var aggregateIndexByView = new Dictionary<string, int>(
+                        StringComparer.Ordinal);
+                    var aggregatesByView = new Dictionary<string,
+                        IList<ViewDimensionAggregate>>(StringComparer.Ordinal);
                     foreach (DisplayInView candidate in Enumerate(drawing))
                     {
+                        string viewName = candidate.View.Name ?? "";
+                        int aggregateIndex;
+                        if (!aggregateIndexByView.TryGetValue(viewName, out aggregateIndex))
+                            aggregateIndex = 0;
+                        IList<ViewDimensionAggregate> aggregates;
+                        if (!aggregatesByView.TryGetValue(viewName, out aggregates))
+                        {
+                            aggregates = ReadViewDimensionAggregates(candidate.View);
+                            aggregatesByView.Add(viewName, aggregates);
+                        }
+                        string aggregateId = aggregateIndex < aggregates.Count
+                            ? aggregates[aggregateIndex].DimensionId : "";
+                        aggregateIndexByView[viewName] = aggregateIndex + 1;
                         string name = SelectionName(candidate.Display);
                         if (baselineNames.Contains(name)) continue;
                         string fullName = FullName(candidate.Display);
+                        List<string> importedIdentities;
+                        if (!importedIdentitiesByView.TryGetValue(viewName,
+                            out importedIdentities))
+                        {
+                            importedIdentities = new List<string>();
+                            importedIdentitiesByView.Add(viewName, importedIdentities);
+                        }
+                        string importedIdentity = !String.IsNullOrWhiteSpace(aggregateId)
+                            ? aggregateId : fullName;
+                        if (!String.IsNullOrWhiteSpace(importedIdentity) &&
+                            importedIdentities.Count < 64)
+                            importedIdentities.Add(importedIdentity);
                         DimensionPlanExecutionDimension spec = plan.Dimensions.SingleOrDefault(item =>
-                            item.ImportModelDimension && item.TargetViewName == candidate.View.Name &&
-                            item.ModelDimensionFullName == fullName && !created.ContainsKey(item.DimensionId));
+                            item.ImportModelDimension && item.TargetViewName == viewName &&
+                            (item.ModelDimensionFullName == fullName ||
+                             AggregateIdentityMatches(aggregateId,
+                                 item.ModelDimensionFullName)) &&
+                            !created.ContainsKey(item.DimensionId));
                         if (spec != null) created.Add(spec.DimensionId, candidate.Display);
                     }
                     DeleteUnplannedImported(drawingModel, drawing, baselineNames,
@@ -58,9 +95,20 @@ namespace SolidworksExecution.Services
                     if (!created.TryGetValue(spec.DimensionId, out display))
                     {
                         if (spec.ImportModelDimension)
+                        {
+                            List<string> importedIdentities;
+                            importedIdentitiesByView.TryGetValue(spec.TargetViewName,
+                                out importedIdentities);
+                            string diagnostic = importedIdentities == null ||
+                                importedIdentities.Count == 0
+                                ? "none"
+                                : String.Join(", ", importedIdentities.Distinct(
+                                    StringComparer.Ordinal));
                             return Fail("DIMENSION_MODEL_IMPORT_MISSING", spec.DimensionId,
-                                "The planned model dimension was not imported into its target view.",
+                                "The planned model dimension was not imported into its target view. " +
+                                "Imported identities in target view: " + diagnostic + ".",
                                 out error);
+                        }
                         IView view = FindView(drawing, spec.TargetViewName);
                         if (view == null)
                             return Fail("DIMENSION_TARGET_VIEW_MISSING", spec.DimensionId,
@@ -108,6 +156,8 @@ namespace SolidworksExecution.Services
                 drawingModel.ClearSelection2(true);
                 drawingModel.ForceRebuild3(false);
                 List<NativeDimensionRecord> memory = ReadAll(drawingModel, drawing);
+                PopulateImportedModelValues(plan, memory, sourceModel, drawing,
+                    sourceValues);
                 Dictionary<string, string> handles;
                 Dictionary<string, string> fingerprints;
                 JObject verification;
@@ -134,8 +184,32 @@ namespace SolidworksExecution.Services
         {
             Dictionary<string, string> ignored;
             Dictionary<string, string> ignoredFingerprints;
-            return Verify(plan, baselineCount, ReadAll(drawingModel, drawing), expectedHandles,
-                expectedFingerprints, out ignored, out ignoredFingerprints, out verification,
+            verification = null; error = null;
+            COMException lastServerFault = null;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    List<NativeDimensionRecord> records = ReadAll(drawingModel, drawing);
+                    PopulateImportedModelValues(plan, records, null, drawing, null);
+                    return Verify(plan, baselineCount, records,
+                        expectedHandles, expectedFingerprints, out ignored,
+                        out ignoredFingerprints, out verification, out error);
+                }
+                catch (COMException ex)
+                {
+                    // SolidWorks 2025 SP5 can raise a transient RPC_E_SERVERFAULT while a
+                    // just-saved drawing is first traversed after read-only reopen.  Retry the
+                    // complete deterministic snapshot, never an individual field, so evidence
+                    // is accepted only from one coherent pass.
+                    if ((uint)ex.ErrorCode != 0x80010105U) throw;
+                    lastServerFault = ex;
+                    try { drawingModel.ForceRebuild3(false); } catch { }
+                }
+            }
+            return Fail("DIMENSION_PERSISTED_READBACK_UNAVAILABLE", "",
+                "SolidWorks returned RPC_E_SERVERFAULT for three complete readback attempts: " +
+                (lastServerFault != null ? lastServerFault.Message : "unknown COM error"),
                 out error);
         }
 
@@ -174,6 +248,62 @@ namespace SolidworksExecution.Services
             }
         }
 
+        private static void PopulateImportedModelValues(DimensionPlanExecutionPlan plan,
+            IList<NativeDimensionRecord> records, IModelDoc2 sourceModel,
+            IDrawingDoc drawing, IDictionary<string, double> sourceValues)
+        {
+            foreach (DimensionPlanExecutionDimension spec in plan.Dimensions.Where(
+                item => item.ImportModelDimension))
+            {
+                NativeDimensionRecord record = records.SingleOrDefault(item =>
+                    item.ViewName == spec.TargetViewName &&
+                    (item.FullName == spec.ModelDimensionFullName ||
+                     AggregateIdentityMatches(item.AggregateDimensionId,
+                         spec.ModelDimensionFullName)));
+                if (record == null) continue;
+                if (IsFinite(record.ValueSi) &&
+                    (record.ValueSi > 0 || spec.NominalSi == 0)) continue;
+                IModelDoc2 referenced = sourceModel;
+                if (referenced == null)
+                {
+                    IView view = FindView(drawing, spec.TargetViewName);
+                    referenced = view != null ? view.ReferencedDocument as IModelDoc2 : null;
+                }
+                double sourceValue;
+                if (sourceValues != null && sourceValues.TryGetValue(
+                    spec.DimensionId, out sourceValue) && IsFinite(sourceValue))
+                {
+                    record.ValueSi = sourceValue;
+                    continue;
+                }
+                if (referenced == null) continue;
+                try
+                {
+                    IDimension sourceDimension = FindModelDimension(referenced,
+                        spec.ModelDimensionFullName);
+                    if (sourceDimension == null) continue;
+                    record.ValueSi = ReadModelDimensionValue(sourceDimension);
+                }
+                catch { }
+            }
+        }
+
+        private static Dictionary<string, double> ReadPlannedSourceValues(
+            IModelDoc2 sourceModel, DimensionPlanExecutionPlan plan)
+        {
+            var result = new Dictionary<string, double>(StringComparer.Ordinal);
+            if (sourceModel == null) return result;
+            foreach (DimensionPlanExecutionDimension spec in plan.Dimensions.Where(
+                item => item.ImportModelDimension))
+            {
+                IDimension dimension = FindModelDimension(sourceModel,
+                    spec.ModelDimensionFullName);
+                double value = ReadModelDimensionValue(dimension);
+                if (IsFinite(value)) result[spec.DimensionId] = value;
+            }
+            return result;
+        }
+
         private static bool Verify(DimensionPlanExecutionPlan plan, int baselineCount,
             IList<NativeDimensionRecord> records, IDictionary<string, string> expectedHandles,
             IDictionary<string, string> expectedFingerprints,
@@ -199,7 +329,9 @@ namespace SolidworksExecution.Services
                     record = records.SingleOrDefault(item => item.SelectionName == expectedHandle);
                 if (record == null && spec.ImportModelDimension)
                     record = records.SingleOrDefault(item => item.ViewName == spec.TargetViewName &&
-                        item.FullName == spec.ModelDimensionFullName);
+                        (item.FullName == spec.ModelDimensionFullName ||
+                        AggregateIdentityMatches(item.AggregateDimensionId,
+                            spec.ModelDimensionFullName)));
                 if (record == null && expectedHandles == null)
                     record = records.Where(item => item.ViewName == spec.TargetViewName &&
                         NativeTypeMatches(item, spec.Kind) &&
@@ -224,14 +356,20 @@ namespace SolidworksExecution.Services
                 if (spec.Kind != "hole_quantity" &&
                     Math.Abs(record.ValueSi - spec.NominalSi) > spec.ValueTolerance)
                     return Fail("DIMENSION_VALUE_MISMATCH", spec.DimensionId,
-                        "Native value differs from the frozen nominal.", out error);
+                        "Native value differs from the frozen nominal: expected=" +
+                        spec.NominalSi.ToString("R", CultureInfo.InvariantCulture) +
+                        ", actual=" + record.ValueSi.ToString("R",
+                            CultureInfo.InvariantCulture) + ".", out error);
                 if (Math.Abs(record.PositionX - spec.PositionX) > spec.PositionTolerance ||
                     Math.Abs(record.PositionY - spec.PositionY) > spec.PositionTolerance)
                     return Fail("DIMENSION_POSITION_MISMATCH", spec.DimensionId,
                         "Native annotation position differs from the frozen position.", out error);
                 if (record.Prefix != spec.Prefix || record.Suffix != spec.Suffix)
                     return Fail("DIMENSION_TEXT_MISMATCH", spec.DimensionId,
-                        "Native prefix or suffix differs from the plan.", out error);
+                        "Native prefix or suffix differs from the plan: expected prefix=" +
+                        JsonString(spec.Prefix) + ", actual prefix=" + JsonString(record.Prefix) +
+                        ", expected suffix=" + JsonString(spec.Suffix) + ", actual suffix=" +
+                        JsonString(record.Suffix) + ".", out error);
                 string expectedFingerprint;
                 if (expectedFingerprints != null && expectedFingerprints.TryGetValue(
                     spec.DimensionId, out expectedFingerprint) &&
@@ -395,6 +533,21 @@ namespace SolidworksExecution.Services
             return false;
         }
 
+        private static bool AggregateIdentityMatches(string aggregateId,
+            string modelDimensionFullName)
+        {
+            if (String.IsNullOrWhiteSpace(aggregateId) ||
+                String.IsNullOrWhiteSpace(modelDimensionFullName)) return false;
+            if (String.Equals(aggregateId, modelDimensionFullName,
+                StringComparison.Ordinal)) return true;
+            string modelKey = modelDimensionFullName.EndsWith(".Part",
+                StringComparison.Ordinal)
+                ? modelDimensionFullName.Substring(0,
+                    modelDimensionFullName.Length - ".Part".Length)
+                : modelDimensionFullName;
+            return aggregateId.StartsWith(modelKey + "-", StringComparison.Ordinal);
+        }
+
         private static bool IsHoleCalloutKind(string kind) =>
             kind == "hole_diameter" || kind == "hole_depth" || kind == "hole_quantity";
 
@@ -417,23 +570,75 @@ namespace SolidworksExecution.Services
         private static List<NativeDimensionRecord> ReadAll(IModelDoc2 model, IDrawingDoc drawing)
         {
             var result = new List<NativeDimensionRecord>();
+            var countByView = new Dictionary<string, int>(StringComparer.Ordinal);
+            var aggregatesByView = new Dictionary<string, IList<ViewDimensionAggregate>>(
+                StringComparer.Ordinal);
             foreach (DisplayInView item in Enumerate(drawing))
             {
                 IDisplayDimension display = item.Display;
-                IDimension dimension = display.GetDimension2(0) as IDimension;
+                string viewName = item.View.Name ?? "";
+                int aggregateIndex;
+                if (!countByView.TryGetValue(viewName, out aggregateIndex))
+                    aggregateIndex = 0;
+                IList<ViewDimensionAggregate> aggregates;
+                if (!aggregatesByView.TryGetValue(viewName, out aggregates))
+                {
+                    aggregates = ReadViewDimensionAggregates(item.View);
+                    aggregatesByView.Add(viewName, aggregates);
+                }
+                ViewDimensionAggregate aggregate = aggregateIndex < aggregates.Count
+                    ? aggregates[aggregateIndex] : null;
+                countByView[viewName] = aggregateIndex + 1;
+                IModelDoc2 referenced = item.View.ReferencedDocument as IModelDoc2;
+                IDimension dimension = null;
+                try { dimension = display.GetDimension2(0) as IDimension; }
+                catch (COMException ex)
+                {
+                    if ((uint)ex.ErrorCode != 0x80010105U) throw;
+                }
                 IAnnotation annotation = display.GetAnnotation() as IAnnotation;
                 double[] position = annotation != null ? annotation.GetPosition() as double[] : null;
                 double value = double.NaN;
                 if (dimension != null)
                 {
-                    object raw = dimension.GetSystemValue3(1, null);
-                    Array values = raw as Array;
-                    if (values != null && values.Length > 0)
-                        value = Convert.ToDouble(values.GetValue(0), CultureInfo.InvariantCulture);
-                    else value = dimension.Value;
+                    double viewContextValue = double.NaN;
+                    try
+                    {
+                        object raw = dimension.GetSystemValue3(1, null);
+                        Array values = raw as Array;
+                        if (values != null && values.Length > 0)
+                            viewContextValue = Convert.ToDouble(values.GetValue(0),
+                                CultureInfo.InvariantCulture);
+                    }
+                    catch { }
+                    // GetSystemValue3 is the primary SI readback. IDimension.Value is document-unit
+                    // scaled and cannot be compared with a frozen SI nominal. Some imported model
+                    // dimensions return zero from the drawing-view context after reopen; only then
+                    // attempt SystemValue. Deferring that fallback matters because SolidWorks 2025
+                    // SP5 can raise RPC_E_SERVERFAULT from SystemValue on an otherwise healthy
+                    // read-only reopened drawing.
+                    if (!IsFinite(value) && IsFinite(viewContextValue) && viewContextValue > 0)
+                        value = viewContextValue;
+                    else if (!IsFinite(value))
+                    {
+                        try { value = dimension.SystemValue; }
+                        catch { value = double.NaN; }
+                    }
+                }
+                if (!IsFinite(value) && aggregate != null && referenced != null)
+                    value = ReadReferencedModelValue(referenced, viewName,
+                        aggregate.DimensionId);
+                if (!IsFinite(value) && aggregate != null &&
+                    IsFinite(aggregate.ValueSi) && aggregate.ValueSi > 0)
+                    value = aggregate.ValueSi;
+                string fullName = "";
+                int drivenState = 0;
+                if (dimension != null)
+                {
+                    try { fullName = dimension.FullName ?? ""; } catch { }
+                    try { drivenState = dimension.DrivenState; } catch { }
                 }
                 var refs = new List<string>();
-                IModelDoc2 referenced = item.View.ReferencedDocument as IModelDoc2;
                 Array attached = annotation != null ? annotation.GetAttachedEntities3() as Array : null;
                 if (attached != null && referenced != null)
                     foreach (object entity in attached)
@@ -442,26 +647,170 @@ namespace SolidworksExecution.Services
                         byte[] bytes = ToBytes(referenced.Extension.GetPersistReference3(entity));
                         if (bytes != null && bytes.Length > 0) refs.Add(Convert.ToBase64String(bytes));
                     }
+                int nativeType = display.Type2;
+                string prefix = display.GetText(
+                    (int)swDimensionTextParts_e.swDimensionTextPrefix) ?? "";
+                string allText = display.GetText(
+                    (int)swDimensionTextParts_e.swDimensionTextAll) ?? "";
+                if (IsAutomaticDiameterModifier(nativeType, prefix))
+                {
+                    // SolidWorks can materialize its implicit diameter glyph as <MOD-DIAM>
+                    // only after a new-process reopen. It is native type semantics, not a
+                    // user-authored DimensionPlan prefix, so canonicalize it out of both the
+                    // logical text fields and the persistence fingerprint.
+                    prefix = "";
+                    if (allText == "<MOD-DIAM>") allText = "";
+                }
                 result.Add(new NativeDimensionRecord
                 {
                     ViewName = item.View.Name ?? "", SelectionName = SelectionName(display),
-                    FullName = dimension != null ? dimension.FullName ?? "" : "",
-                    Type = display.Type2, IsHoleCallout = display.IsHoleCallout(), ValueSi = value,
+                    FullName = fullName,
+                    AggregateDimensionId = aggregate != null ? aggregate.DimensionId : "",
+                    Type = nativeType, IsHoleCallout = display.IsHoleCallout(), ValueSi = value,
                     PositionX = position != null && position.Length > 0 ? position[0] : double.NaN,
                     PositionY = position != null && position.Length > 1 ? position[1] : double.NaN,
-                    Prefix = display.GetText((int)swDimensionTextParts_e.swDimensionTextPrefix) ?? "",
+                    Prefix = prefix,
                     Suffix = display.GetText((int)swDimensionTextParts_e.swDimensionTextSuffix) ?? "",
-                    AllText = display.GetText((int)swDimensionTextParts_e.swDimensionTextAll) ?? "",
+                    AllText = allText,
                     Precision = display.GetPrimaryPrecision(),
                     Unit = display.GetUnits(), UseDocumentUnits = display.GetUseDocUnits(),
                     ShowParentheses = display.ShowParenthesis,
                     DisplayAsChain = display.DisplayAsChain,
-                    DrivenState = dimension != null ? dimension.DrivenState : 0,
-                    Tolerance = ReadTolerance(dimension),
+                    DrivenState = drivenState,
+                    Tolerance = ReadToleranceSafe(dimension),
                     HoleCalloutVariables = ReadHoleCalloutVariables(display),
                     ModelPersistentReferences = refs
                 });
             }
+            return result;
+        }
+
+        private static IList<ViewDimensionAggregate> ReadViewDimensionAggregates(IView view)
+        {
+            var result = new List<ViewDimensionAggregate>();
+            int count = view.GetDimensionCount4();
+            if (count == 0) return result;
+            string[] ids = Strings(view.GetDimensionIds4());
+            double[] info = Doubles(view.GetDimensionInfo7());
+            const int recordSize = 52;
+            const int dimensionValueOffset = 47;
+            if (ids.Length != count || info.Length != 1 + count * recordSize ||
+                Convert.ToInt32(info[0], CultureInfo.InvariantCulture) != count)
+                throw new InvalidOperationException(
+                    "SolidWorks view dimension aggregate arrays are inconsistent.");
+            for (int index = 0; index < count; index++)
+                result.Add(new ViewDimensionAggregate
+                {
+                    DimensionId = ids[index] ?? "",
+                    ValueSi = info[1 + index * recordSize + dimensionValueOffset]
+                });
+            return result;
+        }
+
+        private static double ReadReferencedModelValue(IModelDoc2 referenced,
+            string viewName, string aggregateId)
+        {
+            if (referenced == null || String.IsNullOrWhiteSpace(viewName) ||
+                String.IsNullOrWhiteSpace(aggregateId)) return double.NaN;
+            Match match = Regex.Match(aggregateId,
+                "^(.*)-[0-9]+@" + Regex.Escape(viewName) + "$",
+                RegexOptions.CultureInvariant);
+            if (!match.Success) return double.NaN;
+            string fullName = match.Groups[1].Value + ".Part";
+            try
+            {
+                IDimension sourceDimension = FindModelDimension(referenced, fullName);
+                if (sourceDimension == null) return double.NaN;
+                return ReadModelDimensionValue(sourceDimension);
+            }
+            catch { return double.NaN; }
+        }
+
+        private static double ReadModelDimensionValue(IDimension dimension)
+        {
+            if (dimension == null) return double.NaN;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    object raw = dimension.GetSystemValue3(1, null);
+                    Array values = raw as Array;
+                    if (values != null && values.Length > 0)
+                    {
+                        double value = Convert.ToDouble(values.GetValue(0),
+                            CultureInfo.InvariantCulture);
+                        if (IsFinite(value)) return value;
+                    }
+                }
+                catch { }
+                try
+                {
+                    double value = dimension.SystemValue;
+                    if (IsFinite(value)) return value;
+                }
+                catch { }
+                try
+                {
+                    double value = dimension.GetSystemValue2("");
+                    if (IsFinite(value)) return value;
+                }
+                catch { }
+            }
+            return double.NaN;
+        }
+
+        private static IDimension FindModelDimension(IModelDoc2 model,
+            string fullName)
+        {
+            if (model == null || String.IsNullOrWhiteSpace(fullName)) return null;
+            IFeature feature = model.FirstFeature() as IFeature;
+            int featureGuard = 0;
+            while (feature != null && featureGuard++ < 100000)
+            {
+                object current = null;
+                try { current = feature.GetFirstDisplayDimension(); } catch { }
+                int dimensionGuard = 0;
+                while (current != null && dimensionGuard++ < 10000)
+                {
+                    IDisplayDimension display = current as IDisplayDimension;
+                    object next = null;
+                    try { next = feature.GetNextDisplayDimension(current); } catch { }
+                    try
+                    {
+                        IDimension dimension = display != null
+                            ? display.GetDimension2(0) as IDimension : null;
+                        if (dimension != null && String.Equals(dimension.FullName,
+                            fullName, StringComparison.Ordinal)) return dimension;
+                    }
+                    catch { }
+                    current = next;
+                }
+                feature = feature.GetNextFeature() as IFeature;
+            }
+            try { return model.Parameter(fullName) as IDimension; }
+            catch { }
+            return null;
+        }
+
+        private static string[] Strings(object raw)
+        {
+            Array array = raw as Array;
+            if (array == null) return new string[0];
+            var result = new string[array.Length];
+            for (int index = 0; index < array.Length; index++)
+                result[index] = Convert.ToString(array.GetValue(index),
+                    CultureInfo.InvariantCulture) ?? "";
+            return result;
+        }
+
+        private static double[] Doubles(object raw)
+        {
+            Array array = raw as Array;
+            if (array == null) return new double[0];
+            var result = new double[array.Length];
+            for (int index = 0; index < array.Length; index++)
+                result[index] = Convert.ToDouble(array.GetValue(index),
+                    CultureInfo.InvariantCulture);
             return result;
         }
 
@@ -501,6 +850,12 @@ namespace SolidworksExecution.Services
             catch { return ""; } }
         private static bool IsFinite(double value) =>
             !double.IsNaN(value) && !double.IsInfinity(value);
+        private static bool IsAutomaticDiameterModifier(int nativeType, string prefix) =>
+            prefix == "<MOD-DIAM>" &&
+            (nativeType == (int)swDimensionType_e.swDiameterDimension ||
+             nativeType == (int)swDimensionType_e.swDiametricLinearDimension);
+        private static string JsonString(string value) =>
+            Newtonsoft.Json.JsonConvert.SerializeObject(value ?? "");
         private static byte[] ToBytes(object raw)
         {
             byte[] bytes = raw as byte[];
@@ -527,6 +882,8 @@ namespace SolidworksExecution.Services
                 ShaftFit = tolerance.GetShaftFitValue() ?? ""
             };
         }
+        private static NativeToleranceRecord ReadToleranceSafe(IDimension dimension)
+        { try { return ReadTolerance(dimension); } catch (COMException) { return null; } }
         private static JArray ReadHoleCalloutVariables(IDisplayDimension display)
         {
             if (display == null || !display.IsHoleCallout()) return new JArray();
@@ -585,9 +942,12 @@ namespace SolidworksExecution.Services
             return false; }
 
         private sealed class DisplayInView { public IView View; public IDisplayDimension Display; }
+        private sealed class ViewDimensionAggregate
+        { public string DimensionId; public double ValueSi; }
         private sealed class NativeDimensionRecord
         {
-            public string ViewName, SelectionName, FullName, Prefix, Suffix, AllText;
+            public string ViewName, SelectionName, FullName, AggregateDimensionId,
+                Prefix, Suffix, AllText;
             public int Type, Precision, DrivenState, Unit;
             public bool IsHoleCallout, UseDocumentUnits, ShowParentheses, DisplayAsChain;
             public double ValueSi, PositionX, PositionY;

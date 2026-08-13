@@ -83,3 +83,28 @@ def test_f6_skill_forbids_plan_repair_and_preserves_one_candidate_request_chain(
     assert "不要调用私有 executor 动词" in skill
     assert "raw HTTP" not in skill
     assert "原始 HTTP" in skill
+
+
+def test_f7_qualification_is_matrix_bound_without_weakening_production_gate():
+    server = (ROOT / "adapters/claude/server.py").read_text(encoding="utf-8")
+    service = (
+        EXECUTION_ROOT / "Services/SolidWorksService.DimensionPlanExecution.cs"
+    ).read_text(encoding="utf-8-sig")
+    capability = (
+        EXECUTION_ROOT / "Contracts/DimensionPlanCapabilityPreflight.cs"
+    ).read_text(encoding="utf-8-sig")
+    qualification = (
+        EXECUTION_ROOT / "Contracts/DimensionPlanQualificationPreflight.cs"
+    ).read_text(encoding="utf-8-sig")
+
+    assert '"qualify_part_drawing_dimension_plan"' in server
+    assert '"verify_qualified_part_drawing_dimension_plan"' in server
+    assert "validate_f7_matrix_request" in server
+    assert "DIMENSION_F7_CASE_BINDING_MISMATCH" in server
+    assert "TryValidateQualification" in service
+    assert "TryValidate(plan" in service
+    assert 'status == "unsupported"' in capability
+    assert 'status != "supported"' in capability
+    assert "capability_registry_promoted" in service
+    assert "matrix_request_sha256" in qualification
+    assert "DIMENSION_F7_MATRIX_HASH_MISMATCH" in qualification

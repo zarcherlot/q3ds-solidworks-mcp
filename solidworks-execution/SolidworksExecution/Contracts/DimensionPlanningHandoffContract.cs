@@ -311,13 +311,23 @@ namespace SolidworksExecution.Contracts
 
         private static JObject ParseObjectFile(string path)
         {
-            return JObject.Parse(File.ReadAllText(path, Encoding.UTF8),
-                new JsonLoadSettings
+            using (var stringReader = new StringReader(
+                File.ReadAllText(path, Encoding.UTF8)))
+            using (var jsonReader = new JsonTextReader(stringReader)
+            {
+                // Frozen JSON strings must remain strings.  Json.NET's default DateTime parsing
+                // rewrites timestamps such as .580Z to .58Z during canonical serialization and
+                // therefore changes a plan hash even though the published bytes did not change.
+                DateParseHandling = DateParseHandling.None
+            })
+            {
+                return JObject.Load(jsonReader, new JsonLoadSettings
                 {
                     DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error,
                     CommentHandling = CommentHandling.Ignore,
                     LineInfoHandling = LineInfoHandling.Ignore
                 });
+            }
         }
 
         public static string FileSha256(string path)
