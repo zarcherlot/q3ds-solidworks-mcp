@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0 已完成；F1-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F1 已完成；F2-H 待开发
 最后更新：2026-08-12
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -318,11 +318,28 @@ F0 已建立 COM-free 探测请求/实证报告合同、固定十四项能力目
   - [x] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
   - [x] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
   - [x] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
-- [ ] F1：实现不可变尺寸规划 handoff。
-  - [ ] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
+- [x] F1：实现不可变尺寸规划 handoff。
+  - [x] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
     视图边界、现有注释边界和 `dimension_zones`。
-  - [ ] 尺寸来源按“模型/PMI和已批准数据 → 用户确认输入 → 仅参考的几何测量值”分级并记录溯源。
-  - [ ] 发布 `dimension-planning-handoff.json` last；源模型及上游图纸不得变脏或被覆盖。
+  - [x] 尺寸来源按“模型/PMI和已批准数据 → 用户确认输入 → 仅参考的几何测量值”分级并记录溯源。
+  - [x] 发布 `dimension-planning-handoff.json` last；源模型及上游图纸不得变脏或被覆盖。
+
+F1 已新增严格的 `dimension-planning-handoff-request.schema.json` 和
+`dimension-planning-handoff.schema.json`、Python 请求构造/发布物复核器、独立 C# 请求合同，以及不进入
+默认 MCP 工具面的私有 `POST /api/dimension-planning/handoff` 只读事务。事务在 COM 前核对 ViewPlan、
+独立核验工程图和侧车绑定，在只读会话内读取计划视图边界、普通边及轮廓边投影几何、模型尺寸、模型
+注释、孔/槽/线性与圆周阵列、持久引用、现有注释保守显示包络和 `dimension_zones`；精确文字边界继续
+显式记录为 `unsupported_exact`。普通实体引用与轮廓边背靠面引用分域记录，几何测量值固定标记为
+`reference_geometry_measurement` 且不得作为制造要求；用户确认输入必须包含显式批准人、时间、批准引用
+和严格值类型。
+
+SolidWorks 2025 SP5（revision `33.5.0`）冻结 ViewPlan 实机候选已完成：4 个计划视图读取 13 个投影实体
+（1 条普通直线、3 条普通圆弧、9 条轮廓直线）、4 个现有注释、27 个模型驱动尺寸、2 个制造特征
+（孔和圆周阵列）及 13 个仅参考测量值；该零件没有模型 PMI，因此 `pmi_annotations` 为空数组而非推断值。
+发布物 SHA-256 为 `405e50726aadbd107d535592dd360d83acbd195ad455d15e5132bfa4063e907e`，四项
+上游制品前后哈希完全一致，源文档 dirty flag 为 false，工程图以只读方式打开，发布后会话正常退出。
+F7 仍负责多类零件的完整尺寸执行矩阵；本次 F1 实机候选只验收不可变 handoff，不提前提升 F0 能力
+清单，也不引入 DimensionPlan、尺寸门禁或尺寸创建事务。
 - [ ] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
   - [ ] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
     总体尺寸、台阶、凸台、槽、倒角、圆角和对称尺寸。

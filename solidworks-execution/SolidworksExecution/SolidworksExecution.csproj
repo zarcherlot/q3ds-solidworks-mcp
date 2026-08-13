@@ -96,9 +96,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Controllers\DimensionApiProbeController.cs" />
+    <Compile Include="Controllers\DimensionPlanningHandoffController.cs" />
     <Compile Include="Controllers\HostBootstrapController.cs" />
     <Compile Include="Controllers\ToolController.cs" />
     <Compile Include="Contracts\DimensionApiProbeContract.cs" />
+    <Compile Include="Contracts\DimensionPlanningHandoffContract.cs" />
     <Compile Include="Contracts\ViewPlanBasicExecutionCompiler.cs" />
     <Compile Include="Contracts\ViewPlanBasicTransactionPreflight.cs" />
     <Compile Include="Contracts\ViewPlanBasicVerificationPreflight.cs" />
@@ -117,6 +119,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Services\SolidWorksService.cs" />
     <Compile Include="Services\SolidWorksService.DimensionApiProbe.cs" />
+    <Compile Include="Services\SolidWorksService.DimensionPlanningHandoff.cs" />
     <Compile Include="Services\SolidWorksService.DrawingInitializer.cs" />
     <Compile Include="Services\SolidWorksService.DrawingPlan.cs" />
     <Compile Include="Services\SolidWorksService.ViewPlan.cs" />
@@ -124,6 +127,7 @@
     <Compile Include="Services\SolidWorksService.Simulation.cs" />
     <Compile Include="Services\HostBootstrapRunner.cs" />
     <Compile Include="Services\DimensionApiProbeExecutor.cs" />
+    <Compile Include="Services\DimensionPlanningHandoffExecutor.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />
     <Compile Include="Services\ViewPlanBasicViewExecutor.cs" />
@@ -134,6 +138,14 @@
     <None Include="packages.config" />
     <Content Include="..\..\drawing_planner\contracts\view-plan.schema.json">
       <Link>contracts\view-plan.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\dimension_planner\contracts\dimension-planning-handoff-request.schema.json">
+      <Link>contracts\dimension-planning-handoff-request.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\dimension_planner\contracts\dimension-planning-handoff.schema.json">
+      <Link>contracts\dimension-planning-handoff.schema.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

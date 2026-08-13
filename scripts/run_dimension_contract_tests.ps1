@@ -29,7 +29,8 @@ $framework = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
 $newtonsoft = Join-Path $repo 'solidworks-execution\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll'
 $sources = @(
     (Join-Path $repo 'solidworks-execution\DimensionContractTests\Program.cs'),
-    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionApiProbeContract.cs')
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionApiProbeContract.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanningHandoffContract.cs')
 )
 $required = @($compiler, $newtonsoft, (Join-Path $framework 'mscorlib.dll')) + $sources
 foreach ($path in $required) {

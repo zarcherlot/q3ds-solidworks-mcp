@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Completed F1 immutable dimension-planning handoff. Added strict request/output Schemas, Python
+  request and publication validators, a COM-free C# request contract, and a private read-only
+  execution-service endpoint that freezes verified ViewPlan bindings, projected regular and
+  silhouette geometry, model dimensions/PMI, hole/slot/pattern features, persistent references,
+  view and existing-annotation envelopes, provenance tiers, and `dimension_zones`. The endpoint
+  publishes `dimension-planning-handoff.json` last only after source dirty-state and before/after
+  SHA-256 checks pass, and remains outside the Agent-visible MCP surface until F6. A SolidWorks
+  2025 SP5 frozen candidate passed with 4 views, 13 projected entities, 27 model dimensions, 2
+  manufacturing features, 13 reference-only measurements, unchanged upstream artifacts, and a
+  clean managed-session shutdown.
 - Added an MCP-independent repository host setup stage with explicit `Inspect`, `Configure`, and
   `Verify` modes. It can create the Python 3.12 `.venv`, install hash-locked dependencies, restore
   fixed C# packages, build the x64 execution runtime with Visual Studio MSBuild or pinned local

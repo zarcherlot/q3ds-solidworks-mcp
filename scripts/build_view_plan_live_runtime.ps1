@@ -96,5 +96,7 @@ foreach ($dependency in $referencePaths | Where-Object { $_ -notlike "$framework
 Copy-Item -LiteralPath (Join-Path $repo 'solidworks-execution\SolidworksExecution\app.config') -Destination ($executable + '.config')
 $contracts = New-Item -ItemType Directory -Path (Join-Path $output 'contracts')
 Copy-Item -LiteralPath (Join-Path $repo 'drawing_planner\contracts\view-plan.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-planning-handoff-request.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-planning-handoff.schema.json') -Destination $contracts
 Get-FileHash -LiteralPath $executable -Algorithm SHA256 | Select-Object Path, Hash
 Get-FileHash -LiteralPath $hostBootstrapExecutable -Algorithm SHA256 | Select-Object Path, Hash

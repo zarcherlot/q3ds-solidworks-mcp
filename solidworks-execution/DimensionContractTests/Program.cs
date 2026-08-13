@@ -83,6 +83,64 @@ namespace DimensionContractTests
                     "upstream publication collision accepted");
                 Pass("upstream publication collision rejected");
 
+                var handoffValidator = new DimensionPlanningHandoffContract();
+                DimensionPlanningHandoffRequest handoffRequest;
+                DimensionPlanningHandoffContractError handoffError;
+                var validHandoff = BuildValidHandoff();
+                Assert(handoffValidator.TryParse(validHandoff, out handoffRequest,
+                    out handoffError), Format(handoffError));
+                Assert(handoffRequest.ApprovedUserInputs.Count == 1,
+                    "approved input was not preserved");
+                Pass("valid F1 handoff request");
+
+                var legacyHandoff = (JObject)validHandoff.DeepClone();
+                legacyHandoff["legacy_tool"] = "auto_dimension_drawing";
+                Assert(!handoffValidator.TryParse(legacyHandoff, out handoffRequest,
+                    out handoffError) && handoffError.JsonPointer == "/legacy_tool",
+                    "legacy F1 field accepted");
+                Pass("F1 legacy field rejected");
+
+                var unapproved = (JObject)validHandoff.DeepClone();
+                unapproved["approved_user_inputs"][0]["source_tier"] =
+                    "reference_geometry_measurement";
+                Assert(!handoffValidator.TryParse(unapproved, out handoffRequest,
+                    out handoffError) && handoffError.JsonPointer.EndsWith("/source_tier"),
+                    "unapproved source tier accepted");
+                Pass("F1 source provenance enforced");
+
+                var duplicateInput = (JObject)validHandoff.DeepClone();
+                ((JArray)duplicateInput["approved_user_inputs"]).Add(
+                    duplicateInput["approved_user_inputs"][0].DeepClone());
+                Assert(!handoffValidator.TryParse(duplicateInput, out handoffRequest,
+                    out handoffError) && handoffError.JsonPointer.EndsWith("/input_id"),
+                    "duplicate approved input ID accepted");
+                Pass("F1 approved input IDs unique");
+
+                var invalidValue = (JObject)validHandoff.DeepClone();
+                invalidValue["approved_user_inputs"][0]["value"]["quantity_kind"] =
+                    "pixel";
+                Assert(!handoffValidator.TryParse(invalidValue, out handoffRequest,
+                    out handoffError), "pixel-derived input accepted");
+                Pass("F1 pixel-derived values rejected");
+
+                var validationOutput = (JObject)validHandoff.DeepClone();
+                validationOutput["publication_directory"] = Path.Combine(
+                    Path.GetTempPath(), "validation", "f1-output");
+                Assert(!handoffValidator.TryParse(validationOutput,
+                    out handoffRequest, out handoffError) &&
+                    handoffError.JsonPointer == "/publication_directory",
+                    "validation descendant output accepted");
+                Pass("F1 validation tree remains read-only");
+
+                var invalidApprovalTime = (JObject)validHandoff.DeepClone();
+                invalidApprovalTime["approved_user_inputs"][0]["approved_at_utc"] =
+                    "2026-08-13";
+                Assert(!handoffValidator.TryParse(invalidApprovalTime,
+                    out handoffRequest, out handoffError) &&
+                    handoffError.JsonPointer.EndsWith("/approved_at_utc"),
+                    "non-RFC3339 approval time accepted");
+                Pass("F1 approval time is strict RFC 3339");
+
                 int corpusRequests = 0;
                 if (args.Length == 1)
                 {
@@ -108,7 +166,7 @@ namespace DimensionContractTests
                         "usage: DimensionContractTests.exe [probe-request-directory]");
                 }
 
-                Console.WriteLine("Dimension F0 contract tests passed: " + _passed + "/10" +
+                Console.WriteLine("Dimension F0/F1 contract tests passed: " + _passed + "/17" +
                     "; corpus requests: " + corpusRequests);
                 return 0;
             }
@@ -163,6 +221,41 @@ namespace DimensionContractTests
             };
         }
 
+        private static JObject BuildValidHandoff()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "dimension-f1-contract");
+            string hash = new string('c', 64);
+            return new JObject
+            {
+                ["protocol_id"] = DimensionPlanningHandoffContract.ProtocolId,
+                ["schema_version"] = DimensionPlanningHandoffContract.SchemaVersion,
+                ["source"] = new JObject
+                {
+                    ["view_plan"] = Artifact(Path.Combine(root, "view-plan.json"), hash),
+                    ["verified_drawing"] = Artifact(
+                        Path.Combine(root, "viewed.SLDDRW"), hash),
+                    ["verification_sidecar"] = Artifact(
+                        Path.Combine(root, "viewed.verify.json"), hash)
+                },
+                ["publication_directory"] = Path.Combine(root, "handoff-output"),
+                ["approved_user_inputs"] = new JArray(new JObject
+                {
+                    ["input_id"] = "approved-length-1",
+                    ["source_tier"] = "user_confirmed_input",
+                    ["approved_by"] = "contract-test",
+                    ["approved_at_utc"] = "2026-08-13T00:00:00Z",
+                    ["approval_reference"] = "contract fixture",
+                    ["target_feature_ids"] = new JArray("Boss-Extrude1"),
+                    ["value"] = new JObject
+                    {
+                        ["kind"] = "quantity",
+                        ["quantity_kind"] = "length",
+                        ["value_si"] = 0.01
+                    }
+                })
+            };
+        }
+
         private static JObject Artifact(string path, string hash)
         {
             return new JObject { ["path"] = path, ["sha256"] = hash };
@@ -171,6 +264,12 @@ namespace DimensionContractTests
         private static string Format(DimensionApiProbeContractError error)
         {
             return error == null ? "<none>" : error.Code + " " + error.JsonPointer + " " + error.Message;
+        }
+
+        private static string Format(DimensionPlanningHandoffContractError error)
+        {
+            return error == null ? "<none>" : error.Code + " " +
+                error.JsonPointer + " " + error.Message;
         }
 
         private static void Assert(bool value, string message)
