@@ -141,6 +141,10 @@ namespace DimensionContractTests
                     "non-RFC3339 approval time accepted");
                 Pass("F1 approval time is strict RFC 3339");
 
+                int f4Contracts = DimensionPlanF4ContractTests.Run(
+                    Environment.GetEnvironmentVariable("DIMENSION_PLAN_SCHEMA_PATH"),
+                    Environment.GetEnvironmentVariable("DIMENSION_CAPABILITY_REGISTRY_PATH"));
+
                 int corpusRequests = 0;
                 if (args.Length == 1)
                 {
@@ -166,8 +170,8 @@ namespace DimensionContractTests
                         "usage: DimensionContractTests.exe [probe-request-directory]");
                 }
 
-                Console.WriteLine("Dimension F0/F1 contract tests passed: " + _passed + "/17" +
-                    "; corpus requests: " + corpusRequests);
+                Console.WriteLine("Dimension F0-F4 contract tests passed: " + _passed + "/17" +
+                    "; F4: " + f4Contracts + "/6; corpus requests: " + corpusRequests);
                 return 0;
             }
             catch (Exception ex)

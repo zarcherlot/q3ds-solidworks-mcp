@@ -64,6 +64,8 @@ def test_semantic_executor_operations_are_not_agent_tools():
         "validate_frozen_part_drawing_view_plan",
         "execute_part_drawing_view_plan",
         "verify_committed_part_drawing_view_plan",
+        "validate_frozen_part_drawing_dimension_plan",
+        "execute_part_drawing_dimension_plan",
     }
     from test_schema_contract import _adapter_tools
 

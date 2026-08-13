@@ -33,3 +33,7 @@ F3 implements the fixed, fail-closed `integrity -> schema -> source -> attachmen
 coverage -> redundancy -> layout -> capability` validation sequence. The first eight gates decide
 engineering validity; capability is assessed separately so a valid plan can be atomically published
 as `capability_blocked`. Native creation and persisted readback remain F4-F5 work.
+
+F4 adds `dimension-drawing-verification.schema.json` for the no-overwrite C# transaction sidecar.
+It binds the committed drawing to the immutable DimensionPlan file/canonical hashes, all frozen
+inputs, stable native handles, and matching in-memory/read-only-reopen dimension snapshots.

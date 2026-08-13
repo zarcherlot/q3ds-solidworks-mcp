@@ -29,8 +29,13 @@ $framework = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
 $newtonsoft = Join-Path $repo 'solidworks-execution\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll'
 $sources = @(
     (Join-Path $repo 'solidworks-execution\DimensionContractTests\Program.cs'),
+    (Join-Path $repo 'solidworks-execution\DimensionContractTests\DimensionPlanF4ContractTests.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionApiProbeContract.cs'),
-    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanningHandoffContract.cs')
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanningHandoffContract.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\ViewPlanContractValidator.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanContractValidator.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanExecutionCompiler.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanCapabilityPreflight.cs')
 )
 $required = @($compiler, $newtonsoft, (Join-Path $framework 'mscorlib.dll')) + $sources
 foreach ($path in $required) {
@@ -50,6 +55,8 @@ $executable = Join-Path $output 'DimensionContractTests.exe'
 & $compiler /nologo /nostdlib+ /target:exe /platform:x64 /langversion:latest /deterministic+ "/out:$executable" $references $sources
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Copy-Item -LiteralPath $newtonsoft -Destination $output
+$env:DIMENSION_PLAN_SCHEMA_PATH = Join-Path $repo 'dimension_planner\contracts\dimension-plan.schema.json'
+$env:DIMENSION_CAPABILITY_REGISTRY_PATH = Join-Path $repo 'dimension_planner\capabilities\current.json'
 if ($ProbeRequestDirectory) {
     $probeRequests = [System.IO.Path]::GetFullPath($ProbeRequestDirectory)
     if (-not (Test-Path -LiteralPath $probeRequests -PathType Container)) {

@@ -40,20 +40,31 @@ namespace SolidworksExecution.Contracts
             StringComparer.Ordinal);
 
         private readonly JObject _schema;
+        private readonly string _contractLabel;
+        private readonly string _errorCode;
 
         public ViewPlanContractValidator(string schemaPath)
+            : this(schemaPath, ContractSha256, "ViewPlan", "VIEW_PLAN_SCHEMA_INVALID")
+        {
+        }
+
+        internal ViewPlanContractValidator(string schemaPath, string expectedSha256,
+            string contractLabel, string errorCode)
         {
             if (string.IsNullOrWhiteSpace(schemaPath) || !Path.IsPathRooted(schemaPath))
-                throw new ArgumentException("ViewPlan schema path must be absolute.", "schemaPath");
+                throw new ArgumentException(contractLabel + " schema path must be absolute.", "schemaPath");
             string fullPath = Path.GetFullPath(schemaPath);
             if (!File.Exists(fullPath))
-                throw new FileNotFoundException("ViewPlan schema file was not found.", fullPath);
+                throw new FileNotFoundException(contractLabel + " schema file was not found.", fullPath);
+
+            _contractLabel = string.IsNullOrWhiteSpace(contractLabel) ? "JSON contract" : contractLabel;
+            _errorCode = string.IsNullOrWhiteSpace(errorCode) ? "SCHEMA_INVALID" : errorCode;
 
             byte[] bytes = File.ReadAllBytes(fullPath);
             string actualHash = ComputeSha256(bytes);
-            if (!string.Equals(actualHash, ContractSha256, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(actualHash, expectedSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException(
-                    "ViewPlan schema SHA-256 mismatch. expected=" + ContractSha256 +
+                    _contractLabel + " schema SHA-256 mismatch. expected=" + expectedSha256 +
                     " actual=" + actualHash);
             string text = new UTF8Encoding(false, true).GetString(bytes);
             _schema = JObject.Parse(text, new JsonLoadSettings
@@ -69,14 +80,7 @@ namespace SolidworksExecution.Contracts
             out ViewPlanContractError error)
         {
             document = null;
-            error = null;
-            if (candidate == null || candidate.Type != JTokenType.Object)
-            {
-                error = NewError("", "ViewPlan candidate must be a JSON object.");
-                return false;
-            }
-
-            if (!ValidateNode(candidate, _schema, "", 0, out error))
+            if (!TryValidate(candidate, out error))
                 return false;
 
             var root = (JObject)candidate;
@@ -98,13 +102,24 @@ namespace SolidworksExecution.Contracts
             return true;
         }
 
+        internal bool TryValidate(JToken candidate, out ViewPlanContractError error)
+        {
+            error = null;
+            if (candidate == null || candidate.Type != JTokenType.Object)
+            {
+                error = NewError("", _contractLabel + " candidate must be a JSON object.");
+                return false;
+            }
+            return ValidateNode(candidate, _schema, "", 0, out error);
+        }
+
         private bool ValidateNode(JToken instance, JObject schema, string pointer, int depth,
             out ViewPlanContractError error)
         {
             error = null;
             if (depth > MaximumValidationDepth)
             {
-                error = NewError(pointer, "ViewPlan exceeds the maximum validation depth.");
+                error = NewError(pointer, _contractLabel + " exceeds the maximum validation depth.");
                 return false;
             }
 
@@ -241,7 +256,7 @@ namespace SolidworksExecution.Contracts
                 if (unknown != null)
                 {
                     error = NewError(AppendPointer(pointer, unknown.Name),
-                        "Unknown property is forbidden by the ViewPlan contract.");
+                        "Unknown property is forbidden by the " + _contractLabel + " contract.");
                     return false;
                 }
             }
@@ -312,7 +327,7 @@ namespace SolidworksExecution.Contracts
             return true;
         }
 
-        private static bool ValidateString(string value, JObject schema, string pointer,
+        private bool ValidateString(string value, JObject schema, string pointer,
             out ViewPlanContractError error)
         {
             error = null;
@@ -349,7 +364,7 @@ namespace SolidworksExecution.Contracts
             return true;
         }
 
-        private static bool ValidateNumber(JToken instance, JObject schema, string pointer,
+        private bool ValidateNumber(JToken instance, JObject schema, string pointer,
             out ViewPlanContractError error)
         {
             error = null;
@@ -428,10 +443,10 @@ namespace SolidworksExecution.Contracts
             return resolved != null;
         }
 
-        private static void ValidateSchemaVocabulary(JToken token, string pointer, int depth)
+        private void ValidateSchemaVocabulary(JToken token, string pointer, int depth)
         {
             if (depth > MaximumValidationDepth)
-                throw new InvalidDataException("ViewPlan contract exceeds the maximum schema depth.");
+                throw new InvalidDataException(_contractLabel + " contract exceeds the maximum schema depth.");
             var obj = token as JObject;
             if (obj != null)
             {
@@ -447,7 +462,7 @@ namespace SolidworksExecution.Contracts
                     }
                     if (!SupportedKeywords.Contains(property.Name))
                         throw new InvalidDataException(
-                            "Unsupported ViewPlan Schema keyword at " + pointer + ": " + property.Name);
+                            "Unsupported " + _contractLabel + " Schema keyword at " + pointer + ": " + property.Name);
                     ValidateSchemaVocabulary(property.Value,
                         pointer + "/" + EscapePointer(property.Name), depth + 1);
                 }
@@ -486,11 +501,11 @@ namespace SolidworksExecution.Contracts
             return (value ?? "").Replace("~", "~0").Replace("/", "~1");
         }
 
-        private static ViewPlanContractError NewError(string pointer, string message)
+        private ViewPlanContractError NewError(string pointer, string message)
         {
             return new ViewPlanContractError
             {
-                Code = "VIEW_PLAN_SCHEMA_INVALID",
+                Code = _errorCode,
                 JsonPointer = pointer ?? "",
                 Message = message
             };
