@@ -41,8 +41,17 @@ def test_f4_compiler_is_fail_closed_and_never_uses_legacy_drawing_plan() -> None
     compiler = _text(
         "solidworks-execution/SolidworksExecution/Contracts/DimensionPlanExecutionCompiler.cs"
     )
-    assert '"linear", "diameter", "radius", "angular", "reference"' in compiler
-    assert '"hole_diameter", "hole_depth", "hole_quantity"' in compiler
+    for kind in (
+        "linear",
+        "diameter",
+        "radius",
+        "angular",
+        "reference",
+        "hole_diameter",
+        "hole_depth",
+        "hole_quantity",
+    ):
+        assert f'"{kind}"' in compiler
     assert "DIMENSION_CAPABILITY_BLOCKED" in compiler
     assert "ExecuteDrawingPlan" not in compiler
     assert "ViewPlanBasicExecutionPlan" not in compiler

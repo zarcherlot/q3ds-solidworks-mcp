@@ -10,7 +10,7 @@ using SolidworksExecution.Contracts;
 
 namespace SolidworksExecution.Services
 {
-    /// <summary>Native F4 dimension creation and exact in-session/persisted readback.</summary>
+    /// <summary>Native F4/F5 dimension creation and exact in-session/persisted readback.</summary>
     internal sealed class DimensionPlanNativeExecutor
     {
         public bool TryCreate(IModelDoc2 drawingModel, IDrawingDoc drawing,
@@ -77,12 +77,22 @@ namespace SolidworksExecution.Services
                                     out error);
                         }
                         object value;
-                        if (spec.Kind == "diameter")
+                        if (spec.UseOrdinate)
+                        {
+                            display = CreateOrdinate(drawingModel, drawing, spec);
+                            value = display;
+                        }
+                        else if (spec.Kind == "diameter" || spec.Kind == "boss")
                             value = drawingModel.AddDiameterDimension2(spec.PositionX, spec.PositionY, 0);
-                        else if (spec.Kind == "radius")
+                        else if (spec.Kind == "radius" || spec.Kind == "fillet")
                             value = drawingModel.AddRadialDimension2(spec.PositionX, spec.PositionY, 0);
-                        else if (spec.Kind.StartsWith("hole_", StringComparison.Ordinal))
+                        else if (IsHoleCalloutKind(spec.Kind))
                             value = drawing.AddHoleCallout2(spec.PositionX, spec.PositionY, 0);
+                        else if (spec.Kind == "chamfer")
+                            value = drawing.AddChamferDim(spec.PositionX, spec.PositionY, 0);
+                        else if (spec.Kind == "symmetric")
+                            value = drawingModel.Extension.AddSymmetricDimension(
+                                spec.PositionX, spec.PositionY, 0);
                         else
                             value = drawingModel.AddDimension2(spec.PositionX, spec.PositionY, 0);
                         display = value as IDisplayDimension;
@@ -99,14 +109,14 @@ namespace SolidworksExecution.Services
                 drawingModel.ForceRebuild3(false);
                 List<NativeDimensionRecord> memory = ReadAll(drawingModel, drawing);
                 Dictionary<string, string> handles;
-                Dictionary<string, string> displayTexts;
+                Dictionary<string, string> fingerprints;
                 JObject verification;
                 if (!Verify(plan, baseline.Count, memory, null, null, out handles,
-                    out displayTexts,
+                    out fingerprints,
                     out verification, out error)) return false;
                 result = new DimensionPlanNativeResult
                     { BaselineCount = baseline.Count, Handles = handles,
-                        DisplayTexts = displayTexts,
+                        PersistenceFingerprints = fingerprints,
                         InMemoryVerification = verification };
                 return true;
             }
@@ -119,13 +129,14 @@ namespace SolidworksExecution.Services
         public bool TryVerifyPersisted(IModelDoc2 drawingModel, IDrawingDoc drawing,
             DimensionPlanExecutionPlan plan, int baselineCount,
             IDictionary<string, string> expectedHandles,
-            IDictionary<string, string> expectedDisplayTexts, out JObject verification,
+            IDictionary<string, string> expectedFingerprints, out JObject verification,
             out DimensionPlanNativeError error)
         {
             Dictionary<string, string> ignored;
-            Dictionary<string, string> ignoredTexts;
+            Dictionary<string, string> ignoredFingerprints;
             return Verify(plan, baselineCount, ReadAll(drawingModel, drawing), expectedHandles,
-                expectedDisplayTexts, out ignored, out ignoredTexts, out verification, out error);
+                expectedFingerprints, out ignored, out ignoredFingerprints, out verification,
+                out error);
         }
 
         private static bool ApplyFormat(IDisplayDimension display,
@@ -145,6 +156,7 @@ namespace SolidworksExecution.Services
                 display.SetUnits(useDocumentUnits, unit, 0, 0, false);
                 display.SetPrecision3(spec.Precision, spec.Precision, spec.Precision, spec.Precision);
                 display.ShowParenthesis = spec.ShowParentheses;
+                display.DisplayAsChain = spec.ChainId != null;
                 IDimension dimension = display.GetDimension2(0) as IDimension;
                 if (spec.Kind == "reference")
                 {
@@ -153,6 +165,7 @@ namespace SolidworksExecution.Services
                             "Reference dimension has no native IDimension.", out error);
                     dimension.DrivenState = (int)swDimensionDrivenState_e.swDimensionDriven;
                 }
+                if (!ApplyTolerance(dimension, spec, out error)) return false;
                 return true;
             }
             catch (Exception ex)
@@ -163,13 +176,13 @@ namespace SolidworksExecution.Services
 
         private static bool Verify(DimensionPlanExecutionPlan plan, int baselineCount,
             IList<NativeDimensionRecord> records, IDictionary<string, string> expectedHandles,
-            IDictionary<string, string> expectedDisplayTexts,
+            IDictionary<string, string> expectedFingerprints,
             out Dictionary<string, string> handles,
-            out Dictionary<string, string> displayTexts, out JObject snapshot,
+            out Dictionary<string, string> fingerprints, out JObject snapshot,
             out DimensionPlanNativeError error)
         {
             handles = new Dictionary<string, string>(StringComparer.Ordinal);
-            displayTexts = new Dictionary<string, string>(StringComparer.Ordinal);
+            fingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
             snapshot = new JObject { ["verified"] = false, ["actual_total_count"] = records.Count,
                 ["baseline_count"] = baselineCount, ["planned_count"] = plan.Dimensions.Count };
             error = null;
@@ -219,11 +232,13 @@ namespace SolidworksExecution.Services
                 if (record.Prefix != spec.Prefix || record.Suffix != spec.Suffix)
                     return Fail("DIMENSION_TEXT_MISMATCH", spec.DimensionId,
                         "Native prefix or suffix differs from the plan.", out error);
-                string expectedText;
-                if (expectedDisplayTexts != null && expectedDisplayTexts.TryGetValue(
-                    spec.DimensionId, out expectedText) && record.AllText != expectedText)
+                string expectedFingerprint;
+                if (expectedFingerprints != null && expectedFingerprints.TryGetValue(
+                    spec.DimensionId, out expectedFingerprint) &&
+                    record.PersistenceFingerprint() != expectedFingerprint)
                     return Fail("DIMENSION_TEXT_MISMATCH", spec.DimensionId,
-                        "Native display text changed across save/close/read-only reopen.", out error);
+                        "Native text, hole variables or tolerance changed across save/reopen.",
+                        out error);
                 if (spec.Kind == "hole_quantity")
                 {
                     string count = Math.Round(spec.NominalSi).ToString(
@@ -239,6 +254,9 @@ namespace SolidworksExecution.Services
                 if (record.ShowParentheses != spec.ShowParentheses)
                     return Fail("DIMENSION_PARENTHESES_MISMATCH", spec.DimensionId,
                         "Native parenthesis display differs from the plan.", out error);
+                if (record.DisplayAsChain != (spec.ChainId != null))
+                    return Fail("DIMENSION_CHAIN_DISPLAY_MISMATCH", spec.DimensionId,
+                        "Native chain display differs from DimensionPlan hierarchy.", out error);
                 bool expectedDocumentUnits = spec.Unit == "document_default" || spec.Unit == "count";
                 int expectedUnit = spec.Unit == "inch" ? (int)swLengthUnit_e.swINCHES : 0;
                 if (spec.Unit != "count" && (record.UseDocumentUnits != expectedDocumentUnits ||
@@ -249,6 +267,9 @@ namespace SolidworksExecution.Services
                     (int)swDimensionDrivenState_e.swDimensionDriven)
                     return Fail("DIMENSION_REFERENCE_STATE_MISMATCH", spec.DimensionId,
                         "The planned reference dimension is not native driven/reference state.", out error);
+                if (!ToleranceMatches(record.Tolerance, spec.Tolerance))
+                    return Fail("DIMENSION_TOLERANCE_MISMATCH", spec.DimensionId,
+                        "Native tolerance values/fit differ from the trusted plan.", out error);
                 var expectedRefs = spec.Attachments.Select(item => item.PersistentReference)
                     .OrderBy(item => item, StringComparer.Ordinal).ToArray();
                 var actualRefs = record.ModelPersistentReferences.OrderBy(item => item,
@@ -257,7 +278,7 @@ namespace SolidworksExecution.Services
                     return Fail("DIMENSION_ATTACHMENT_MISMATCH", spec.DimensionId,
                         "Attached model persistent references differ from the plan.", out error);
                 handles.Add(spec.DimensionId, record.SelectionName);
-                displayTexts.Add(spec.DimensionId, record.AllText);
+                fingerprints.Add(spec.DimensionId, record.PersistenceFingerprint());
                 rows.Add(record.ToJson(spec.DimensionId));
             }
             snapshot["dimensions"] = rows;
@@ -265,20 +286,117 @@ namespace SolidworksExecution.Services
             return true;
         }
 
+        private static IDisplayDimension CreateOrdinate(IModelDoc2 model, IDrawingDoc drawing,
+            DimensionPlanExecutionDimension spec)
+        {
+            var before = new HashSet<string>(Enumerate(drawing).Select(item =>
+                SelectionName(item.Display)), StringComparer.Ordinal);
+            int createStatus;
+            try
+            {
+                createStatus = drawing.AddOrdinateDimension2(
+                    spec.OrdinateType, spec.PositionX, spec.PositionY, 0);
+            }
+            finally
+            {
+                model.SetPickMode();
+            }
+            if (createStatus != (int)swCreateOrdDimError_e.swCreateOrdDimErr_Success)
+                throw new InvalidOperationException(
+                    "Native ordinate creation failed with status " + createStatus + ".");
+            model.ForceRebuild3(false);
+            IDisplayDimension[] added = Enumerate(drawing).Select(item => item.Display).Where(
+                item => !before.Contains(SelectionName(item))).ToArray();
+            if (added.Length != 1)
+                throw new InvalidOperationException("Native ordinate creation did not add exactly one dimension.");
+            return added[0];
+        }
+
+        private static bool ApplyTolerance(IDimension dimension,
+            DimensionPlanExecutionDimension spec, out DimensionPlanNativeError error)
+        {
+            error = null;
+            if (dimension == null)
+                return spec.Tolerance == null || Fail("DIMENSION_TOLERANCE_WRITE_FAILED",
+                    spec.DimensionId, "Native dimension has no tolerance object.", out error);
+            IDimensionTolerance tolerance = dimension.Tolerance as IDimensionTolerance;
+            if (tolerance == null)
+                return spec.Tolerance == null || Fail("DIMENSION_TOLERANCE_WRITE_FAILED",
+                    spec.DimensionId, "Native dimension has no IDimensionTolerance.", out error);
+            if (spec.Tolerance == null)
+            {
+                tolerance.Type = (int)swTolType_e.swTolNONE;
+                return true;
+            }
+            bool written;
+            if (spec.Tolerance.Kind == "fit")
+            {
+                tolerance.Type = (int)swTolType_e.swTolFIT;
+                written = spec.FitTarget == "hole"
+                    ? tolerance.SetFitValues(spec.Tolerance.FitCode, "")
+                    : tolerance.SetFitValues("", spec.Tolerance.FitCode);
+            }
+            else
+            {
+                tolerance.Type = spec.Tolerance.Kind == "limit"
+                    ? (int)swTolType_e.swTolLIMIT : (int)swTolType_e.swTolBILAT;
+                written = tolerance.SetValues2(spec.Tolerance.LowerSi.Value,
+                    spec.Tolerance.UpperSi.Value,
+                    (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, null);
+            }
+            if (!written)
+                return Fail("DIMENSION_TOLERANCE_WRITE_FAILED", spec.DimensionId,
+                    "SolidWorks rejected the trusted tolerance values.", out error);
+            return true;
+        }
+
+        private static bool ToleranceMatches(NativeToleranceRecord actual,
+            DimensionPlanExecutionTolerance expected)
+        {
+            if (actual == null) return expected == null;
+            if (expected == null) return actual.Type == (int)swTolType_e.swTolNONE;
+            if (expected.Kind == "fit")
+                return new[] { (int)swTolType_e.swTolFIT,
+                    (int)swTolType_e.swTolFITWITHTOL,
+                    (int)swTolType_e.swTolFITTOLONLY }.Contains(actual.Type) &&
+                    (actual.HoleFit == expected.FitCode || actual.ShaftFit == expected.FitCode);
+            int expectedType = expected.Kind == "limit" ? (int)swTolType_e.swTolLIMIT :
+                (int)swTolType_e.swTolBILAT;
+            return actual.Type == expectedType && actual.MinimumValid && actual.MaximumValid &&
+                Math.Abs(actual.Minimum - expected.LowerSi.Value) <= 1e-12 &&
+                Math.Abs(actual.Maximum - expected.UpperSi.Value) <= 1e-12;
+        }
+
         private static bool NativeTypeMatches(NativeDimensionRecord record, string kind)
         {
-            if (kind.StartsWith("hole_", StringComparison.Ordinal)) return record.IsHoleCallout;
-            if (kind == "diameter") return record.Type == (int)swDimensionType_e.swDiameterDimension ||
+            if (IsHoleCalloutKind(kind)) return record.IsHoleCallout;
+            if (kind == "hole_group_location")
+                return record.Type == (int)swDimensionType_e.swOrdinateDimension ||
+                    record.Type == (int)swDimensionType_e.swHorOrdinateDimension ||
+                    record.Type == (int)swDimensionType_e.swVertOrdinateDimension;
+            if (kind == "diameter" || kind == "boss")
+                return record.Type == (int)swDimensionType_e.swDiameterDimension ||
                 record.Type == (int)swDimensionType_e.swDiametricLinearDimension;
-            if (kind == "radius") return record.Type == (int)swDimensionType_e.swRadialDimension ||
+            if (kind == "radius" || kind == "fillet")
+                return record.Type == (int)swDimensionType_e.swRadialDimension ||
                 record.Type == (int)swDimensionType_e.swRadialLinearDimension;
             if (kind == "angular") return record.Type == (int)swDimensionType_e.swAngularDimension;
-            if (kind == "linear" || kind == "reference")
+            if (kind == "chamfer")
+                return record.Type == (int)swDimensionType_e.swChamferDimension;
+            if (kind == "linear" || kind == "aligned" || kind == "reference" ||
+                kind == "hole_spacing" || kind == "overall" || kind == "step" ||
+                kind == "slot")
                 return record.Type == (int)swDimensionType_e.swLinearDimension ||
                     record.Type == (int)swDimensionType_e.swHorLinearDimension ||
                     record.Type == (int)swDimensionType_e.swVertLinearDimension;
+            if (kind == "symmetric")
+                return record.Type == (int)swDimensionType_e.swDiametricLinearDimension ||
+                    record.Type == (int)swDimensionType_e.swLinearDimension;
             return false;
         }
+
+        private static bool IsHoleCalloutKind(string kind) =>
+            kind == "hole_diameter" || kind == "hole_depth" || kind == "hole_quantity";
 
         private static void DeleteUnplannedImported(IModelDoc2 model, IDrawingDoc drawing,
             ISet<string> baselineNames, ISet<string> retainedNames)
@@ -337,7 +455,10 @@ namespace SolidworksExecution.Services
                     Precision = display.GetPrimaryPrecision(),
                     Unit = display.GetUnits(), UseDocumentUnits = display.GetUseDocUnits(),
                     ShowParentheses = display.ShowParenthesis,
+                    DisplayAsChain = display.DisplayAsChain,
                     DrivenState = dimension != null ? dimension.DrivenState : 0,
+                    Tolerance = ReadTolerance(dimension),
+                    HoleCalloutVariables = ReadHoleCalloutVariables(display),
                     ModelPersistentReferences = refs
                 });
             }
@@ -390,6 +511,74 @@ namespace SolidworksExecution.Services
                 bytes[index] = Convert.ToByte(array.GetValue(index), CultureInfo.InvariantCulture);
             return bytes;
         }
+        private static NativeToleranceRecord ReadTolerance(IDimension dimension)
+        {
+            IDimensionTolerance tolerance = dimension != null
+                ? dimension.Tolerance as IDimensionTolerance : null;
+            if (tolerance == null) return null;
+            double minimum = 0, maximum = 0;
+            return new NativeToleranceRecord
+            {
+                Type = tolerance.Type,
+                MinimumValid = tolerance.GetMinValue2(out minimum) == 0,
+                MaximumValid = tolerance.GetMaxValue2(out maximum) == 0,
+                Minimum = minimum, Maximum = maximum,
+                HoleFit = tolerance.GetHoleFitValue() ?? "",
+                ShaftFit = tolerance.GetShaftFitValue() ?? ""
+            };
+        }
+        private static JArray ReadHoleCalloutVariables(IDisplayDimension display)
+        {
+            if (display == null || !display.IsHoleCallout()) return new JArray();
+            object raw = display.GetHoleCalloutVariables();
+            Array array = raw as Array;
+            var result = new JArray();
+            if (array == null) return result;
+            foreach (object item in array)
+            {
+                ICalloutVariable variable = item as ICalloutVariable;
+                if (variable == null)
+                    throw new InvalidOperationException(
+                        "Hole callout returned an unknown native variable object.");
+                JToken value = JValue.CreateNull();
+                JToken precision = JValue.CreateNull();
+                JToken tolerancePrecision = JValue.CreateNull();
+                string valueKind = "none";
+                ICalloutLengthVariable length = item as ICalloutLengthVariable;
+                ICalloutAngleVariable angle = item as ICalloutAngleVariable;
+                ICalloutStringVariable text = item as ICalloutStringVariable;
+                if (length != null)
+                {
+                    valueKind = "length"; value = new JValue(length.Length);
+                    precision = new JValue(length.Precision);
+                    tolerancePrecision = new JValue(length.TolerancePrecision);
+                }
+                else if (angle != null)
+                {
+                    valueKind = "angle"; value = new JValue(angle.Angle);
+                    precision = new JValue(angle.Precision);
+                }
+                else if (text != null)
+                {
+                    valueKind = "string"; value = new JValue(text.String ?? "");
+                }
+                result.Add(new JObject
+                {
+                    ["variable_name"] = variable.VariableName ?? "",
+                    ["user_readable_name"] = variable.UserReadableVariableName ?? "",
+                    ["type"] = variable.Type, ["variable_type"] = variable.VariableType,
+                    ["tolerance_type"] = variable.ToleranceType,
+                    ["tolerance_minimum_si"] = variable.ToleranceMin,
+                    ["tolerance_maximum_si"] = variable.ToleranceMax,
+                    ["show_parentheses"] = variable.ShowParenthesis,
+                    ["hole_fit"] = variable.HoleFit ?? "",
+                    ["shaft_fit"] = variable.ShaftFit ?? "", ["fit_type"] = variable.FitType,
+                    ["value_kind"] = valueKind, ["value"] = value,
+                    ["precision"] = precision, ["tolerance_precision"] = tolerancePrecision
+                });
+            }
+            return result;
+        }
         private static bool Fail(string code, string id, string message,
             out DimensionPlanNativeError error)
         { error = new DimensionPlanNativeError { Code = code, DimensionId = id, Message = message };
@@ -400,9 +589,16 @@ namespace SolidworksExecution.Services
         {
             public string ViewName, SelectionName, FullName, Prefix, Suffix, AllText;
             public int Type, Precision, DrivenState, Unit;
-            public bool IsHoleCallout, UseDocumentUnits, ShowParentheses;
+            public bool IsHoleCallout, UseDocumentUnits, ShowParentheses, DisplayAsChain;
             public double ValueSi, PositionX, PositionY;
             public List<string> ModelPersistentReferences;
+            public NativeToleranceRecord Tolerance;
+            public JArray HoleCalloutVariables;
+            public string PersistenceFingerprint() => new JObject
+            {
+                ["text"] = AllText, ["hole_callout_variables"] = HoleCalloutVariables.DeepClone(),
+                ["tolerance"] = Tolerance != null ? Tolerance.ToJson() : JValue.CreateNull()
+            }.ToString(Newtonsoft.Json.Formatting.None);
             public JObject ToJson(string dimensionId) => new JObject
             {
                 ["dimension_id"] = dimensionId, ["view"] = ViewName,
@@ -415,14 +611,30 @@ namespace SolidworksExecution.Services
                 ["precision"] = Precision, ["driven_state"] = DrivenState,
                 ["use_document_units"] = UseDocumentUnits, ["unit"] = Unit,
                 ["show_parentheses"] = ShowParentheses,
+                ["display_as_chain"] = DisplayAsChain,
+                ["hole_callout_variables"] = HoleCalloutVariables.DeepClone(),
+                ["tolerance"] = Tolerance != null ? Tolerance.ToJson() : JValue.CreateNull(),
                 ["model_persistent_references"] = new JArray(ModelPersistentReferences.OrderBy(x => x))
+            };
+        }
+        private sealed class NativeToleranceRecord
+        {
+            public int Type; public bool MinimumValid, MaximumValid;
+            public double Minimum, Maximum; public string HoleFit, ShaftFit;
+            public JObject ToJson() => new JObject
+            {
+                ["type"] = Type, ["minimum_valid"] = MinimumValid,
+                ["maximum_valid"] = MaximumValid, ["minimum_si"] = Minimum,
+                ["maximum_si"] = Maximum, ["hole_fit"] = HoleFit,
+                ["shaft_fit"] = ShaftFit
             };
         }
     }
 
     internal sealed class DimensionPlanNativeResult
     { public int BaselineCount; public Dictionary<string, string> Handles;
-        public Dictionary<string, string> DisplayTexts; public JObject InMemoryVerification; }
+        public Dictionary<string, string> PersistenceFingerprints;
+        public JObject InMemoryVerification; }
     internal sealed class DimensionPlanNativeError
     { public string Code, DimensionId, Message; }
 }

@@ -26,10 +26,9 @@ namespace DimensionContractTests
 
             JObject aligned = BuildPlan("aligned");
             Assert(validator.TryParse(aligned, out document, out error), Format(error));
-            Assert(!new DimensionPlanExecutionCompiler().TryCompile(document, out compiled,
-                out error) && error.Code == "DIMENSION_CAPABILITY_BLOCKED",
-                "F5 dimension was accepted by F4 compiler");
-            Console.WriteLine("ok - F4 compiler blocks later dimension kinds");
+            Assert(new DimensionPlanExecutionCompiler().TryCompile(document, out compiled,
+                out error), Format(error));
+            Console.WriteLine("ok - F5 aligned dimension compiler");
 
             JObject tolerance = BuildPlan("linear");
             tolerance["dimensions"][0]["tolerance"] = new JObject
@@ -39,9 +38,9 @@ namespace DimensionContractTests
             };
             Assert(validator.TryParse(tolerance, out document, out error), Format(error));
             Assert(!new DimensionPlanExecutionCompiler().TryCompile(document, out compiled,
-                out error) && error.Code == "DIMENSION_CAPABILITY_BLOCKED",
-                "F5 tolerance was accepted by F4 compiler");
-            Console.WriteLine("ok - F4 compiler blocks tolerance formatting");
+                out error) && error.Code == "DIMENSION_PLAN_COMPILE_INVALID",
+                "untrusted model tolerance was accepted");
+            Console.WriteLine("ok - F5 compiler rejects untrusted model tolerance");
 
             JObject quantity = BuildPlan("hole_quantity");
             ((JArray)quantity["dimensions"][0]["attachments"]).RemoveAt(1);

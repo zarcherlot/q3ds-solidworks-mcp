@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3 已完成；F4 原生执行候选已实现、待实机证据晋级；F5-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3 已完成；F4-F5 原生执行候选已实现、待实机证据晋级；F6-H 待开发
 最后更新：2026-08-13
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -379,6 +379,15 @@ handoff、ViewPlan、原侧车和已发布 DimensionPlan 在事务前后均重�
 - [ ] F5：补齐高级尺寸能力。
   - [ ] 沉孔、沉头、锪平孔、盲孔、螺纹、槽/键槽、组合倒角/圆角、基线尺寸、坐标尺寸和阵列标注。
   - [ ] 上下偏差、极限尺寸和配合代号仅在受信输入存在时执行，并完成原生格式与持久化回读。
+
+F5 在不改变已冻结 DimensionPlan 1.0 的前提下补齐其 18 类尺寸编译联合。沉孔/沉头/锪平孔、盲孔和
+螺纹继续由模型关联的原生孔标注生成，并在内存与只读重开阶段冻结完整逻辑文字及 hole-callout variables；
+槽/键槽、孔距/孔组定位、总体/台阶/凸台、组合倒角/圆角、对称和对齐尺寸分别走明确附件及对应原生 API。
+`hierarchy.baseline_id` 的非坐标组必须至少包含两个尺寸并共享同一冻结基准附件；孔组定位可编译为按冻结
+投影几何确定方向的原生 ordinate，`chain_id` 则写入并回读链式显示状态。上下偏差/单向/极限公差逐值匹配
+approved quantity，配合代号逐字匹配 approved exact text，并根据冻结制造特征选择 hole/shaft fit 后才调用
+`IDimensionTolerance`；侧车回读公差类型、上下值和 hole/shaft fit。当前仍无 F5 真实图纸保存重开矩阵证据，
+所以能力清单继续保持 `planned`，两项 F5 验收框不提前勾选。
 - [ ] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
   - [ ] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
   - [ ] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。

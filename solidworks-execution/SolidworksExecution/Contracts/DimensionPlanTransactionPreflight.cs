@@ -154,9 +154,13 @@ namespace SolidworksExecution.Contracts
             error = null;
             JArray viewArray = handoff["views"] as JArray;
             JArray modelArray = handoff["model_driven_dimensions"] as JArray;
-            if (viewArray == null || modelArray == null)
+            JArray featureArray = handoff["manufacturing_features"] as JArray;
+            JArray approvedArray = handoff["approved_user_inputs"] as JArray;
+            JArray measurementArray = handoff["reference_measurements"] as JArray;
+            if (viewArray == null || modelArray == null || featureArray == null ||
+                approvedArray == null || measurementArray == null)
                 return Fail("DIMENSION_HANDOFF_INVALID", "/handoff",
-                    "Handoff view or model-dimension inventory is missing.", out error);
+                    "A required handoff source inventory is missing.", out error);
             var views = new Dictionary<string, JObject>(StringComparer.Ordinal);
             foreach (JObject view in viewArray.OfType<JObject>())
             {
@@ -175,6 +179,16 @@ namespace SolidworksExecution.Contracts
                         "Handoff model dimension IDs must be present and unique.", out error);
                 modelDimensions.Add(id, dimension);
             }
+            Dictionary<string, JObject> features;
+            Dictionary<string, JObject> approved;
+            Dictionary<string, JObject> measurements;
+            if (!TryIndex(featureArray, "feature_id", "/handoff/manufacturing_features",
+                out features, out error) ||
+                !TryIndex(approvedArray, "input_id", "/handoff/approved_user_inputs",
+                    out approved, out error) ||
+                !TryIndex(measurementArray, "measurement_id", "/handoff/reference_measurements",
+                    out measurements, out error))
+                return false;
             foreach (DimensionPlanExecutionDimension dimension in plan.Dimensions)
             {
                 JObject view;
@@ -219,9 +233,161 @@ namespace SolidworksExecution.Contracts
                             "Attachment differs from target-view handoff geometry: " +
                             attachment.AttachmentId, out error);
                 }
+                var boundFeatures = new List<JObject>();
+                foreach (string featureId in dimension.FeatureIds)
+                {
+                    JObject feature;
+                    if (!features.TryGetValue(featureId, out feature))
+                        return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                            "Unknown manufacturing feature: " + featureId, out error);
+                    boundFeatures.Add(feature);
+                }
+                if (!ValidateSource(dimension, approved, measurements, features, out error))
+                    return false;
+                if (dimension.Kind.StartsWith("hole_", StringComparison.Ordinal) &&
+                    !boundFeatures.Any(item => item.Value<string>("classification") == "hole" ||
+                        item.Value<string>("classification").EndsWith("pattern",
+                            StringComparison.Ordinal)))
+                    return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                        "Hole/array annotation has no bound hole or pattern feature.", out error);
+                if (dimension.Kind == "slot" && !boundFeatures.Any(item =>
+                    item.Value<string>("classification") == "slot"))
+                    return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                        "Slot dimension has no bound slot feature.", out error);
+                dimension.FitTarget = boundFeatures.Any(item =>
+                    item.Value<string>("classification") == "hole" ||
+                    item.Value<string>("classification") == "slot") ? "hole" : "shaft";
+                if (dimension.UseOrdinate)
+                {
+                    JObject first = GeometryForRole(dimension, geometry, "first");
+                    JObject second = GeometryForRole(dimension, geometry, "second");
+                    double[] firstPoint = GeometryAnchor(first);
+                    double[] secondPoint = GeometryAnchor(second);
+                    if (firstPoint == null || secondPoint == null)
+                        return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                            "Ordinate dimension attachments have no deterministic sheet anchors.",
+                            out error);
+                    dimension.OrdinateType = Math.Abs(secondPoint[0] - firstPoint[0]) >=
+                        Math.Abs(secondPoint[1] - firstPoint[1]) ? 3 : 2;
+                }
             }
             return true;
         }
+
+        private static bool ValidateSource(DimensionPlanExecutionDimension dimension,
+            IDictionary<string, JObject> approved, IDictionary<string, JObject> measurements,
+            IDictionary<string, JObject> features, out DimensionPlanContractError error)
+        {
+            error = null;
+            if (dimension.SourceTier == "user_confirmed_input")
+            {
+                var rows = new List<JObject>();
+                foreach (string id in dimension.SourceIds)
+                {
+                    JObject row;
+                    if (!approved.TryGetValue(id, out row))
+                        return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                            "Unknown approved input: " + id, out error);
+                    rows.Add(row);
+                    JArray targets = row["target_feature_ids"] as JArray;
+                    if (targets == null || targets.Values<string>().Any(idValue =>
+                        !dimension.FeatureIds.Contains(idValue)))
+                        return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                            "Approved input targets features outside the dimension binding.", out error);
+                }
+                if (!rows.Any(row => ApprovedQuantityMatches(row, dimension.QuantityKind,
+                    dimension.NominalSi)))
+                    return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                        "Frozen nominal is not present in approved inputs.", out error);
+                if (dimension.Tolerance != null)
+                {
+                    if (dimension.Tolerance.Kind == "fit")
+                    {
+                        if (!rows.Any(row => row["value"] != null &&
+                            row["value"].Value<string>("kind") == "exact_text" &&
+                            row["value"].Value<string>("text") == dimension.Tolerance.FitCode))
+                            return Fail("DIMENSION_TOLERANCE_UNTRUSTED", "/dimensions",
+                                "Fit code is absent from exact approved text inputs.", out error);
+                    }
+                    else if (!rows.Any(row => ApprovedQuantityValue(row,
+                        dimension.QuantityKind, dimension.Tolerance.LowerSi.Value)) ||
+                        !rows.Any(row => ApprovedQuantityValue(row,
+                        dimension.QuantityKind, dimension.Tolerance.UpperSi.Value)))
+                        return Fail("DIMENSION_TOLERANCE_UNTRUSTED", "/dimensions",
+                            "Tolerance limits are absent from approved quantity inputs.", out error);
+                }
+            }
+            else if (dimension.SourceTier == "reference_geometry_measurement")
+            {
+                if (!dimension.SourceIds.Any(id => measurements.ContainsKey(id) &&
+                    Close(measurements[id].Value<double>("value_si"), dimension.NominalSi) &&
+                    measurements[id].Value<string>("view_id") == dimension.TargetViewId))
+                    return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                        "Reference nominal/view is not present in frozen measurements.", out error);
+            }
+            else if (dimension.HandoffCollection == "manufacturing_features")
+            {
+                if (dimension.SourceIds.Any(id => !features.ContainsKey(id)) ||
+                    dimension.SourceIds.Any(id => !dimension.FeatureIds.Contains(id)))
+                    return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
+                        "Manufacturing-feature source is not bound to feature_ids.", out error);
+            }
+            return true;
+        }
+
+        private static bool TryIndex(JArray rows, string key, string pointer,
+            out Dictionary<string, JObject> index, out DimensionPlanContractError error)
+        {
+            index = new Dictionary<string, JObject>(StringComparer.Ordinal); error = null;
+            foreach (JObject row in rows.OfType<JObject>())
+            {
+                string id = row.Value<string>(key);
+                if (string.IsNullOrEmpty(id) || index.ContainsKey(id))
+                    return Fail("DIMENSION_HANDOFF_INVALID", pointer,
+                        "Source IDs must be present and unique.", out error);
+                index.Add(id, row);
+            }
+            return true;
+        }
+
+        private static bool ApprovedQuantityMatches(JObject row, string kind, double value)
+        {
+            JObject approved = row["value"] as JObject;
+            return approved != null && approved.Value<string>("kind") == "quantity" &&
+                approved.Value<string>("quantity_kind") == kind &&
+                Close(approved.Value<double>("value_si"), value);
+        }
+
+        private static bool ApprovedQuantityValue(JObject row, string kind, double value)
+        {
+            JObject approved = row["value"] as JObject;
+            return approved != null && approved.Value<string>("kind") == "quantity" &&
+                approved.Value<string>("quantity_kind") == kind &&
+                Close(approved.Value<double>("value_si"), value);
+        }
+
+        private static JObject GeometryForRole(DimensionPlanExecutionDimension dimension,
+            IDictionary<string, JObject> geometry, string role)
+        {
+            DimensionPlanExecutionAttachment attachment = dimension.Attachments.FirstOrDefault(
+                item => item.Role == role);
+            JObject result;
+            return attachment != null && geometry.TryGetValue(attachment.EntityId, out result)
+                ? result : null;
+        }
+
+        private static double[] GeometryAnchor(JObject entity)
+        {
+            JArray values = entity != null ? entity["geometry_sheet_m"] as JArray : null;
+            if (values == null || values.Count < 2) return null;
+            double[] raw = values.Values<double>().ToArray();
+            if (raw.Length >= 4)
+                return new[] { (raw[0] + raw[2]) / 2.0, (raw[1] + raw[3]) / 2.0 };
+            return new[] { raw[0], raw[1] };
+        }
+
+        private static bool Close(double first, double second) =>
+            Math.Abs(first - second) <= 1e-12;
 
         private static JObject LoadObject(string path)
         {

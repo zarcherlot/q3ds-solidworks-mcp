@@ -30,12 +30,14 @@ $newtonsoft = Join-Path $repo 'solidworks-execution\packages\Newtonsoft.Json.13.
 $sources = @(
     (Join-Path $repo 'solidworks-execution\DimensionContractTests\Program.cs'),
     (Join-Path $repo 'solidworks-execution\DimensionContractTests\DimensionPlanF4ContractTests.cs'),
+    (Join-Path $repo 'solidworks-execution\DimensionContractTests\DimensionPlanF5ContractTests.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionApiProbeContract.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanningHandoffContract.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\ViewPlanContractValidator.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanContractValidator.cs'),
     (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanExecutionCompiler.cs'),
-    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanCapabilityPreflight.cs')
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanCapabilityPreflight.cs'),
+    (Join-Path $repo 'solidworks-execution\SolidworksExecution\Contracts\DimensionPlanTransactionPreflight.cs')
 )
 $required = @($compiler, $newtonsoft, (Join-Path $framework 'mscorlib.dll')) + $sources
 foreach ($path in $required) {

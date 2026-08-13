@@ -37,3 +37,9 @@ as `capability_blocked`. Native creation and persisted readback remain F4-F5 wor
 F4 adds `dimension-drawing-verification.schema.json` for the no-overwrite C# transaction sidecar.
 It binds the committed drawing to the immutable DimensionPlan file/canonical hashes, all frozen
 inputs, stable native handles, and matching in-memory/read-only-reopen dimension snapshots.
+
+F5 keeps DimensionPlan 1.0 immutable and completes its 18-kind native compiler union. Advanced
+hole/slot/pattern, chamfer/fillet, baseline/chain and ordinate intent are resolved only from frozen
+handoff geometry/features. Numeric, limit and fit tolerances are executable only when C# rebinds
+every value or exact fit code to user-approved handoff inputs. The verification sidecar additionally
+freezes hole-callout variables, complete logical text, tolerance readback and chain display state.

@@ -82,7 +82,7 @@ def test_f0_contracts_share_the_frozen_capability_catalog():
 
 def test_f2_manifest_remains_fail_closed_and_preserves_f0_order():
     manifest = load_f0_capability_manifest()
-    assert manifest["registry_version"] == "0.2.0"
+    assert manifest["registry_version"] == "0.3.0"
     assert len(manifest["capabilities"]) == 14
     assert tuple(item["id"] for item in manifest["capabilities"]) == F0_CAPABILITY_IDS
     statuses = {item["id"]: item["status"] for item in manifest["capabilities"]}

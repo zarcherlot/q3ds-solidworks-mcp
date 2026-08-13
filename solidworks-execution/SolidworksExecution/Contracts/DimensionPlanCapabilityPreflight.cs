@@ -53,22 +53,29 @@ namespace SolidworksExecution.Contracts
                 requiredElements.Add("model_dimension_import");
             if (plan.Dimensions.Any(item => item.Prefix.Length > 0 || item.Suffix.Length > 0))
                 requiredElements.Add("dimension_prefix_suffix");
+            if (plan.Dimensions.Any(item => item.Tolerance != null))
+                requiredElements.Add("dimension_tolerance");
             var requiredCapabilities = new HashSet<string>(new[]
                 { "display_dimension_iteration", "attachment_persistent_reference",
                     "annotation_position", "save_reopen_stable_identity" }, StringComparer.Ordinal);
             foreach (string kind in requiredTypes)
             {
-                if (kind == "diameter") requiredCapabilities.Add("diameter_dimension");
-                else if (kind == "radius") requiredCapabilities.Add("radius_dimension");
+                if (kind == "diameter" || kind == "boss")
+                    requiredCapabilities.Add("diameter_dimension");
+                else if (kind == "radius" || kind == "fillet")
+                    requiredCapabilities.Add("radius_dimension");
                 else if (kind == "angular") requiredCapabilities.Add("angular_dimension");
                 else if (kind.StartsWith("hole_", StringComparison.Ordinal))
                     requiredCapabilities.Add("hole_callout");
+                else if (kind == "chamfer") requiredCapabilities.Add("chamfer_dimension");
                 else requiredCapabilities.Add("linear_dimension");
             }
             if (plan.Dimensions.Any(item => item.ImportModelDimension))
                 requiredCapabilities.Add("model_dimension_import");
             if (plan.Dimensions.Any(item => item.Prefix.Length > 0 || item.Suffix.Length > 0))
                 requiredCapabilities.Add("dimension_prefix_suffix");
+            if (plan.Dimensions.Any(item => item.Tolerance != null))
+                requiredCapabilities.Add("dimension_tolerance");
             JObject types = registry["dimension_types"] as JObject;
             JObject elements = registry["elements"] as JObject;
             JObject liveEvidence = registry["live_evidence"] as JObject;

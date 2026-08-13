@@ -6,14 +6,19 @@ using Newtonsoft.Json.Linq;
 namespace SolidworksExecution.Contracts
 {
     /// <summary>
-    /// Fail-closed F4 compiler. It accepts only the native MVP; all F5 dimension kinds and
-    /// tolerance formatting are rejected instead of being translated to DrawingPlan 1.0.
+    /// Fail-closed F4/F5 compiler for the complete DimensionPlan 1.0 dimension-kind union.
+    /// Unsupported source shapes are rejected instead of being translated to DrawingPlan 1.0.
     /// </summary>
     public sealed class DimensionPlanExecutionCompiler
     {
         private static readonly HashSet<string> SupportedKinds = new HashSet<string>(
-            new[] { "linear", "diameter", "radius", "angular", "reference",
-                "hole_diameter", "hole_depth", "hole_quantity" }, StringComparer.Ordinal);
+            new[] { "linear", "aligned", "diameter", "radius", "angular", "reference",
+                "hole_diameter", "hole_depth", "hole_quantity", "hole_spacing",
+                "hole_group_location", "overall", "step", "boss", "slot", "chamfer",
+                "fillet", "symmetric" }, StringComparer.Ordinal);
+        private static readonly HashSet<string> TwoAttachmentKinds = new HashSet<string>(
+            new[] { "linear", "aligned", "angular", "hole_spacing", "hole_group_location",
+                "overall", "step", "slot", "chamfer" }, StringComparer.Ordinal);
 
         public bool TryCompile(DimensionPlanDocument document,
             out DimensionPlanExecutionPlan plan, out DimensionPlanContractError error)
@@ -49,10 +54,6 @@ namespace SolidworksExecution.Contracts
                 if (!SupportedKinds.Contains(kind))
                     return Fail("DIMENSION_CAPABILITY_BLOCKED", pointer + "/kind",
                         "Dimension kind is outside the F4 native MVP: " + kind, out error);
-                if (item["tolerance"].Type != JTokenType.Null)
-                    return Fail("DIMENSION_CAPABILITY_BLOCKED", pointer + "/tolerance",
-                        "Native tolerance formatting is reserved for F5.", out error);
-
                 JObject source = (JObject)item["source"];
                 string tier = source.Value<string>("source_tier");
                 string collection = source.Value<string>("handoff_collection");
@@ -87,13 +88,25 @@ namespace SolidworksExecution.Contracts
                         Role = attachment.Value<string>("role")
                     });
                 }
-                int expected = (kind == "linear" || kind == "angular") ? 2 : 1;
+                int expected = TwoAttachmentKinds.Contains(kind) ? 2 : 1;
+                if (kind == "symmetric") expected = 3;
                 if (kind != "reference" && attachments.Count != expected)
                     return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
                         kind + " requires exactly " + expected + " attachment(s) in F4.", out error);
                 if (kind == "reference" && (attachments.Count < 1 || attachments.Count > 2))
                     return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
-                        "reference requires one or two attachments in F4.", out error);
+                        "reference requires one or two attachments in F4/F5.", out error);
+                if (TwoAttachmentKinds.Contains(kind) &&
+                    (attachments.Count(item => item.Role == "first") != 1 ||
+                    attachments.Count(item => item.Role == "second") != 1))
+                    return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
+                        kind + " requires one first and one second attachment.", out error);
+                if (kind == "symmetric" &&
+                    (attachments.Count(item => item.Role == "first") != 1 ||
+                    attachments.Count(item => item.Role == "second") != 1 ||
+                    attachments.Count(item => item.Role == "symmetry_axis") != 1))
+                    return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
+                        "symmetric requires first, second and symmetry_axis attachments.", out error);
 
                 JObject display = (JObject)item["display_format"];
                 if (display.Value<bool>("dual_units") || display.Value<bool>("show_units"))
@@ -118,6 +131,23 @@ namespace SolidworksExecution.Contracts
                         pointer + "/verification_tolerance/display_text_exact",
                         "Exact rendered glyph text is not supported by the SolidWorks 2025 SP5 API.",
                         out error);
+                DimensionPlanExecutionTolerance tolerance = null;
+                JObject toleranceObject = item["tolerance"] as JObject;
+                if (toleranceObject != null)
+                {
+                    if (tier != "user_confirmed_input")
+                        return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/tolerance",
+                            "F5 tolerance execution requires user_confirmed_input provenance.",
+                            out error);
+                    tolerance = new DimensionPlanExecutionTolerance
+                    {
+                        Kind = toleranceObject.Value<string>("kind"),
+                        LowerSi = toleranceObject.Value<double?>("lower_si"),
+                        UpperSi = toleranceObject.Value<double?>("upper_si"),
+                        FitCode = toleranceObject.Value<string>("fit_code")
+                    };
+                }
+                JObject hierarchy = (JObject)item["hierarchy"];
                 compiled.Dimensions.Add(new DimensionPlanExecutionDimension
                 {
                     DimensionId = item.Value<string>("dimension_id"), Kind = kind,
@@ -126,6 +156,7 @@ namespace SolidworksExecution.Contracts
                     NominalSi = nominal,
                     QuantityKind = quantityKind,
                     ValueMode = value.Value<string>("value_mode"),
+                    FeatureIds = ((JArray)item["feature_ids"]).Values<string>().ToList(),
                     Prefix = display.Value<string>("prefix") ?? "",
                     Suffix = display.Value<string>("suffix") ?? "",
                     Unit = display.Value<string>("unit"),
@@ -135,8 +166,31 @@ namespace SolidworksExecution.Contracts
                     ValueTolerance = verification.Value<double>("value_abs_si"),
                     PositionTolerance = verification.Value<double>("position_abs_m"),
                     DisplayTextExact = verification.Value<bool>("display_text_exact"),
-                    ImportModelDimension = importModelDimension
+                    ImportModelDimension = importModelDimension,
+                    ChainId = hierarchy.Value<string>("chain_id"),
+                    BaselineId = hierarchy.Value<string>("baseline_id"),
+                    UseOrdinate = kind == "hole_group_location" &&
+                        hierarchy.Value<string>("baseline_id") != null,
+                    Tolerance = tolerance
                 });
+            }
+            foreach (IGrouping<string, DimensionPlanExecutionDimension> group in
+                compiled.Dimensions.Where(item => item.BaselineId != null && !item.UseOrdinate)
+                    .GroupBy(item => item.BaselineId, StringComparer.Ordinal))
+            {
+                DimensionPlanExecutionDimension[] members = group.ToArray();
+                if (members.Length < 2)
+                    return Fail("DIMENSION_PLAN_COMPILE_INVALID", "/dimensions",
+                        "A non-ordinate baseline group requires at least two dimensions: " +
+                        group.Key, out error);
+                string commonDatum = members[0].Attachments.FirstOrDefault(item =>
+                    item.Role == "first")?.PersistentReference;
+                if (string.IsNullOrEmpty(commonDatum) || members.Any(item =>
+                    item.Attachments.FirstOrDefault(attachment => attachment.Role == "first")?
+                        .PersistentReference != commonDatum))
+                    return Fail("DIMENSION_PLAN_COMPILE_INVALID", "/dimensions",
+                        "Baseline dimensions must share one frozen first/datum attachment: " +
+                        group.Key, out error);
             }
             plan = compiled;
             return true;
@@ -184,10 +238,20 @@ namespace SolidworksExecution.Contracts
     {
         public string DimensionId, Kind, SourceTier, HandoffCollection, TargetViewId,
             QuantityKind, ValueMode, Prefix, Suffix, Unit, TargetViewName, ModelDimensionFullName;
-        public List<string> SourceIds;
+        public List<string> SourceIds, FeatureIds;
         public List<DimensionPlanExecutionAttachment> Attachments;
         public double NominalSi, PositionX, PositionY, ValueTolerance, PositionTolerance;
         public int Precision;
         public bool ShowParentheses, DisplayTextExact, ImportModelDimension;
+        public string ChainId, BaselineId, FitTarget;
+        public bool UseOrdinate;
+        public int OrdinateType;
+        public DimensionPlanExecutionTolerance Tolerance;
+    }
+
+    public sealed class DimensionPlanExecutionTolerance
+    {
+        public string Kind, FitCode;
+        public double? LowerSi, UpperSi;
     }
 }

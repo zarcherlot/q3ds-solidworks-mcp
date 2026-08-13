@@ -226,7 +226,7 @@ def test_capability_manifest_and_registry_fail_closed(tmp_path: Path) -> None:
     Draft202012Validator(
         _schema("dimension-executor-capabilities.schema.json")
     ).validate(manifest_value)
-    assert manifest.registry_version == "0.2.0"
+    assert manifest.registry_version == "0.3.0"
     assert set(manifest.dimension_types) == set(DIMENSION_KINDS)
     assert manifest.elements["annotation_text_bounds"].status == "unsupported"
 

@@ -873,7 +873,7 @@
         "output": "-> see execution-response.json; result_geometry contains the independent read-only snapshot, drawing hash, plan hash, and audit-sidecar path."
     },
     "validate_frozen_part_drawing_dimension_plan": {
-        "description": "PRIVATE COM-FREE EXECUTOR ENTRY: validate the locked DimensionPlan 1.0 Schema, published plan path/hash, immutable F1 handoff, five upstream artifacts, native F4 compiler subset, new output paths, and live capability promotion state without contacting SolidWorks.",
+        "description": "PRIVATE COM-FREE EXECUTOR ENTRY: validate the locked DimensionPlan 1.0 Schema, published plan path/hash, immutable F1 handoff, five upstream artifacts, complete F4/F5 native compiler union, approved tolerance provenance, new output paths, and live capability promotion state without contacting SolidWorks.",
         "input": {
             "operation_id": "string (required)",
             "state_version": "integer (required, must match current execution state)",
@@ -887,7 +887,7 @@
         "output": "-> see execution-response.json; contract/preflight-valid results include plan hashes and execution_readiness supported/capability_blocked with solidworks_contacted=false."
     },
     "execute_part_drawing_dimension_plan": {
-        "description": "PRIVATE MUTATING EXECUTOR ENTRY: execute one immutable DimensionPlan 1.0 only after every required capability has live evidence. Copies the verified upstream drawing with CopyDocument, creates only planned F4 native dimensions, verifies in memory, saves/closes/reopens read-only, exactly re-verifies, and atomically commits a new drawing plus sidecar without modifying frozen inputs.",
+        "description": "PRIVATE MUTATING EXECUTOR ENTRY: execute one immutable DimensionPlan 1.0 only after every required capability has live evidence. Copies the verified upstream drawing with CopyDocument, creates only planned F4/F5 native dimensions and trusted tolerances, verifies text/hole variables/tolerance/attachments in memory, saves/closes/reopens read-only, exactly re-verifies, and atomically commits a new drawing plus sidecar without modifying frozen inputs.",
         "input": {
             "operation_id": "string (required, unique idempotency key)",
             "state_version": "integer (required, must match current execution state)",

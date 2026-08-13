@@ -69,7 +69,8 @@
       "required": [
         "dimension_id", "view", "selection_name", "full_name", "native_type",
         "is_hole_callout", "value_si", "position_sheet_m", "prefix", "suffix", "text", "precision",
-        "driven_state", "use_document_units", "unit", "show_parentheses",
+        "driven_state", "use_document_units", "unit", "show_parentheses", "display_as_chain",
+        "hole_callout_variables", "tolerance",
         "model_persistent_references"
       ],
       "properties": {
@@ -92,9 +93,59 @@
         "use_document_units": { "type": "boolean" },
         "unit": { "type": "integer" },
         "show_parentheses": { "type": "boolean" },
+        "display_as_chain": { "type": "boolean" },
+        "hole_callout_variables": {
+          "type": "array", "items": { "$ref": "#/$defs/nativeHoleCalloutVariable" }
+        },
+        "tolerance": {
+          "oneOf": [{ "$ref": "#/$defs/nativeTolerance" }, { "type": "null" }]
+        },
         "model_persistent_references": {
           "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "nativeHoleCalloutVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable_name", "user_readable_name", "type", "variable_type", "tolerance_type",
+        "tolerance_minimum_si", "tolerance_maximum_si", "show_parentheses", "hole_fit",
+        "shaft_fit", "fit_type", "value_kind", "value", "precision", "tolerance_precision"
+      ],
+      "properties": {
+        "variable_name": { "type": "string" },
+        "user_readable_name": { "type": "string" },
+        "type": { "type": "integer" },
+        "variable_type": { "type": "integer" },
+        "tolerance_type": { "type": "integer" },
+        "tolerance_minimum_si": { "type": "number" },
+        "tolerance_maximum_si": { "type": "number" },
+        "show_parentheses": { "type": "boolean" },
+        "hole_fit": { "type": "string" },
+        "shaft_fit": { "type": "string" },
+        "fit_type": { "type": "integer" },
+        "value_kind": { "enum": ["none", "length", "angle", "string"] },
+        "value": { "type": ["number", "string", "null"] },
+        "precision": { "type": ["integer", "null"] },
+        "tolerance_precision": { "type": ["integer", "null"] }
+      }
+    },
+    "nativeTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type", "minimum_valid", "maximum_valid", "minimum_si", "maximum_si",
+        "hole_fit", "shaft_fit"
+      ],
+      "properties": {
+        "type": { "type": "integer" },
+        "minimum_valid": { "type": "boolean" },
+        "maximum_valid": { "type": "boolean" },
+        "minimum_si": { "type": "number" },
+        "maximum_si": { "type": "number" },
+        "hole_fit": { "type": "string" },
+        "shaft_fit": { "type": "string" }
       }
     }
   }

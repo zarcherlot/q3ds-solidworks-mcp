@@ -114,7 +114,7 @@ namespace SolidworksExecution.Services
                 reopenedModel.ForceRebuild3(false);
                 JObject persisted;
                 if (!_executor.TryVerifyPersisted(reopenedModel, reopenedDrawing, plan,
-                    created.BaselineCount, created.Handles, created.DisplayTexts,
+                    created.BaselineCount, created.Handles, created.PersistenceFingerprints,
                     out persisted, out nativeError))
                     return Fail(nativeError.Code, DimensionPointer(nativeError.DimensionId),
                         nativeError.Message, result, out error);
