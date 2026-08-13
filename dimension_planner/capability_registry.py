@@ -54,6 +54,10 @@ CapabilityName = Annotated[
 CapabilityStatus = Literal["supported", "planned", "unsupported"]
 
 
+class DimensionExecutionCapabilityError(ValueError):
+    """Raised when native creation is requested for a blocked DimensionPlan."""
+
+
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -196,6 +200,14 @@ class DimensionCapabilityRegistry:
             manifest_version=self.manifest.registry_version,
             unsupported_capabilities=unsupported,
         )
+
+    def require_supported(self, plan: Mapping[str, object]) -> None:
+        assessment = self.assess(plan)
+        if assessment.status != "supported":
+            raise DimensionExecutionCapabilityError(
+                "DimensionPlan execution is capability_blocked: "
+                + ", ".join(assessment.unsupported_capabilities)
+            )
 
     def _assess(self, namespace: str, name: str, blocked: set[str]) -> None:
         collection = (

@@ -15,8 +15,10 @@ from .capability_registry import (
     DimensionCapabilityAssessment,
     DimensionCapabilityManifest,
     DimensionCapabilityRegistry,
+    DimensionExecutionCapabilityError,
 )
 from .plan_store import DimensionPlanStore, PlanStore
+from .planner_engine import DimensionPlannerEngine
 from .planning_models import (
     DimensionPlan,
     DimensionPlanningRequest,
@@ -36,8 +38,10 @@ __all__ = [
     "DimensionCapabilityAssessment",
     "DimensionCapabilityManifest",
     "DimensionCapabilityRegistry",
+    "DimensionExecutionCapabilityError",
     "DimensionPlanStore",
     "PlanStore",
+    "DimensionPlannerEngine",
     "DimensionPlan",
     "DimensionPlanningRequest",
     "DimensionPlanningResult",

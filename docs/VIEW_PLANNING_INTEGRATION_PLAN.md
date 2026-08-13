@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F2 已完成；F3-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3 已完成；F4-H 待开发
 最后更新：2026-08-13
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -352,10 +352,17 @@ F2 已冻结 `dimension-plan`、`dimension-planning-request/result` 和
 版本化能力注册表逐项覆盖 18 类尺寸和 7 项共享执行元素，当前真实地将尚未实现的执行路径评估为
 `capability_blocked`；工程有效性将在 F3 独立判定。`PlanStore` 仅向既有发布目录原子创建
 `dimension_plan.json`，拒绝覆盖冻结计划及写入 `validation/`。
-- [ ] F3：实现尺寸确定性门禁。
-  - [ ] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
-  - [ ] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。
-  - [ ] 工程上有效但执行器不支持的计划允许发布为 `capability_blocked`，创建事务必须拒绝。
+- [x] F3：实现尺寸确定性门禁。
+  - [x] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
+  - [x] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。
+  - [x] 工程上有效但执行器不支持的计划允许发布为 `capability_blocked`，创建事务必须拒绝。
+
+F3 已实现严格失败短路的九段仓库验证链。完整性门禁重新读取并校验 F1 handoff、四项上游制品和
+DimensionPlan 的路径/哈希/配置绑定；来源门禁只接受模型尺寸、明确批准输入或仅参考测量中的实际值，
+并要求公差上下限或配合文本逐项存在于批准输入。附着门禁验证目标视图可见实体、持久引用、特征和
+参考测量实体集合；其后门禁固定检查领域语义、制造特征/批准输入覆盖、重复或冲突尺寸、封闭尺寸链、
+尺寸区和冻结初始位置。`DimensionPlannerEngine` 仅在八项工程门禁通过后评估能力并原子发布；当前
+计划会如实发布为 `capability_blocked`，`require_supported` 为 F4 创建入口提供稳定的强制拒绝边界。
 - [ ] F4：实现 C# 原生尺寸 MVP 和无覆盖事务。
   - [ ] 支持线性、直径、半径、角度、参考尺寸、基本孔标注、前后缀、数量、精度和冻结初始位置。
   - [ ] 从上游图纸复制到事务临时文件，创建后重建、内存回读、保存、关闭、只读重开并原子提交新图纸/侧车。

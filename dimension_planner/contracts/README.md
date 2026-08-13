@@ -27,5 +27,9 @@ F2 freezes four production planning contracts:
 - `dimension-executor-capabilities.schema.json` versions the complete dimension-kind and shared-
   element execution capability registry, with live evidence required for final conclusions.
 
-F2 still exposes no Agent-visible dimension tool and performs no SolidWorks mutation. Deterministic
-engineering validation belongs to F3; native creation and persisted readback belong to F4-F5.
+F2 still exposes no Agent-visible dimension tool and performs no SolidWorks mutation.
+
+F3 implements the fixed, fail-closed `integrity -> schema -> source -> attachment -> semantics ->
+coverage -> redundancy -> layout -> capability` validation sequence. The first eight gates decide
+engineering validity; capability is assessed separately so a valid plan can be atomically published
+as `capability_blocked`. Native creation and persisted readback remain F4-F5 work.

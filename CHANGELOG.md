@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+- Completed F3 deterministic DimensionPlan validation and publication. Added fixed-order,
+  fail-closed integrity, Schema, source, attachment, semantics, coverage, redundancy, layout and
+  capability gates; trusted-value/tolerance provenance checks; visible persistent-reference
+  validation; manufacturing-feature and approved-input coverage; duplicate/conflict and closed-
+  chain rejection; stable zone placement checks; and an atomic engine that publishes engineering-
+  valid plans as `capability_blocked` while exposing a mandatory execution rejection guard for F4.
 - Completed F2 DimensionPlan 1.0 contracts and publication primitives. Added the strict immutable
   18-kind plan union, planning request/result and executor-capability Schemas, source-tier and
   reference-only manufacturing guards, a live-evidence-bound versioned capability registry, and a
   no-overwrite atomic `dimension_plan.json` store. Engineering-valid plans may remain explicitly
-  `capability_blocked`; deterministic engineering gates and native SolidWorks creation remain F3
-  and F4 work respectively.
+  `capability_blocked`; the contract keeps deterministic engineering validation and native
+  SolidWorks creation in the separate F3 and F4 layers.
 - Completed F1 immutable dimension-planning handoff. Added strict request/output Schemas, Python
   request and publication validators, a COM-free C# request contract, and a private read-only
   execution-service endpoint that freezes verified ViewPlan bindings, projected regular and
