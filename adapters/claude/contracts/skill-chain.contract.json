@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
-  "contract_id": "q3ds-solidworks-three-skill-production-chain",
+  "contract_id": "q3ds-solidworks-four-skill-production-chain",
   "default_mcp": {
     "config_path": ".codex/config.toml",
     "schema_path": "adapters/claude/contracts/semantic-tools.schema.json",
-    "tool_count": 10,
+    "tool_count": 15,
     "prompt_count": 0,
     "tools": [
       "solidworks_status",
@@ -16,7 +16,12 @@
       "publish_validated_part_drawing_view_plan",
       "validate_part_drawing_view_plan",
       "create_part_drawing_from_view_plan",
-      "verify_part_drawing_view_plan"
+      "verify_part_drawing_view_plan",
+      "initialize_part_drawing_dimension_handoff",
+      "publish_validated_part_drawing_dimension_plan",
+      "validate_part_drawing_dimension_plan",
+      "create_dimensioned_part_drawing",
+      "verify_dimensioned_part_drawing"
     ]
   },
   "planning": {
@@ -38,6 +43,17 @@
       "validate_part_drawing_view_plan",
       "create_part_drawing_from_view_plan",
       "verify_part_drawing_view_plan"
+    ]
+  },
+  "dimension_request_continuity": {
+    "source": "initialize_part_drawing_dimension_handoff.result.planning_request",
+    "canonical_sha256_field": "planning_request_sha256",
+    "must_be_unchanged": true,
+    "operations": [
+      "publish_validated_part_drawing_dimension_plan",
+      "validate_part_drawing_dimension_plan",
+      "create_dimensioned_part_drawing",
+      "verify_dimensioned_part_drawing"
     ]
   },
   "stages": [
@@ -79,6 +95,27 @@
       ],
       "success_states": ["published", "VALID", "COMPLETED"],
       "stop_states": [
+        "rejected",
+        "capability_blocked",
+        "EXECUTOR_REJECTED",
+        "FAILED"
+      ]
+    },
+    {
+      "order": 4,
+      "skill": "solidworks-dimension-drawing",
+      "path": ".codex/skills/solidworks-dimension-drawing/SKILL.md",
+      "allowed_tools": [
+        "solidworks_status",
+        "initialize_part_drawing_dimension_handoff",
+        "publish_validated_part_drawing_dimension_plan",
+        "validate_part_drawing_dimension_plan",
+        "create_dimensioned_part_drawing",
+        "verify_dimensioned_part_drawing"
+      ],
+      "success_states": ["ready", "published", "VALID", "COMPLETED"],
+      "stop_states": [
+        "blocked",
         "rejected",
         "capability_blocked",
         "EXECUTOR_REJECTED",

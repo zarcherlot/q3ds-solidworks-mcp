@@ -41,11 +41,31 @@ from drawing_planner.planning_prompt_compiler import (
     RepositoryPlanningPromptCompiler,
 )
 from drawing_planner.validators import HandoffIntegrityValidator, RepositoryViewPlanValidator
-from execution_client import bootstrap_host, call_tool, ensure_ready, get_health, get_state
+from dimension_planner.capability_registry import (
+    current_registry as current_dimension_registry,
+)
+from dimension_planner.handoff import (
+    build_handoff_request,
+    file_sha256,
+    validate_dimension_planning_handoff,
+)
+from dimension_planner.planner_engine import DimensionPlannerEngine
+from dimension_planner.planning_models import DimensionPlanningRequest
+from dimension_planner.validators import RepositoryDimensionPlanValidator
+from execution_client import (
+    bootstrap_host,
+    call_tool,
+    create_dimension_planning_handoff,
+    ensure_ready,
+    get_health,
+    get_state,
+)
 from planning_sampling import McpSamplingPlanningModelGateway
 from config import SAMPLING_FALLBACK
 from sampling_fallback import build_sampling_fallback_handler
 from semantic_models import (
+    ApprovedDimensionInput,
+    DimensionPlan,
     ViewPlan,
     validate_drawing_template_path,
     validate_host_report_directory,
@@ -58,7 +78,8 @@ MCP_INSTRUCTIONS = (
     "Use inspect_solidworks_host for deep installation/registry/filesystem inspection and "
     "bootstrap_solidworks_host for isolated COM verification. Registration repair is opt-in and "
     "requires an execution service that is already elevated; MCP never elevates itself. "
-    "ViewPlan 1.4 is the default and only part-drawing protocol on this MCP surface. Use "
+    "ViewPlan 1.4 and DimensionPlan 1.0 are the only production drawing protocols on this "
+    "MCP surface. Use "
     "initialize_part_drawing_handoff to generate a verified, immutable initializer handoff, then "
     "either plan_part_drawing_views for MCP Sampling or the explicit upper-layer Skill followed "
     "by publish_validated_part_drawing_view_plan; both publish a frozen ViewPlan only after the "
@@ -66,7 +87,9 @@ MCP_INSTRUCTIONS = (
     "be executed. Validate, create, and verify drawings only through the repository ViewPlan "
     "semantic tools with the original PlanningRequest. DrawingPlan 1.0 is not available on the "
     "default surface. Never convert between protocols, repair a frozen plan, or expose private COM "
-    "operations."
+    "operations. Dimension planning must start from the independently initialized immutable "
+    "dimension handoff and retain one unchanged DimensionPlanningRequest through publish, "
+    "validate, create, and verify."
 )
 
 _sampling_fallback_handler = build_sampling_fallback_handler(SAMPLING_FALLBACK)
@@ -74,7 +97,7 @@ _sampling_fallback_handler = build_sampling_fallback_handler(SAMPLING_FALLBACK)
 mcp = FastMCP(
     "Q3DS SolidWorks Engineering",
     instructions=MCP_INSTRUCTIONS,
-    version="2.2.0",
+    version="2.3.0",
     strict_input_validation=True,
     sampling_handler=_sampling_fallback_handler,
     sampling_handler_behavior="fallback",
@@ -629,6 +652,309 @@ def _validate_drawing_output_path(value: str, *, require_existing: bool) -> str:
     elif normalized.exists() or report.exists():
         raise ValueError("output_path and its verification sidecar must both be new")
     return str(normalized)
+
+
+def _dimension_request_sha256(request: DimensionPlanningRequest) -> str:
+    return canonical_json_sha256(
+        request.model_dump(mode="json"), "dimension planning request"
+    )
+
+
+def _dimension_plan_binding(
+    plan: dict, request: DimensionPlanningRequest
+) -> tuple[str, str]:
+    plan_path = Path(request.publication_directory).resolve() / "dimension_plan.json"
+    if not plan_path.is_file():
+        raise ToolError(
+            "DIMENSION_PLAN_NOT_PUBLISHED: immutable dimension_plan.json is missing"
+        )
+    try:
+        disk_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ToolError(f"DIMENSION_PLAN_PUBLICATION_INVALID: {exc}") from exc
+    if disk_plan != plan:
+        raise ToolError(
+            "DIMENSION_PLAN_PUBLICATION_MISMATCH: structured plan differs from dimension_plan.json"
+        )
+    return str(plan_path), file_sha256(plan_path)
+
+
+def _validate_dimension_output_path(value: str, *, require_existing: bool) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("output_path must be a non-empty absolute .SLDDRW path")
+    if any(character in value for character in ("*", "?", "[", "]")):
+        raise ValueError("output_path must not contain wildcard characters")
+    path = Path(value)
+    if not path.is_absolute() or path.suffix.lower() != ".slddrw":
+        raise ValueError("output_path must be an absolute .SLDDRW path")
+    normalized = path.resolve()
+    if not normalized.parent.is_dir():
+        raise ValueError("output_path parent directory must already exist")
+    report = Path(str(normalized) + ".dimension-verification.json")
+    if require_existing:
+        if not normalized.is_file() or not report.is_file():
+            raise ValueError(
+                "output_path and its dimension verification sidecar must both exist"
+            )
+    elif normalized.exists() or report.exists():
+        raise ValueError("output_path and its dimension verification sidecar must both be new")
+    return str(normalized)
+
+
+def _validate_dimension_plan(plan: DimensionPlan, request: DimensionPlanningRequest):
+    candidate = plan.root if isinstance(plan, DimensionPlan) else plan
+    normalized = json_object_copy(candidate, "dimension plan")
+    validator = RepositoryDimensionPlanValidator()
+    validation = validator.validate(normalized, request)
+    assessment = (
+        current_dimension_registry().assess(normalized)
+        if validation.engineering_passed
+        else None
+    )
+    return normalized, validation, assessment
+
+
+def _require_executable_dimension_plan(validation, assessment) -> None:
+    if not validation.engineering_passed:
+        details = "; ".join(
+            f"{issue.code}@{issue.json_pointer or '/'}: {issue.message}"
+            for issue in validation.issues
+            if issue.gate != "capability"
+        )
+        raise ToolError(
+            "DIMENSION_PLAN_DETERMINISTIC_VALIDATION_FAILED: "
+            + (details or "one or more repository validation gates failed")
+        )
+    if assessment is None or assessment.status != "supported":
+        blocked = ",".join(
+            assessment.unsupported_capabilities if assessment is not None else ()
+        )
+        raise ToolError(
+            "DIMENSION_PLAN_CAPABILITY_BLOCKED: "
+            + (blocked or "the current executor lacks live persisted evidence")
+        )
+
+
+def _dimension_semantic_response_with_binding(
+    response: dict, plan: dict, request: DimensionPlanningRequest
+) -> str:
+    payload = json.loads(_semantic_response(response))
+    payload["planning_request_sha256"] = _dimension_request_sha256(request)
+    payload["plan_canonical_sha256"] = canonical_json_sha256(plan, "dimension plan")
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Initialize the immutable dimension-planning handoff from one verified ViewPlan 1.4 "
+        "drawing and optional explicitly approved user inputs. The repository validates all "
+        "upstream hashes, opens the drawing read-only, extracts native model dimensions, PMI, "
+        "features, projected persistent references and reference-only measurements, then "
+        "publishes dimension-planning-handoff.json last. No source document is saved."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def initialize_part_drawing_dimension_handoff(
+    view_plan_path: str,
+    verified_drawing_path: str,
+    verification_sidecar_path: str,
+    publication_directory: str,
+    approved_user_inputs: tuple[ApprovedDimensionInput, ...] = (),
+) -> str:
+    request_payload = build_handoff_request(
+        Path(view_plan_path),
+        Path(verified_drawing_path),
+        Path(verification_sidecar_path),
+        Path(publication_directory),
+        approved_user_inputs=tuple(
+            item.model_dump(mode="json") for item in approved_user_inputs
+        ),
+    )
+    response = create_dimension_planning_handoff(request_payload)
+    payload = dict(response)
+    payload["ok"] = payload.get("status") == "ready"
+    if not payload["ok"]:
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    handoff_path = payload.get("handoff_path")
+    handoff_hash = payload.get("handoff_sha256")
+    if not isinstance(handoff_path, str) or not isinstance(handoff_hash, str):
+        raise ToolError("DIMENSION_HANDOFF_RESULT_INVALID: path/hash is missing")
+    handoff = validate_dimension_planning_handoff(
+        json.loads(Path(handoff_path).read_text(encoding="utf-8"))
+    )
+    if file_sha256(Path(handoff_path)) != handoff_hash:
+        raise ToolError("DIMENSION_HANDOFF_RESULT_INVALID: published hash mismatch")
+    planning_request = DimensionPlanningRequest(
+        handoff_path=handoff_path,
+        handoff_sha256=handoff_hash,
+        planner_profile="production",
+        publication_directory=str(Path(publication_directory).resolve()),
+        user_requirements={"source_drawing_read_only": True},
+    )
+    payload["handoff_id"] = handoff["handoff_id"]
+    payload["handoff_integrity"] = "pass"
+    payload["planning_request"] = planning_request.model_dump(mode="json")
+    payload["planning_request_sha256"] = _dimension_request_sha256(planning_request)
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Revalidate and atomically publish exactly one complete DimensionPlan 1.0 candidate "
+        "against its original immutable DimensionPlanningRequest. Applies integrity, exact "
+        "Schema, trusted-source, attachment, engineering semantics, coverage, redundancy, "
+        "layout and capability gates, then creates dimension_plan.json without overwrite. "
+        "A valid capability_blocked plan is retained without downgrade and cannot execute."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def publish_validated_part_drawing_dimension_plan(
+    plan: DimensionPlan, request: DimensionPlanningRequest
+) -> str:
+    candidate = plan.root if isinstance(plan, DimensionPlan) else plan
+    try:
+        result = DimensionPlannerEngine().validate_and_publish(candidate, request)
+    except FileExistsError as exc:
+        raise ToolError(f"DIMENSION_PLAN_ALREADY_EXISTS: {exc}") from exc
+    payload = result.model_dump(mode="json")
+    payload["ok"] = result.status == "published"
+    payload["planning_request_sha256"] = result.audit.request_sha256
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Validate one published immutable DimensionPlan 1.0 and its unchanged original request "
+        "for a new output path. Re-runs all Python engineering and capability gates, verifies "
+        "the on-disk dimension_plan.json binding, then calls the independent COM-free C# "
+        "compiler, handoff resolver, trusted-input checks and capability preflight."
+    ),
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def validate_part_drawing_dimension_plan(
+    plan: DimensionPlan,
+    request: DimensionPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, validation, assessment = _validate_dimension_plan(plan, request)
+    payload = {
+        "ok": validation.engineering_passed,
+        "status": "VALID" if validation.engineering_passed else "REJECTED",
+        "planning_request_sha256": _dimension_request_sha256(request),
+        "plan_canonical_sha256": canonical_json_sha256(normalized, "dimension plan"),
+        "validation": validation.model_dump(mode="json"),
+        "execution_readiness": assessment.status if assessment else "not_assessed",
+        "unsupported_capabilities": list(
+            assessment.unsupported_capabilities if assessment else ()
+        ),
+    }
+    if validation.engineering_passed:
+        plan_path, plan_sha256 = _dimension_plan_binding(normalized, request)
+        output = _validate_dimension_output_path(output_path, require_existing=False)
+        executor = _execute(
+            "validate_frozen_part_drawing_dimension_plan",
+            {
+                "plan": normalized,
+                "plan_path": plan_path,
+                "plan_sha256": plan_sha256,
+                "output_path": output,
+            },
+            mutating=False,
+        )
+        payload["executor"] = json.loads(_semantic_response(executor))
+        payload["ok"] = bool(payload["executor"].get("ok"))
+        if not payload["ok"]:
+            payload["status"] = "EXECUTOR_REJECTED"
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Transactionally create one new dimensioned .SLDDRW from a published immutable "
+        "DimensionPlan 1.0. Requires every planned capability to have live evidence, re-hashes "
+        "all frozen inputs, copies the verified upstream drawing, creates only planned native "
+        "dimensions, verifies in memory and after read-only reopen, and atomically commits the "
+        "new drawing plus dimension verification sidecar without modifying upstream artifacts."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def create_dimensioned_part_drawing(
+    plan: DimensionPlan,
+    request: DimensionPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, validation, assessment = _validate_dimension_plan(plan, request)
+    _require_executable_dimension_plan(validation, assessment)
+    plan_path, plan_sha256 = _dimension_plan_binding(normalized, request)
+    output = _validate_dimension_output_path(output_path, require_existing=False)
+    response = _execute(
+        "execute_part_drawing_dimension_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "output_path": output,
+        },
+        mutating=True,
+    )
+    return _dimension_semantic_response_with_binding(response, normalized, request)
+
+
+@mcp.tool(
+    description=(
+        "Independently verify an existing dimensioned drawing against the same published "
+        "DimensionPlan 1.0 and original request. Re-runs deterministic and capability gates, "
+        "validates the immutable plan, audit sidecar, frozen inputs and drawing hash before COM, "
+        "then opens the drawing read-only and rechecks native identity, attachments, values, "
+        "format, tolerance, hole variables and persistence fingerprints without saving."
+    ),
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def verify_dimensioned_part_drawing(
+    plan: DimensionPlan,
+    request: DimensionPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, validation, assessment = _validate_dimension_plan(plan, request)
+    _require_executable_dimension_plan(validation, assessment)
+    plan_path, plan_sha256 = _dimension_plan_binding(normalized, request)
+    output = _validate_dimension_output_path(output_path, require_existing=True)
+    response = _execute(
+        "verify_committed_part_drawing_dimension_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "output_path": output,
+        },
+        mutating=False,
+    )
+    return _dimension_semantic_response_with_binding(response, normalized, request)
 
 
 if __name__ == "__main__":

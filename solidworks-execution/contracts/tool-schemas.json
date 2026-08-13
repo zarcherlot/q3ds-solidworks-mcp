@@ -900,6 +900,20 @@
         },
         "output": "-> see execution-response.json; verified result_geometry contains immutable-input hashes, created dimension handles, in-memory/reopen snapshots, output hash and sidecar path."
     },
+    "verify_committed_part_drawing_dimension_plan": {
+        "description": "PRIVATE READ-ONLY EXECUTOR ENTRY: independently reopen and verify one committed DimensionPlan 1.0 drawing. Revalidates the exact published plan, frozen inputs, artifact and sidecar hashes, then checks persisted dimension identity, count, text, hole-callout variables, tolerance and attachment evidence without saving or mutating state.",
+        "input": {
+            "operation_id": "string (required, unique request id)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact structured copy of plan_path)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, existing absolute committed .SLDDRW path with dimension-verification sidecar)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains the independent read-only reopen snapshot and immutable artifact/plan hashes."
+    },
     "execute_drawing_plan": {
         "description": "INTERNAL EXECUTOR ENTRY: validate and transactionally execute one frozen schema-1.0 part drawing plan. Creates views through private atomic COM operations, rebuilds, saves to a same-directory transaction file, closes, reopens read-only, verifies, then atomically commits the .SLDDRW plus a verification sidecar.",
         "input": {

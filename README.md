@@ -131,7 +131,7 @@ join the default MCP surface.
 
 ## Agent-facing semantic tool surface
 
-The default entry point, `adapters/claude/server.py`, exposes ten engineering-semantic tools; a
+The default entry point, `adapters/claude/server.py`, exposes fifteen engineering-semantic tools; a
 contract test fails if an executor-shaped operation leaks across the MCP boundary. All lengths are
 meters.
 
@@ -160,11 +160,25 @@ meters.
   ten frozen artifacts; commit only after save, close, read-only reopen, and exact persisted readback.
 - `verify_part_drawing_view_plan` — independently verify an existing committed drawing and audit
   sidecar read-only; successful verification never increments executor state.
+- `initialize_part_drawing_dimension_handoff` — freeze one independently verified ViewPlan drawing,
+  native dimension/PMI/feature evidence, projected persistent references, reference-only
+  measurements, and explicit approved inputs into a manifest-last immutable handoff.
+- `publish_validated_part_drawing_dimension_plan` — revalidate and atomically publish exactly one
+  complete DimensionPlan 1.0 candidate; engineering-valid unsupported plans remain
+  `capability_blocked` without downgrade.
+- `validate_part_drawing_dimension_plan` — bind the exact published plan and original request to a
+  new output path, then run the Python gates and private COM-free C# compiler/preflight.
+- `create_dimensioned_part_drawing` — transactionally copy the verified upstream drawing, create
+  only planned supported native dimensions, and commit a new drawing/sidecar after persisted
+  readback. Live capability evidence is mandatory.
+- `verify_dimensioned_part_drawing` — independently revalidate frozen inputs and the audit sidecar,
+  then reopen the committed drawing read-only and verify dimension identity, attachment, value,
+  text, hole variables, tolerance, and persistence fingerprints without saving.
 
-ViewPlan 1.4 is the only drawing protocol published by the default MCP. Codex and other clients
-receive its complete field, enum, range, discriminator, and nested-view schema during tool discovery.
-The tools pass the unchanged ViewPlan object directly to repository-native private C#
-operations; they never translate it to `DrawingPlan` 1.0. Unsupported section/detail/auxiliary
+ViewPlan 1.4 and DimensionPlan 1.0 are the only drawing protocols published by the default MCP.
+Codex and other clients receive their complete field, enum, range, discriminator, and nested schema
+during tool discovery. The tools pass unchanged structured plans directly to repository-native private C#
+operations; they never translate them to `DrawingPlan` 1.0. Unsupported section/detail/auxiliary
 variants and center elements return `capability_blocked` before COM, so frozen
 geometry, hashes, coverage, and layout constraints cannot be silently dropped.
 

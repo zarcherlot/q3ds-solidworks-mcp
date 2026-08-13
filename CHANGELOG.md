@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Completed F6 dimension-drawing semantic orchestration. Added the repository-owned
+  `solidworks-dimension-drawing` Skill, immutable `native-v1` prompt pack, five exact-schema public
+  dimension tools, a 15-tool/four-Skill surface contract, and unchanged DimensionPlan/request SHA
+  continuity through publish, validate, create, and verify. Added a private independent C# verifier
+  that rechecks the committed artifact, sidecar and six frozen inputs before read-only reopen and
+  native persisted dimension verification; capabilities remain truthfully blocked pending F7 live
+  evidence.
 - Completed F3 deterministic DimensionPlan validation and publication. Added fixed-order,
   fail-closed integrity, Schema, source, attachment, semantics, coverage, redundancy, layout and
   capability gates; trusted-value/tolerance provenance checks; visible persistent-reference

@@ -178,6 +178,7 @@ namespace SolidworksExecution.Controllers
                 case "verify_committed_part_drawing_view_plan": return _service.VerifyCommittedPartDrawingViewPlan(request);
                 case "validate_frozen_part_drawing_dimension_plan": return _service.ValidatePartDrawingDimensionPlan(request);
                 case "execute_part_drawing_dimension_plan": return _service.ExecutePartDrawingDimensionPlan(request);
+                case "verify_committed_part_drawing_dimension_plan": return _service.VerifyCommittedPartDrawingDimensionPlan(request);
                 case "execute_drawing_plan":   return _service.ExecuteDrawingPlan(request);
                 case "verify_drawing_plan":    return _service.VerifyDrawingPlan(request);
                 case "save_document":          return _service.SaveDocument(request);

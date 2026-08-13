@@ -1,6 +1,6 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3 已完成；F4-F5 原生执行候选已实现、待实机证据晋级；F6-H 待开发
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3、F6 已完成；F4-F5 原生执行候选已实现、待 F7 实机证据晋级；G-H 待开发
 最后更新：2026-08-13
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
@@ -61,9 +61,14 @@ User / Codex
 | `validate_part_drawing_view_plan` | 校验导入/生成计划及当前执行能力 | 否 |
 | `create_part_drawing_from_view_plan` | 事务执行完整冻结计划 | 是 |
 | `verify_part_drawing_view_plan` | 对已有工程图进行独立只读核验 | 否 |
+| `initialize_part_drawing_dimension_handoff` | 冻结已核验视图图纸、尺寸/PMI/特征/持久引用及批准输入 | 否 |
+| `publish_validated_part_drawing_dimension_plan` | 重校验并原子发布唯一完整 DimensionPlan 候选 | 否 |
+| `validate_part_drawing_dimension_plan` | 绑定已发布计划/请求并运行 Python 与 C# COM-free 门禁 | 否 |
+| `create_dimensioned_part_drawing` | 能力受支持时事务创建新的尺寸图纸和侧车 | 是 |
+| `verify_dimensioned_part_drawing` | 对尺寸图纸进行独立只读重开核验 | 否 |
 
-默认 MCP 当前共十项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
-`semantic-tools.schema.json` 必须保持精确一致；三个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
+默认 MCP 当前共十五项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
+`semantic-tools.schema.json` 必须保持精确一致；四个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
 `plan_part_drawing_views` 与显式 Skill + `publish_validated_part_drawing_view_plan` 是互斥规划分支；当前
 Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP Sampling 时才使用 PlannerEngine 分支。
 
@@ -71,7 +76,7 @@ Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP
 
 ### 3.1 F/G 计划新增的语义工具
 
-尺寸阶段拟新增：
+尺寸阶段已在 F6 新增：
 
 - `initialize_part_drawing_dimension_handoff`
 - `publish_validated_part_drawing_dimension_plan`
@@ -388,9 +393,18 @@ F5 在不改变已冻结 DimensionPlan 1.0 的前提下补齐其 18 类尺寸编
 approved quantity，配合代号逐字匹配 approved exact text，并根据冻结制造特征选择 hole/shaft fit 后才调用
 `IDimensionTolerance`；侧车回读公差类型、上下值和 hole/shaft fit。当前仍无 F5 真实图纸保存重开矩阵证据，
 所以能力清单继续保持 `planned`，两项 F5 验收框不提前勾选。
-- [ ] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
-  - [ ] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
-  - [ ] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。
+- [x] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
+  - [x] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
+  - [x] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。
+
+F6 已将默认工程语义 MCP 扩展为 15 项工具，并新增尺寸 handoff 初始化、原子发布、COM-free 验证、
+事务创建和独立核验五个公开工程动词；私有 C# validate/execute/verify 动词仍只存在于 Execution Service。
+`solidworks-dimension-drawing` Skill 读取仓库版本化 `native-v1` prompt pack，只在内存中生成一个候选，
+并强制从初始化返回值原样传递同一 `DimensionPlanningRequest`、计划对象和输出路径。已发布计划按磁盘对象和
+文件 SHA-256 再绑定，禁止覆盖或发布后修补。新增独立 C# 核验器会在 COM 前重验计划、图纸、尺寸侧车和
+六项冻结输入，再只读重开图纸核对尺寸身份、数量、附件、文本、孔标注变量、公差和持久化指纹；核验不保存
+文档且不递增状态版本。能力清单仍按真实证据保持 `planned/unsupported`，因此工程有效计划可以发布为
+`capability_blocked`，但 F7 提升全部所需能力之前 create/verify 会稳定拒绝。
 - [ ] F7：完成尺寸离线、合同和真实 SolidWorks 矩阵。
   - [ ] 覆盖板类、轴套类、支架类、法兰类、槽腔类和螺纹零件。
   - [ ] 验收无悬空、重复、未计划尺寸；源模型和上游图纸不变，保存重开规范化指纹一致。

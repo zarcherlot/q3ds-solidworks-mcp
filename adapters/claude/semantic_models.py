@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 from typing import Annotated, Any, Literal, Union
 
@@ -27,6 +28,15 @@ _VIEW_PLAN_SCHEMA_PATH = (
     / "view-plan.schema.json"
 )
 _VIEW_PLAN_SCHEMA = json.loads(_VIEW_PLAN_SCHEMA_PATH.read_text(encoding="utf-8"))
+_DIMENSION_PLAN_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "dimension_planner"
+    / "contracts"
+    / "dimension-plan.schema.json"
+)
+_DIMENSION_PLAN_SCHEMA = json.loads(
+    _DIMENSION_PLAN_SCHEMA_PATH.read_text(encoding="utf-8")
+)
 
 
 def _qualify_view_plan_refs(value: Any, schema_id: str) -> None:
@@ -42,6 +52,7 @@ def _qualify_view_plan_refs(value: Any, schema_id: str) -> None:
 
 
 _qualify_view_plan_refs(_VIEW_PLAN_SCHEMA, _VIEW_PLAN_SCHEMA["$id"])
+_qualify_view_plan_refs(_DIMENSION_PLAN_SCHEMA, _DIMENSION_PLAN_SCHEMA["$id"])
 
 
 class ViewPlan(RootModel[dict[str, Any]]):
@@ -52,6 +63,14 @@ class ViewPlan(RootModel[dict[str, Any]]):
         return copy.deepcopy(_VIEW_PLAN_SCHEMA)
 
 
+class DimensionPlan(RootModel[dict[str, Any]]):
+    """Exact repository DimensionPlan 1.0 contract for the semantic MCP boundary."""
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        return copy.deepcopy(_DIMENSION_PLAN_SCHEMA)
+
+
 ViewId = Annotated[
     str,
     StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$"),
@@ -60,6 +79,47 @@ ViewId = Annotated[
 
 class StrictContract(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class ApprovedDimensionQuantity(StrictContract):
+    kind: Literal["quantity"]
+    quantity_kind: Literal["length", "angle", "count"]
+    value_si: float
+
+
+class ApprovedDimensionText(StrictContract):
+    kind: Literal["exact_text"]
+    text: str = Field(min_length=1)
+
+
+ApprovedDimensionValue = Annotated[
+    Union[ApprovedDimensionQuantity, ApprovedDimensionText], Field(discriminator="kind")
+]
+
+
+class ApprovedDimensionInput(StrictContract):
+    input_id: str = Field(
+        min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    )
+    source_tier: Literal["user_confirmed_input"]
+    approved_by: str = Field(min_length=1)
+    approved_at_utc: str = Field(
+        pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+    )
+    approval_reference: str = Field(min_length=1)
+    target_feature_ids: list[str]
+    value: ApprovedDimensionValue
+
+    @model_validator(mode="after")
+    def validate_feature_ids(self) -> "ApprovedDimensionInput":
+        if len(self.target_feature_ids) != len(set(self.target_feature_ids)):
+            raise ValueError("target_feature_ids must be unique")
+        if any(
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", item)
+            for item in self.target_feature_ids
+        ):
+            raise ValueError("target_feature_ids contain an invalid stable ID")
+        return self
 
 
 class ModelSource(StrictContract):

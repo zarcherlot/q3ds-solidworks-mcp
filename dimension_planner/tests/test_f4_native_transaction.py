@@ -81,13 +81,15 @@ def test_f4_private_operations_are_not_agent_visible() -> None:
     controller = _text(
         "solidworks-execution/SolidworksExecution/Controllers/ToolController.cs"
     )
-    semantic_server = _text("adapters/claude/server.py")
+    semantic_contract = json.loads(
+        _text("adapters/claude/contracts/semantic-tools.schema.json")
+    )["properties"]
     for operation in (
         "validate_frozen_part_drawing_dimension_plan",
         "execute_part_drawing_dimension_plan",
     ):
         assert operation in controller
-        assert operation not in semantic_server
+        assert operation not in semantic_contract
 
 
 def test_f4_capabilities_remain_blocked_without_live_evidence() -> None:

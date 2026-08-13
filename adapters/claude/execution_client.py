@@ -10,6 +10,7 @@ from config import (
     HEALTH_ENDPOINT,
     ENSURE_ENDPOINT,
     HOST_BOOTSTRAP_ENDPOINT,
+    DIMENSION_HANDOFF_ENDPOINT,
     HTTP_TIMEOUT,
     SIMULATION_TIMEOUT,
     VIEW_PLAN_TIMEOUT,
@@ -369,4 +370,41 @@ def bootstrap_host(payload: dict) -> dict:
         return body
     raise ExecutionLayerError(
         f"Unexpected HTTP {response.status_code} from /host/bootstrap: {response.text}"
+    )
+
+
+def create_dimension_planning_handoff(payload: dict) -> dict:
+    """Call the private F1 handoff endpoint through the repository execution client."""
+    _ensure_server_up()
+    _log("-> dimension-planning/handoff")
+
+    def _do():
+        return _client.post(
+            DIMENSION_HANDOFF_ENDPOINT,
+            json=payload,
+            timeout=VIEW_PLAN_TIMEOUT,
+        )
+
+    try:
+        response = _request_with_autostart(_do, "dimension-planning/handoff")
+    except httpx.TimeoutException as exc:
+        raise ExecutionLayerError(
+            "Dimension planning handoff timed out after "
+            f"{VIEW_PLAN_TIMEOUT}s."
+        ) from exc
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            "Dimension planning handoff returned a non-JSON response."
+        ) from exc
+    if response.status_code == 200:
+        _log(f"<- dimension-planning/handoff {body.get('status')}")
+        return body
+    if response.status_code in {400, 409, 500} and body.get("status") == "blocked":
+        _log(f"<- dimension-planning/handoff BLOCKED HTTP_{response.status_code}")
+        return body
+    raise ExecutionLayerError(
+        "Unexpected HTTP "
+        f"{response.status_code} from /api/dimension-planning/handoff: {response.text}"
     )

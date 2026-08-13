@@ -124,10 +124,12 @@ def test_f5_executor_entries_remain_private() -> None:
     controller = _text(
         "solidworks-execution/SolidworksExecution/Controllers/ToolController.cs"
     )
-    semantic = _text("adapters/claude/server.py")
+    semantic_contract = json.loads(
+        _text("adapters/claude/contracts/semantic-tools.schema.json")
+    )["properties"]
     operation = "execute_part_drawing_dimension_plan"
     assert operation in controller
-    assert operation not in semantic
+    assert operation not in semantic_contract
     assert "ExecuteDrawingPlan" not in _text(
         "solidworks-execution/SolidworksExecution/Contracts/DimensionPlanExecutionCompiler.cs"
     )

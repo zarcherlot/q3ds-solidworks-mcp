@@ -105,6 +105,7 @@
     <Compile Include="Contracts\DimensionPlanContractValidator.cs" />
     <Compile Include="Contracts\DimensionPlanExecutionCompiler.cs" />
     <Compile Include="Contracts\DimensionPlanTransactionPreflight.cs" />
+    <Compile Include="Contracts\DimensionPlanVerificationPreflight.cs" />
     <Compile Include="Contracts\ViewPlanBasicExecutionCompiler.cs" />
     <Compile Include="Contracts\ViewPlanBasicTransactionPreflight.cs" />
     <Compile Include="Contracts\ViewPlanBasicVerificationPreflight.cs" />
@@ -134,6 +135,7 @@
     <Compile Include="Services\DimensionApiProbeExecutor.cs" />
     <Compile Include="Services\DimensionPlanningHandoffExecutor.cs" />
     <Compile Include="Services\DimensionPlanDrawingTransaction.cs" />
+    <Compile Include="Services\DimensionPlanDrawingVerifier.cs" />
     <Compile Include="Services\DimensionPlanNativeExecutor.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />

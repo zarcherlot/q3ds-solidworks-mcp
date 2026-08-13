@@ -87,6 +87,39 @@ namespace SolidworksExecution.Services
             return response;
         }
 
+        public ExecutionResponse VerifyCommittedPartDrawingDimensionPlan(ToolRequest request)
+        {
+            if (!_guard.IsStateVersionValid(request.StateVersion))
+                return BuildFailed(request.OperationId, _guard.GetCurrentStateVersion(),
+                    "INVALID_STATE_VERSION", "Incoming state_version does not match current state.");
+            DimensionPlanExecutionPlan plan; string planPath, planSha, outputPath;
+            DimensionPlanContractError error;
+            if (!TryParseDimensionRequest(request.Params as JObject, out plan, out planPath,
+                out planSha, out outputPath, out error))
+                return BuildDimensionFailure(request.OperationId, error, null);
+            DimensionPlanVerificationInputs ignored;
+            if (!new DimensionPlanVerificationPreflight().TryValidate(plan, planPath, planSha,
+                outputPath, out ignored, out error))
+                return BuildDimensionFailure(request.OperationId, error, null);
+            if (!new DimensionPlanCapabilityPreflight().TryValidate(plan,
+                DimensionCapabilityRegistryPath, out error))
+                return BuildDimensionFailure(request.OperationId, error, null);
+            if (!EnsureConnected())
+                return BuildFailed(request.OperationId, _guard.GetCurrentStateVersion(),
+                    "COM_ATTACH_FAILED", "SolidWorks process not found or COM not registered.");
+            JObject verification; DimensionPlanTransactionError transactionError;
+            if (!new DimensionPlanDrawingVerifier(_solidWorks).TryVerify(plan, planPath,
+                planSha, outputPath, out verification, out transactionError))
+                return BuildDimensionFailure(request.OperationId, new DimensionPlanContractError
+                    { Code = transactionError.Code, JsonPointer = transactionError.JsonPointer,
+                        Message = transactionError.Message }, verification);
+            int state = _guard.GetCurrentStateVersion();
+            return new ExecutionResponse { OperationId = request.OperationId,
+                Status = "COMPLETED", Verified = true, StateVersion = state,
+                LastKnownStateVersion = state, CadState = BuildCurrentCadState(state),
+                ResultGeometry = verification };
+        }
+
         private static bool TryParseDimensionRequest(JObject parameters,
             out DimensionPlanExecutionPlan plan, out string planPath, out string planSha,
             out string outputPath, out DimensionPlanContractError error)
