@@ -25,6 +25,23 @@ _VIEW_PLAN_TRANSACTION = os.path.join(
     "Services",
     "ViewPlanBasicDrawingTransaction.cs",
 )
+_DIMENSION_CONTROLLER = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Controllers",
+    "DimensionApiProbeController.cs",
+)
+_DIMENSION_SERVICE = os.path.join(
+    _ROOT,
+    "solidworks-execution",
+    "SolidworksExecution",
+    "Services",
+    "SolidWorksService.DimensionApiProbe.cs",
+)
+_F0_LIVE_RUNNER = os.path.join(
+    _ROOT, "scripts", "run_dimension_f0_live_probes.py"
+)
 
 
 def test_every_dispatched_operation_has_a_contract():
@@ -134,3 +151,46 @@ def test_viewplan_transaction_uses_native_copy_document_for_initializer():
     assert '"VIEW_PLAN_COPY_REQUIRES_NO_OPEN_DOCUMENTS"' in source
     assert "File.Copy(plan.DrawingPath, temporaryDrawing" not in source
     assert '".tmp.SLDDRW"' not in source
+
+
+def test_f0_probe_owns_launch_and_bounded_cleanup_inside_execution_service():
+    with open(_DIMENSION_CONTROLLER, encoding="utf-8-sig") as handle:
+        controller = handle.read()
+    with open(_DIMENSION_SERVICE, encoding="utf-8-sig") as handle:
+        service = handle.read()
+
+    assert "RunManagedDimensionApiProbe" in controller
+    assert 'Route("cleanup-session")' in controller
+    assert 'Value<int?>("expected_process_id")' in controller
+    assert 'Value<bool?>("allow_unowned_idle_session")' in controller
+    assert "Dictionary<string, object> readiness = EnsureReady();" in service
+    assert "CleanupOwnedSolidWorksSession()" in service
+    assert "application.UserControl = false;" in service
+    assert "application.ExitApp();" in service
+    assert '"OPEN_DOCUMENTS_PRESENT"' in service
+    assert 'DateTime.UtcNow.AddSeconds(10)' in service
+    assert 'DateTime.UtcNow.AddSeconds(15)' in service
+    assert "SnapshotManagedSolidWorksProcessIds()" in service
+    assert "ForceTerminateTrackedProcesses" in service
+    assert "process.Kill();" in service
+    assert service.index('"OPEN_DOCUMENTS_PRESENT"') < service.index("process.Kill();")
+    with open(
+        os.path.join(
+            _ROOT,
+            "solidworks-execution",
+            "SolidworksExecution",
+            "Services",
+            "SolidWorksService.cs",
+        ),
+        encoding="utf-8-sig",
+    ) as handle:
+        core_service = handle.read()
+    assert "EnsureVisible(false);" in core_service
+
+
+def test_f0_runner_fails_closed_when_service_cleanup_does_not_complete():
+    with open(_F0_LIVE_RUNNER, encoding="utf-8-sig") as handle:
+        runner = handle.read()
+
+    assert 'response.get("status") != "evidence_ready"' in runner
+    assert "execution service did not complete the probe lifecycle" in runner

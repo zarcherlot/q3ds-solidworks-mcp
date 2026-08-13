@@ -198,6 +198,11 @@ def main() -> int:
                 args.execution_service_url, payload, args.timeout_seconds
             )
             row["service_response"] = response
+            if response.get("status") != "evidence_ready":
+                raise RuntimeError(
+                    "execution service did not complete the probe lifecycle: "
+                    + json.dumps(response, ensure_ascii=False)
+                )
             report_value = response.get("report_path")
             if not isinstance(report_value, str) or not report_value:
                 raise RuntimeError("execution service did not return report_path")

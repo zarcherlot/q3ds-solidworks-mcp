@@ -43,7 +43,7 @@ namespace SolidworksExecution.Controllers
             try
             {
                 JObject result = StaExecutor.Instance.Run(() =>
-                    _service.RunDimensionApiProbe(request,
+                    _service.RunManagedDimensionApiProbe(request,
                         (JObject)candidate.DeepClone()));
                 return Request.CreateResponse(HttpStatusCode.OK, result);
             }
@@ -62,6 +62,28 @@ namespace SolidworksExecution.Controllers
                         }
                     });
             }
+        }
+
+        [HttpPost]
+        [Route("cleanup-session")]
+        public HttpResponseMessage CleanupSession([FromBody] JObject candidate)
+        {
+            bool authorized = candidate != null &&
+                candidate.Value<bool?>("allow_unowned_idle_session") == true;
+            int expectedProcessId = candidate != null
+                ? candidate.Value<int?>("expected_process_id") ?? 0
+                : 0;
+            JObject result = StaExecutor.Instance.Run(() =>
+                _service.CleanupExplicitIdleSolidWorksSession(expectedProcessId,
+                    authorized));
+            string status = result.Value<string>("status");
+            ExecLog.Write("<- dimension-probe cleanup-session " + status + " " +
+                result.ToString(Newtonsoft.Json.Formatting.None));
+            return Request.CreateResponse(
+                String.Equals(status, "pass", StringComparison.Ordinal)
+                    ? HttpStatusCode.OK
+                    : HttpStatusCode.Conflict,
+                result);
         }
     }
 }

@@ -34,6 +34,7 @@ namespace SolidworksExecution.Services
             }
             catch (COMException)
             {
+                _solidWorks = null;
                 IsConnected = false;
                 return false;
             }
@@ -45,13 +46,13 @@ namespace SolidworksExecution.Services
         // that one, the user would watch a different window and see nothing happen (observed live: two
         // SLDWORKS processes, the older one window-less). Policy (for now): every instance we touch is
         // made visible. Best-effort — a visibility failure must never break the attach or a tool call.
-        private void EnsureVisible()
+        private void EnsureVisible(bool userControl = true)
         {
             try
             {
                 if (_solidWorks == null) return;
                 if (!_solidWorks.Visible) _solidWorks.Visible = true;
-                _solidWorks.UserControl = true;
+                _solidWorks.UserControl = userControl;
             }
             catch { /* visibility is best-effort; never fail over it */ }
         }
@@ -93,18 +94,23 @@ namespace SolidworksExecution.Services
             var result = new Dictionary<string, object>();
             bool launched = false;
             bool attached = Connect();
+            HashSet<int> processIdsBeforeLaunch = null;
 
             if (!attached)
             {
                 // SolidWorks is not running — start it out-of-process via COM and make it visible.
                 try
                 {
+                    processIdsBeforeLaunch = SnapshotSolidWorksProcessIds();
                     var progType = Type.GetTypeFromProgID("SldWorks.Application");
                     if (progType == null)
                         throw new Exception("SldWorks.Application ProgID is not registered. Is SolidWorks installed?");
 
                     _solidWorks = (ISldWorks)Activator.CreateInstance(progType);
-                    EnsureVisible(); // visible + user-controllable from the moment it launches
+                    // A service-owned task session stays automation-controlled so it can be
+                    // deterministically exited after the task. Attached user sessions remain
+                    // user-controlled through Connect().
+                    EnsureVisible(false);
                     launched = true;
 
                     // CreateInstance returns before the app is usable. Gate on a FRESH ROT attach
@@ -126,6 +132,7 @@ namespace SolidworksExecution.Services
                         }
                     }
                     IsConnected = attached;
+                    RecordOwnedSolidWorksSession(processIdsBeforeLaunch);
                 }
                 catch (Exception ex)
                 {
@@ -138,6 +145,16 @@ namespace SolidworksExecution.Services
 
             result["comAttached"] = attached;
             result["swLaunched"] = launched;
+            int ownedProcessId;
+            if (TryGetOwnedSolidWorksProcessId(out ownedProcessId))
+            {
+                result["sessionOwnedByExecutionService"] = true;
+                result["ownedProcessId"] = ownedProcessId;
+            }
+            else
+            {
+                result["sessionOwnedByExecutionService"] = false;
+            }
             if (attached)
             {
                 try
@@ -153,6 +170,8 @@ namespace SolidworksExecution.Services
                 // Launched but never became responsive within the wait window.
                 result["launchError"] = "SolidWorks was launched but did not become responsive within the timeout.";
             }
+            if (launched && !attached)
+                result["launchCleanup"] = CleanupOwnedSolidWorksSession();
             return result;
         }
 
