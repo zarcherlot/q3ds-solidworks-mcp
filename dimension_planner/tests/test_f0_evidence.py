@@ -80,13 +80,15 @@ def test_f0_contracts_share_the_frozen_capability_catalog():
     assert tuple(evidence["$defs"]["capabilityId"]["enum"]) == F0_CAPABILITY_IDS
 
 
-def test_initial_manifest_is_fail_closed_and_has_frozen_order():
+def test_f2_manifest_remains_fail_closed_and_preserves_f0_order():
     manifest = load_f0_capability_manifest()
-    assert manifest["registry_version"] == "0.1.0"
+    assert manifest["registry_version"] == "0.2.0"
     assert len(manifest["capabilities"]) == 14
     assert tuple(item["id"] for item in manifest["capabilities"]) == F0_CAPABILITY_IDS
-    assert all(item["status"] == "planned" for item in manifest["capabilities"])
-    assert manifest["live_evidence"] is None
+    statuses = {item["id"]: item["status"] for item in manifest["capabilities"]}
+    assert statuses["annotation_text_bounds"] == "unsupported"
+    assert set(statuses.values()) == {"planned", "unsupported"}
+    assert manifest["live_evidence"]["solidworks_revision"] == "33.5.0"
 
 
 def test_offline_evidence_stays_incomplete():
@@ -198,6 +200,7 @@ def test_capability_catalog_must_be_complete_and_ordered():
 def test_supported_manifest_requires_bound_live_evidence(tmp_path: Path):
     manifest = json.loads(CAPABILITY_PATH.read_text(encoding="utf-8"))
     manifest["capabilities"][0]["status"] = "supported"
+    manifest["live_evidence"] = None
     path = tmp_path / "capabilities.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(F0CapabilityEvidenceError, match="live_evidence"):

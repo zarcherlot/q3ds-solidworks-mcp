@@ -11,6 +11,19 @@ from .handoff import (
     validate_dimension_planning_handoff,
     validate_handoff_request,
 )
+from .capability_registry import (
+    DimensionCapabilityAssessment,
+    DimensionCapabilityManifest,
+    DimensionCapabilityRegistry,
+)
+from .plan_store import DimensionPlanStore, PlanStore
+from .planning_models import (
+    DimensionPlan,
+    DimensionPlanningRequest,
+    DimensionPlanningResult,
+    PublishedDimensionPlan,
+    dimension_plan_from_mapping,
+)
 
 __all__ = [
     "F0CapabilityEvidenceError",
@@ -20,4 +33,14 @@ __all__ = [
     "build_handoff_request",
     "validate_dimension_planning_handoff",
     "validate_handoff_request",
+    "DimensionCapabilityAssessment",
+    "DimensionCapabilityManifest",
+    "DimensionCapabilityRegistry",
+    "DimensionPlanStore",
+    "PlanStore",
+    "DimensionPlan",
+    "DimensionPlanningRequest",
+    "DimensionPlanningResult",
+    "PublishedDimensionPlan",
+    "dimension_plan_from_mapping",
 ]

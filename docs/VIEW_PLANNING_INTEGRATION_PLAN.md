@@ -1,7 +1,7 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F1 已完成；F2-H 待开发
-最后更新：2026-08-12
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F2 已完成；F3-H 待开发
+最后更新：2026-08-13
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
 
@@ -340,11 +340,18 @@ SolidWorks 2025 SP5（revision `33.5.0`）冻结 ViewPlan 实机候选已完成�
 上游制品前后哈希完全一致，源文档 dirty flag 为 false，工程图以只读方式打开，发布后会话正常退出。
 F7 仍负责多类零件的完整尺寸执行矩阵；本次 F1 实机候选只验收不可变 handoff，不提前提升 F0 能力
 清单，也不引入 DimensionPlan、尺寸门禁或尺寸创建事务。
-- [ ] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
-  - [ ] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
+- [x] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
+  - [x] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
     总体尺寸、台阶、凸台、槽、倒角、圆角和对称尺寸。
-  - [ ] 每个尺寸绑定来源、目标视图、附着实体、特征、数值模式、显示格式、尺寸区、层级和核验公差。
-  - [ ] 形位公差、基准、粗糙度、焊接符号和无来源制造要求不属于 DimensionPlan 1.0 首版。
+  - [x] 每个尺寸绑定来源、目标视图、附着实体、特征、数值模式、显示格式、尺寸区、层级和核验公差。
+  - [x] 形位公差、基准、粗糙度、焊接符号和无来源制造要求不属于 DimensionPlan 1.0 首版。
+
+F2 已冻结 `dimension-plan`、`dimension-planning-request/result` 和
+`dimension-executor-capabilities` 四项 Draft 2020-12 合同及对应严格、不可变领域模型。尺寸来源限定为
+模型/PMI、已批准用户输入和仅参考几何测量三层；参考测量只能形成参考层级尺寸且不能携带制造公差。
+版本化能力注册表逐项覆盖 18 类尺寸和 7 项共享执行元素，当前真实地将尚未实现的执行路径评估为
+`capability_blocked`；工程有效性将在 F3 独立判定。`PlanStore` 仅向既有发布目录原子创建
+`dimension_plan.json`，拒绝覆盖冻结计划及写入 `validation/`。
 - [ ] F3：实现尺寸确定性门禁。
   - [ ] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
   - [ ] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-planning-result.schema.json",
+  "title": "Dimension Planning Result 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "execution_readiness", "validation", "plan",
+    "audit", "unsupported_capabilities"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "status": { "enum": ["published", "rejected"] },
+    "execution_readiness": { "enum": ["supported", "capability_blocked", "not_assessed"] },
+    "validation": { "$ref": "#/$defs/validation" },
+    "plan": { "oneOf": [{ "$ref": "#/$defs/publishedPlan" }, { "type": "null" }] },
+    "audit": { "$ref": "#/$defs/audit" },
+    "unsupported_capabilities": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "gateStatus": { "enum": ["pass", "fail", "not_run"] },
+    "issue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "gate", "message", "json_pointer"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "gate": { "enum": ["integrity", "schema", "source", "attachment", "semantics", "coverage", "redundancy", "layout", "capability"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "json_pointer": { "type": ["string", "null"], "maxLength": 1000 }
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["integrity", "schema_check", "source", "attachment", "semantics", "coverage", "redundancy", "layout", "capability", "issues"],
+      "properties": {
+        "integrity": { "$ref": "#/$defs/gateStatus" },
+        "schema_check": { "$ref": "#/$defs/gateStatus" },
+        "source": { "$ref": "#/$defs/gateStatus" },
+        "attachment": { "$ref": "#/$defs/gateStatus" },
+        "semantics": { "$ref": "#/$defs/gateStatus" },
+        "coverage": { "$ref": "#/$defs/gateStatus" },
+        "redundancy": { "$ref": "#/$defs/gateStatus" },
+        "layout": { "$ref": "#/$defs/gateStatus" },
+        "capability": { "$ref": "#/$defs/gateStatus" },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/issue" } }
+      }
+    },
+    "publishedPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_id", "path", "sha256"],
+      "properties": {
+        "plan_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "audit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_sha256", "candidate_sha256", "capability_manifest_version"],
+      "properties": {
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "candidate_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "capability_manifest_version": { "oneOf": [{ "$ref": "#/$defs/version" }, { "type": "null" }] }
+      }
+    }
+  }
+}

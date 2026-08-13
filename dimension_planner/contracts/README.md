@@ -6,7 +6,7 @@ F0 currently owns two research contracts:
 - `dimension-api-evidence.schema.json` validates immutable native-API evidence.
 
 They are not DimensionPlan production contracts and must not be registered as Agent-visible MCP
-tools. DimensionPlan 1.0 request/result/executor contracts are introduced separately in F2.
+tools.
 
 F1 adds two production handoff contracts without introducing DimensionPlan itself:
 
@@ -17,3 +17,15 @@ F1 adds two production handoff contracts without introducing DimensionPlan itsel
 
 The F1 endpoint remains private to the repository execution service until the semantic initializer
 tool and `solidworks-dimension-drawing` Skill are introduced in F6.
+
+F2 freezes four production planning contracts:
+
+- `dimension-plan.schema.json` defines the strict immutable DimensionPlan 1.0 union.
+- `dimension-planning-request.schema.json` binds a planning run to one immutable F1 handoff.
+- `dimension-planning-result.schema.json` separates engineering publication from execution
+  readiness, including the valid `capability_blocked` outcome.
+- `dimension-executor-capabilities.schema.json` versions the complete dimension-kind and shared-
+  element execution capability registry, with live evidence required for final conclusions.
+
+F2 still exposes no Agent-visible dimension tool and performs no SolidWorks mutation. Deterministic
+engineering validation belongs to F3; native creation and persisted readback belong to F4-F5.

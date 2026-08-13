@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Completed F2 DimensionPlan 1.0 contracts and publication primitives. Added the strict immutable
+  18-kind plan union, planning request/result and executor-capability Schemas, source-tier and
+  reference-only manufacturing guards, a live-evidence-bound versioned capability registry, and a
+  no-overwrite atomic `dimension_plan.json` store. Engineering-valid plans may remain explicitly
+  `capability_blocked`; deterministic engineering gates and native SolidWorks creation remain F3
+  and F4 work respectively.
 - Completed F1 immutable dimension-planning handoff. Added strict request/output Schemas, Python
   request and publication validators, a COM-free C# request contract, and a private read-only
   execution-service endpoint that freezes verified ViewPlan bindings, projected regular and

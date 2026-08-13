@@ -1,17 +1,24 @@
 {
   "protocol_id": "solidworks-dimension-executor-capabilities",
   "schema_version": "1.0",
-  "registry_version": "0.1.0",
+  "registry_version": "0.2.0",
+  "executor": "repository-csharp-execution-service",
+  "executor_version": "0.0.0",
+  "plan_protocol_id": "solidworks-dimension-plan",
+  "plan_schema_version": "1.0",
   "solidworks_target": "2025 SP5",
   "solidworks_revision": "33.5.0",
-  "promotion_policy": "No capability becomes supported without native creation, in-memory readback, save/close/read-only reopen, stable identity, attachment, position, and text-bound evidence.",
-  "live_evidence": null,
+  "promotion_policy": "No capability becomes supported without native creation, in-memory readback, save/close/read-only reopen, stable identity, attachment, position, and display evidence. Engineering-valid plans remain publishable as capability_blocked.",
+  "live_evidence": {
+    "summary_sha256": "4825740c33e194cac695c13b2f3458ac3c332b833616763cf17ba7ec88bc0ca9",
+    "solidworks_revision": "33.5.0"
+  },
   "capabilities": [
     { "id": "model_dimension_import", "status": "planned" },
     { "id": "display_dimension_iteration", "status": "planned" },
     { "id": "attachment_persistent_reference", "status": "planned" },
     { "id": "annotation_position", "status": "planned" },
-    { "id": "annotation_text_bounds", "status": "planned" },
+    { "id": "annotation_text_bounds", "status": "unsupported" },
     { "id": "linear_dimension", "status": "planned" },
     { "id": "diameter_dimension", "status": "planned" },
     { "id": "radius_dimension", "status": "planned" },
@@ -21,5 +28,34 @@
     { "id": "dimension_tolerance", "status": "planned" },
     { "id": "dimension_prefix_suffix", "status": "planned" },
     { "id": "save_reopen_stable_identity", "status": "planned" }
-  ]
+  ],
+  "dimension_types": {
+    "linear": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "aligned": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "diameter": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "radius": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "angular": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "reference": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "hole_diameter": { "status": "planned", "reason": "F4 basic hole callout creation is not implemented.", "verification": "none", "evidence_sha256": null },
+    "hole_depth": { "status": "planned", "reason": "F4 basic hole callout creation is not implemented.", "verification": "none", "evidence_sha256": null },
+    "hole_quantity": { "status": "planned", "reason": "F4 basic hole callout creation is not implemented.", "verification": "none", "evidence_sha256": null },
+    "hole_spacing": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "hole_group_location": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "overall": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "step": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "boss": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "slot": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null },
+    "chamfer": { "status": "planned", "reason": "F5 advanced chamfer execution is not implemented.", "verification": "none", "evidence_sha256": null },
+    "fillet": { "status": "planned", "reason": "F5 advanced fillet execution is not implemented.", "verification": "none", "evidence_sha256": null },
+    "symmetric": { "status": "planned", "reason": "F4 native creation transaction is not implemented.", "verification": "none", "evidence_sha256": null }
+  },
+  "elements": {
+    "model_dimension_import": { "status": "planned", "reason": "F0 proved readback scope; production F4 execution remains absent.", "verification": "none", "evidence_sha256": null },
+    "attachment_persistent_reference": { "status": "planned", "reason": "F1 freezes references; F4 creation and committed readback remain absent.", "verification": "none", "evidence_sha256": null },
+    "annotation_position": { "status": "planned", "reason": "F4 write/readback transaction remains absent.", "verification": "none", "evidence_sha256": null },
+    "annotation_text_bounds": { "status": "unsupported", "reason": "SolidWorks 2025 SP5 does not expose exact glyph bounds for ordinary display dimensions.", "verification": "live", "evidence_sha256": "4825740c33e194cac695c13b2f3458ac3c332b833616763cf17ba7ec88bc0ca9" },
+    "dimension_tolerance": { "status": "planned", "reason": "Trusted-source native tolerance write/readback remains an F4/F5 task.", "verification": "none", "evidence_sha256": null },
+    "dimension_prefix_suffix": { "status": "planned", "reason": "Native format write/readback remains an F4 task.", "verification": "none", "evidence_sha256": null },
+    "save_reopen_stable_identity": { "status": "planned", "reason": "DimensionPlan commit and independent verification remain an F4 task.", "verification": "none", "evidence_sha256": null }
+  }
 }
