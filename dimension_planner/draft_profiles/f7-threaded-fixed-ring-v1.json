@@ -1,0 +1,85 @@
+{
+  "protocol_id": "solidworks-dimension-first-draft-recipe",
+  "schema_version": "1.0",
+  "plan_id": "DP-F7-THREADED-DRAFT-001",
+  "created_at_utc": "2026-08-13T09:00:00Z",
+  "dimensions": [
+    {
+      "dimension_id": "D-HOLE-DIA-001",
+      "kind": "hole_diameter",
+      "source_dimension_id": "MD-cda8f9f70597879e",
+      "target_view_id": "hole_0_opening",
+      "attachments": [
+        {
+          "attachment_id": "AT-D-HOLE-DIA-001",
+          "entity_id": "GE-6c4cc4677655ff19",
+          "role": "arc"
+        }
+      ],
+      "feature_ids": ["MF-f162152860d984d6"],
+      "dimension_zone_id": "dz-hole0-right",
+      "initial_position_sheet_m": [0.3325, 0.23],
+      "display_format": {
+        "unit": "mm",
+        "precision": 3,
+        "prefix": "",
+        "suffix": "",
+        "show_parentheses": false,
+        "show_units": false,
+        "dual_units": false
+      },
+      "hierarchy": {
+        "level": "manufacturing",
+        "priority": 100,
+        "chain_id": null,
+        "baseline_id": null
+      },
+      "verification_tolerance": {
+        "value_abs_si": 1e-9,
+        "position_abs_m": 0.001,
+        "attachment_count_exact": true,
+        "display_text_exact": false
+      }
+    },
+    {
+      "dimension_id": "D-HOLE-QTY-001",
+      "kind": "hole_quantity",
+      "source_dimension_id": "MD-b5d6056abe761a93",
+      "target_view_id": "hole_120_opening",
+      "attachments": [
+        {
+          "attachment_id": "AT-D-HOLE-QTY-001",
+          "entity_id": "GE-210f248ec327edb9",
+          "role": "arc"
+        }
+      ],
+      "feature_ids": ["MF-5224276c1218a98b"],
+      "dimension_zone_id": "dz-hole120-right",
+      "initial_position_sheet_m": [0.3325, 0.15],
+      "display_format": {
+        "unit": "count",
+        "precision": 0,
+        "prefix": "",
+        "suffix": "",
+        "show_parentheses": false,
+        "show_units": false,
+        "dual_units": false
+      },
+      "hierarchy": {
+        "level": "manufacturing",
+        "priority": 100,
+        "chain_id": null,
+        "baseline_id": null
+      },
+      "verification_tolerance": {
+        "value_abs_si": 1e-9,
+        "position_abs_m": 0.001,
+        "attachment_count_exact": true,
+        "display_text_exact": false
+      }
+    }
+  ],
+  "assumptions": [
+    "First executable draft intentionally limits scope to two trusted model-driven requirements; no tolerance or fit was inferred."
+  ]
+}

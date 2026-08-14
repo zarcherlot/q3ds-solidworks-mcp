@@ -65,7 +65,14 @@ foreach ($required in @($compiler) + $referencePaths) {
         throw "Required live-runtime dependency is missing: $required"
     }
 }
-$sources = @(Get-ChildItem -LiteralPath (Join-Path $repo 'solidworks-execution\SolidworksExecution') -Recurse -Filter '*.cs' | ForEach-Object { $_.FullName })
+$sourceRoot = Join-Path $repo 'solidworks-execution\SolidworksExecution'
+$sources = @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter '*.cs' |
+    Where-Object {
+        -not $_.FullName.StartsWith((Join-Path $sourceRoot 'bin') + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase) -and
+        -not $_.FullName.StartsWith((Join-Path $sourceRoot 'obj') + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase)
+    } | ForEach-Object { $_.FullName })
 if ($sources.Count -eq 0) {
     throw 'No SolidworksExecution C# sources were found.'
 }
@@ -96,5 +103,10 @@ foreach ($dependency in $referencePaths | Where-Object { $_ -notlike "$framework
 Copy-Item -LiteralPath (Join-Path $repo 'solidworks-execution\SolidworksExecution\app.config') -Destination ($executable + '.config')
 $contracts = New-Item -ItemType Directory -Path (Join-Path $output 'contracts')
 Copy-Item -LiteralPath (Join-Path $repo 'drawing_planner\contracts\view-plan.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-planning-handoff-request.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-planning-handoff.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-plan.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-drawing-verification.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\capabilities\current.json') -Destination (Join-Path $contracts 'dimension-executor-capabilities.json')
 Get-FileHash -LiteralPath $executable -Algorithm SHA256 | Select-Object Path, Hash
 Get-FileHash -LiteralPath $hostBootstrapExecutable -Algorithm SHA256 | Select-Object Path, Hash

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SolidWorks Dimension Drawing"
+  short_description: "Plan, publish, create, and verify trusted drawing dimensions"
+  default_prompt: "Use $solidworks-dimension-drawing to create one evidence-bound DimensionPlan and orchestrate its immutable semantic tool chain."

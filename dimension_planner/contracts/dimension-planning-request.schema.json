@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-planning-request.schema.json",
+  "title": "Dimension Planning Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "handoff_path", "handoff_sha256", "planner_profile",
+    "publication_directory", "user_requirements"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "handoff_path": { "type": "string", "minLength": 1 },
+    "handoff_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "planner_profile": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "publication_directory": { "type": "string", "minLength": 1 },
+    "user_requirements": { "type": "object" }
+  }
+}

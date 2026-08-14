@@ -22,6 +22,13 @@ _EXPECTED_TOOLS = {
     "validate_part_drawing_view_plan",
     "create_part_drawing_from_view_plan",
     "verify_part_drawing_view_plan",
+    "initialize_part_drawing_dimension_handoff",
+    "publish_validated_part_drawing_dimension_plan",
+    "validate_part_drawing_dimension_plan",
+    "create_dimensioned_part_drawing",
+    "verify_dimensioned_part_drawing",
+    "qualify_dimensioned_part_drawing",
+    "verify_qualified_dimensioned_part_drawing",
 }
 
 

@@ -9,7 +9,10 @@ from config import (
     STATE_ENDPOINT,
     HEALTH_ENDPOINT,
     ENSURE_ENDPOINT,
+    RELEASE_OWNED_SESSION_ENDPOINT,
     HOST_BOOTSTRAP_ENDPOINT,
+    DIMENSION_HANDOFF_ENDPOINT,
+    DIMENSION_PROBE_CLEANUP_ENDPOINT,
     HTTP_TIMEOUT,
     SIMULATION_TIMEOUT,
     VIEW_PLAN_TIMEOUT,
@@ -168,13 +171,14 @@ def _request_with_autostart(do_request, label: str):
 
 def get_health() -> dict:
     """GET /health — server status + COM attach state (does not touch state_version)."""
+    def _do():
+        return _client.get(HEALTH_ENDPOINT)
+
     try:
-        response = _client.get(HEALTH_ENDPOINT)
-    except httpx.ConnectError:
-        _log("<- health CONNECT_ERROR (server down?)")
-        raise ExecutionLayerError(
-            f"Cannot connect to solidworks-execution. Is the server running on {HEALTH_ENDPOINT}?"
-        )
+        # Starting the repository execution host is independent from attaching to or launching
+        # SolidWorks. Keep status read-only at the CAD layer while making the local service
+        # lifecycle consistent with every other execution request.
+        response = _request_with_autostart(_do, "health")
     except httpx.TimeoutException:
         _log("<- health TIMEOUT")
         raise ExecutionLayerError(f"Health request timed out after {HTTP_TIMEOUT}s.")
@@ -239,6 +243,11 @@ def call_tool(tool_name: str, operation_id: str, state_version: int, params: dic
         "execute_part_drawing_view_plan",
         "verify_committed_part_drawing_view_plan",
         "initialize_part_drawing_handoff",
+        "inspect_part_for_drawing",
+        "execute_part_drawing_dimension_plan",
+        "verify_committed_part_drawing_dimension_plan",
+        "qualify_part_drawing_dimension_plan",
+        "verify_qualified_part_drawing_dimension_plan",
     }:
         request_timeout = VIEW_PLAN_TIMEOUT
     else:
@@ -310,6 +319,66 @@ def ensure_ready() -> dict:
     return body
 
 
+def release_owned_session() -> dict:
+    """Exit only the SolidWorks session owned by the C# Execution Service."""
+    _log("-> release_owned_session")
+    _ensure_server_up()
+
+    def _do():
+        return _ensure_client.post(RELEASE_OWNED_SESSION_ENDPOINT)
+
+    try:
+        response = _request_with_autostart(_do, "release_owned_session")
+    except httpx.TimeoutException as exc:
+        raise ExecutionLayerError(
+            f"release_owned_session timed out after {ENSURE_TIMEOUT}s."
+        ) from exc
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            "release_owned_session returned a non-JSON response."
+        ) from exc
+    if response.status_code in {200, 409}:
+        _log(f"<- release_owned_session {body.get('status')}")
+        return body
+    raise ExecutionLayerError(
+        "Unexpected HTTP "
+        f"{response.status_code} from /release_owned_session: {response.text}"
+    )
+
+
+def cleanup_explicit_idle_session(
+    expected_process_id: int, expected_open_document_paths: list[str]
+) -> dict:
+    """Recover one explicitly identified idle session through the C# lifecycle gate."""
+    if expected_process_id <= 0:
+        raise ValueError("expected_process_id must be positive")
+    payload = {
+        "allow_unowned_idle_session": True,
+        "expected_process_id": expected_process_id,
+        "expected_open_document_paths": expected_open_document_paths,
+    }
+    _ensure_server_up()
+
+    def _do():
+        return _ensure_client.post(DIMENSION_PROBE_CLEANUP_ENDPOINT, json=payload)
+
+    response = _request_with_autostart(_do, "cleanup_explicit_idle_session")
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            "cleanup_explicit_idle_session returned a non-JSON response."
+        ) from exc
+    if response.status_code in {200, 409}:
+        return body
+    raise ExecutionLayerError(
+        "Unexpected HTTP "
+        f"{response.status_code} from explicit session cleanup: {response.text}"
+    )
+
+
 def bootstrap_host(payload: dict) -> dict:
     """Run the private repository HostBootstrap lifecycle endpoint.
 
@@ -368,4 +437,41 @@ def bootstrap_host(payload: dict) -> dict:
         return body
     raise ExecutionLayerError(
         f"Unexpected HTTP {response.status_code} from /host/bootstrap: {response.text}"
+    )
+
+
+def create_dimension_planning_handoff(payload: dict) -> dict:
+    """Call the private F1 handoff endpoint through the repository execution client."""
+    _ensure_server_up()
+    _log("-> dimension-planning/handoff")
+
+    def _do():
+        return _client.post(
+            DIMENSION_HANDOFF_ENDPOINT,
+            json=payload,
+            timeout=VIEW_PLAN_TIMEOUT,
+        )
+
+    try:
+        response = _request_with_autostart(_do, "dimension-planning/handoff")
+    except httpx.TimeoutException as exc:
+        raise ExecutionLayerError(
+            "Dimension planning handoff timed out after "
+            f"{VIEW_PLAN_TIMEOUT}s."
+        ) from exc
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            "Dimension planning handoff returned a non-JSON response."
+        ) from exc
+    if response.status_code == 200:
+        _log(f"<- dimension-planning/handoff {body.get('status')}")
+        return body
+    if response.status_code in {400, 409, 500} and body.get("status") == "blocked":
+        _log(f"<- dimension-planning/handoff BLOCKED HTTP_{response.status_code}")
+        return body
+    raise ExecutionLayerError(
+        "Unexpected HTTP "
+        f"{response.status_code} from /api/dimension-planning/handoff: {response.text}"
     )

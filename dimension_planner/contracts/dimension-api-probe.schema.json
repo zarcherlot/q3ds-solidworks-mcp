@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-api-probe.schema.json",
+  "title": "SolidWorks Dimension Native API Probe Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "source",
+    "publication_directory",
+    "required_solidworks_revision",
+    "capability_ids"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-api-probe" },
+    "schema_version": { "const": "1.0" },
+    "source": { "$ref": "#/$defs/source" },
+    "publication_directory": { "type": "string", "minLength": 3 },
+    "required_solidworks_revision": { "const": "33.5.0" },
+    "capability_ids": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capabilityId" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "oneOf": [
+        { "$ref": "#/$defs/researchPairSource" },
+        { "$ref": "#/$defs/frozenViewPlanSource" }
+      ]
+    },
+    "researchPairSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source_model", "source_drawing", "drawing_template"],
+      "properties": {
+        "kind": { "const": "research_model_drawing_pair" },
+        "source_model": { "$ref": "#/$defs/artifact" },
+        "source_drawing": { "$ref": "#/$defs/artifact" },
+        "drawing_template": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "frozenViewPlanSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "view_plan", "verified_drawing", "verification_sidecar"],
+      "properties": {
+        "kind": { "const": "frozen_viewplan_drawing" },
+        "view_plan": { "$ref": "#/$defs/artifact" },
+        "verified_drawing": { "$ref": "#/$defs/artifact" },
+        "verification_sidecar": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "capabilityId": {
+      "enum": [
+        "model_dimension_import",
+        "display_dimension_iteration",
+        "attachment_persistent_reference",
+        "annotation_position",
+        "annotation_text_bounds",
+        "linear_dimension",
+        "diameter_dimension",
+        "radius_dimension",
+        "angular_dimension",
+        "hole_callout",
+        "chamfer_dimension",
+        "dimension_tolerance",
+        "dimension_prefix_suffix",
+        "save_reopen_stable_identity"
+      ]
+    }
+  }
+}

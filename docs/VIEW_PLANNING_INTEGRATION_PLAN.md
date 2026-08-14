@@ -1,7 +1,7 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F-H 待开发
-最后更新：2026-08-12
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3、F6 已完成；F4-F5 原生执行候选已实现、待 F7 实机证据晋级；G-H 待开发
+最后更新：2026-08-13
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
 
@@ -61,9 +61,14 @@ User / Codex
 | `validate_part_drawing_view_plan` | 校验导入/生成计划及当前执行能力 | 否 |
 | `create_part_drawing_from_view_plan` | 事务执行完整冻结计划 | 是 |
 | `verify_part_drawing_view_plan` | 对已有工程图进行独立只读核验 | 否 |
+| `initialize_part_drawing_dimension_handoff` | 冻结已核验视图图纸、尺寸/PMI/特征/持久引用及批准输入 | 否 |
+| `publish_validated_part_drawing_dimension_plan` | 重校验并原子发布唯一完整 DimensionPlan 候选 | 否 |
+| `validate_part_drawing_dimension_plan` | 绑定已发布计划/请求并运行 Python 与 C# COM-free 门禁 | 否 |
+| `create_dimensioned_part_drawing` | 能力受支持时事务创建新的尺寸图纸和侧车 | 是 |
+| `verify_dimensioned_part_drawing` | 对尺寸图纸进行独立只读重开核验 | 否 |
 
-默认 MCP 当前共十项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
-`semantic-tools.schema.json` 必须保持精确一致；三个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
+默认 MCP 当前共十五项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
+`semantic-tools.schema.json` 必须保持精确一致；四个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
 `plan_part_drawing_views` 与显式 Skill + `publish_validated_part_drawing_view_plan` 是互斥规划分支；当前
 Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP Sampling 时才使用 PlannerEngine 分支。
 
@@ -71,7 +76,7 @@ Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP
 
 ### 3.1 F/G 计划新增的语义工具
 
-尺寸阶段拟新增：
+尺寸阶段已在 F6 新增：
 
 - `initialize_part_drawing_dimension_handoff`
 - `publish_validated_part_drawing_dimension_plan`
@@ -300,37 +305,143 @@ E0 的 45 项 C# 合同和 13 项 SolidWorks 实机矩阵继续作为底层回�
 尺寸阶段使用独立 `solidworks-dimension-plan` 1.0，并从已核验的视图图纸创建新的后继工程图；当前
 ViewPlan 的 `dimension_zones` 仅表示预留空间，不是尺寸语义、尺寸创建结果或最终排版结果。
 
-- [ ] F0：冻结尺寸范围并完成 SolidWorks 2025 SP5 原生 API 实证。
-  - [ ] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
-  - [ ] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
-  - [ ] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
-- [ ] F1：实现不可变尺寸规划 handoff。
-  - [ ] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
+F0 已建立 COM-free 探测请求/实证报告合同、固定十四项能力目录、确定性证据评估器、独立 C#
+尺寸合同套件和仓库 Execution Service 内部 live 探测链，并支持哈希绑定的研究模型/工程图语料对
+与生产冻结上游两类显式来源；详见 `docs/F0_DIMENSION_API_SCOPE.md`。在 SolidWorks 2025 SP5
+四组研究语料矩阵已覆盖线性、直径、半径、角度、孔标注、倒角、非零公差和前后缀，并证明 70 个
+显示尺寸跨完全关闭/只读重开的规范化稳定身份和值；无选择稳定失败案例也已完成。47 个含附件记录的
+79/79 个有效原始持久引用在只读重开后解析成功，另有两个 `type=0/entity=null` COM 占位槽被显式记录
+并排除。十四项研究覆盖均为 `covered`，精确文字边界按实证判定为 `unsupported`。随后确认字节级
+复制 initializer 会使 SolidWorks 对副本 `Save3(errors=1)`；B3 事务改用原生
+`ISldWorks.CopyDocument`，在无打开文档的明确前置条件下保持 initializer 哈希不变并成功创建、
+保存、只读重开和独立核验四个模型关联视图。最终 build18 矩阵包含四个研究案例和一个生产冻结案例，
+5/5 为 `evidence_ready`、`production_frozen_case_count=1`、`overall_status=complete`；冻结图纸导入
+18 个模型尺寸并通过保存重开证据门禁。十三项能力保持 `planned`，`annotation_text_bounds` 为
+`unsupported`，未提前提升能力状态。
+
+- [x] F0：冻结尺寸范围并完成 SolidWorks 2025 SP5 原生 API 实证。
+  - [x] 验证模型尺寸导入、`IDisplayDimension` 创建/遍历、附着实体、位置、文字边界和保存重开稳定性。
+  - [x] 对线性、直径、半径、角度、孔标注、倒角、公差和前后缀逐项判定 `supported/planned/unsupported`。
+  - [x] 确定跨保存重开的稳定尺寸身份和附着实体持久引用；不可靠能力保持 `capability_blocked`。
+- [x] F1：实现不可变尺寸规划 handoff。
+  - [x] C# 只读冻结上游 ViewPlan/图纸/侧车哈希、实际投影几何、模型驱动尺寸、PMI、孔槽阵列、持久引用、
     视图边界、现有注释边界和 `dimension_zones`。
-  - [ ] 尺寸来源按“模型/PMI和已批准数据 → 用户确认输入 → 仅参考的几何测量值”分级并记录溯源。
-  - [ ] 发布 `dimension-planning-handoff.json` last；源模型及上游图纸不得变脏或被覆盖。
-- [ ] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
-  - [ ] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
+  - [x] 尺寸来源按“模型/PMI和已批准数据 → 用户确认输入 → 仅参考的几何测量值”分级并记录溯源。
+  - [x] 发布 `dimension-planning-handoff.json` last；源模型及上游图纸不得变脏或被覆盖。
+
+F1 已新增严格的 `dimension-planning-handoff-request.schema.json` 和
+`dimension-planning-handoff.schema.json`、Python 请求构造/发布物复核器、独立 C# 请求合同，以及不进入
+默认 MCP 工具面的私有 `POST /api/dimension-planning/handoff` 只读事务。事务在 COM 前核对 ViewPlan、
+独立核验工程图和侧车绑定，在只读会话内读取计划视图边界、普通边及轮廓边投影几何、模型尺寸、模型
+注释、孔/槽/线性与圆周阵列、持久引用、现有注释保守显示包络和 `dimension_zones`；精确文字边界继续
+显式记录为 `unsupported_exact`。普通实体引用与轮廓边背靠面引用分域记录，几何测量值固定标记为
+`reference_geometry_measurement` 且不得作为制造要求；用户确认输入必须包含显式批准人、时间、批准引用
+和严格值类型。
+
+SolidWorks 2025 SP5（revision `33.5.0`）冻结 ViewPlan 实机候选已完成：4 个计划视图读取 13 个投影实体
+（1 条普通直线、3 条普通圆弧、9 条轮廓直线）、4 个现有注释、27 个模型驱动尺寸、2 个制造特征
+（孔和圆周阵列）及 13 个仅参考测量值；该零件没有模型 PMI，因此 `pmi_annotations` 为空数组而非推断值。
+发布物 SHA-256 为 `405e50726aadbd107d535592dd360d83acbd195ad455d15e5132bfa4063e907e`，四项
+上游制品前后哈希完全一致，源文档 dirty flag 为 false，工程图以只读方式打开，发布后会话正常退出。
+F7 仍负责多类零件的完整尺寸执行矩阵；本次 F1 实机候选只验收不可变 handoff，不提前提升 F0 能力
+清单，也不引入 DimensionPlan、尺寸门禁或尺寸创建事务。
+- [x] F2：加入 DimensionPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
+  - [x] 首批合同覆盖线性、对齐、直径、半径、角度、参考尺寸、孔径/孔深/数量、孔距/孔组定位、
     总体尺寸、台阶、凸台、槽、倒角、圆角和对称尺寸。
-  - [ ] 每个尺寸绑定来源、目标视图、附着实体、特征、数值模式、显示格式、尺寸区、层级和核验公差。
-  - [ ] 形位公差、基准、粗糙度、焊接符号和无来源制造要求不属于 DimensionPlan 1.0 首版。
-- [ ] F3：实现尺寸确定性门禁。
-  - [ ] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
-  - [ ] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。
-  - [ ] 工程上有效但执行器不支持的计划允许发布为 `capability_blocked`，创建事务必须拒绝。
+  - [x] 每个尺寸绑定来源、目标视图、附着实体、特征、数值模式、显示格式、尺寸区、层级和核验公差。
+  - [x] 形位公差、基准、粗糙度、焊接符号和无来源制造要求不属于 DimensionPlan 1.0 首版。
+
+F2 已冻结 `dimension-plan`、`dimension-planning-request/result` 和
+`dimension-executor-capabilities` 四项 Draft 2020-12 合同及对应严格、不可变领域模型。尺寸来源限定为
+模型/PMI、已批准用户输入和仅参考几何测量三层；参考测量只能形成参考层级尺寸且不能携带制造公差。
+版本化能力注册表逐项覆盖 18 类尺寸和 7 项共享执行元素，当前真实地将尚未实现的执行路径评估为
+`capability_blocked`；工程有效性将在 F3 独立判定。`PlanStore` 仅向既有发布目录原子创建
+`dimension_plan.json`，拒绝覆盖冻结计划及写入 `validation/`。
+- [x] F3：实现尺寸确定性门禁。
+  - [x] 固定 `integrity → schema → source → attachment → semantics → coverage → redundancy → layout → capability` 顺序。
+  - [x] 拒绝重复或冲突尺寸、不允许的封闭尺寸链、不稳定引出位置、不可见附着实体及编造的公差/配合。
+  - [x] 工程上有效但执行器不支持的计划允许发布为 `capability_blocked`，创建事务必须拒绝。
+
+F3 已实现严格失败短路的九段仓库验证链。完整性门禁重新读取并校验 F1 handoff、四项上游制品和
+DimensionPlan 的路径/哈希/配置绑定；来源门禁只接受模型尺寸、明确批准输入或仅参考测量中的实际值，
+并要求公差上下限或配合文本逐项存在于批准输入。附着门禁验证目标视图可见实体、持久引用、特征和
+参考测量实体集合；其后门禁固定检查领域语义、制造特征/批准输入覆盖、重复或冲突尺寸、封闭尺寸链、
+尺寸区和冻结初始位置。`DimensionPlannerEngine` 仅在八项工程门禁通过后评估能力并原子发布；当前
+计划会如实发布为 `capability_blocked`，`require_supported` 为 F4 创建入口提供稳定的强制拒绝边界。
 - [ ] F4：实现 C# 原生尺寸 MVP 和无覆盖事务。
   - [ ] 支持线性、直径、半径、角度、参考尺寸、基本孔标注、前后缀、数量、精度和冻结初始位置。
   - [ ] 从上游图纸复制到事务临时文件，创建后重建、内存回读、保存、关闭、只读重开并原子提交新图纸/侧车。
   - [ ] 精确核验尺寸身份、数值、类型、目标视图、附着实体、文字和位置；禁止未计划尺寸和部分提交。
+
+F4 已加入哈希锁定的独立 C# DimensionPlan 合同、MVP 编译器、handoff/五项上游制品预检和私有
+validate/execute 入口；不会进入默认 semantic MCP，也不会翻译到 DrawingPlan 1.0。原生执行候选使用
+`ISldWorks.CopyDocument` 创建同目录临时图纸，支持模型尺寸导入过滤及明确附件的线性、直径、半径、
+角度、参考尺寸和基本孔标注创建，写入前后缀、精度与冻结初始位置，并按“内存回读 → Save3 → 关闭 →
+只读重开 → 精确回读 → 新图纸/侧车双文件提交”执行。任何异常都会清理临时/部分输出；源模型、上游图纸、
+handoff、ViewPlan、原侧车和已发布 DimensionPlan 在事务前后均重新哈希。生产创建入口额外读取版本化能力
+清单，只有尺寸类型和所需元素都具有 `supported + live + evidence_sha256` 时才允许接触 COM；当前状态保持
+`capability_blocked`，因此上述 F4 验收项在真实 SolidWorks 创建/保存重开证据发布前不提前勾选。
 - [ ] F5：补齐高级尺寸能力。
   - [ ] 沉孔、沉头、锪平孔、盲孔、螺纹、槽/键槽、组合倒角/圆角、基线尺寸、坐标尺寸和阵列标注。
   - [ ] 上下偏差、极限尺寸和配合代号仅在受信输入存在时执行，并完成原生格式与持久化回读。
-- [ ] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
-  - [ ] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
-  - [ ] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。
+
+F5 在不改变已冻结 DimensionPlan 1.0 的前提下补齐其 18 类尺寸编译联合。沉孔/沉头/锪平孔、盲孔和
+螺纹继续由模型关联的原生孔标注生成，并在内存与只读重开阶段冻结完整逻辑文字及 hole-callout variables；
+槽/键槽、孔距/孔组定位、总体/台阶/凸台、组合倒角/圆角、对称和对齐尺寸分别走明确附件及对应原生 API。
+`hierarchy.baseline_id` 的非坐标组必须至少包含两个尺寸并共享同一冻结基准附件；孔组定位可编译为按冻结
+投影几何确定方向的原生 ordinate，`chain_id` 则写入并回读链式显示状态。上下偏差/单向/极限公差逐值匹配
+approved quantity，配合代号逐字匹配 approved exact text，并根据冻结制造特征选择 hole/shaft fit 后才调用
+`IDimensionTolerance`；侧车回读公差类型、上下值和 hole/shaft fit。当前仍无 F5 真实图纸保存重开矩阵证据，
+所以能力清单继续保持 `planned`，两项 F5 验收框不提前勾选。
+- [x] F6：新增 `solidworks-dimension-drawing` Skill 和五项尺寸语义工具。
+  - [x] Skill 只生成一个完整候选并编排 publish/validate/create/verify，不写盘、不调用 legacy 工具或 COM。
+  - [x] 所有阶段使用同一不可变 DimensionPlan/request；发布后不得修补或覆盖。
+
+F6 已将默认工程语义 MCP 扩展为 15 项工具，并新增尺寸 handoff 初始化、原子发布、COM-free 验证、
+事务创建和独立核验五个公开工程动词；私有 C# validate/execute/verify 动词仍只存在于 Execution Service。
+`solidworks-dimension-drawing` Skill 读取仓库版本化 `native-v1` prompt pack，只在内存中生成一个候选，
+并强制从初始化返回值原样传递同一 `DimensionPlanningRequest`、计划对象和输出路径。已发布计划按磁盘对象和
+文件 SHA-256 再绑定，禁止覆盖或发布后修补。新增独立 C# 核验器会在 COM 前重验计划、图纸、尺寸侧车和
+六项冻结输入，再只读重开图纸核对尺寸身份、数量、附件、文本、孔标注变量、公差和持久化指纹；核验不保存
+文档且不递增状态版本。能力清单仍按真实证据保持 `planned/unsupported`，因此工程有效计划可以发布为
+`capability_blocked`，但 F7 提升全部所需能力之前 create/verify 会稳定拒绝。
 - [ ] F7：完成尺寸离线、合同和真实 SolidWorks 矩阵。
   - [ ] 覆盖板类、轴套类、支架类、法兰类、槽腔类和螺纹零件。
   - [ ] 验收无悬空、重复、未计划尺寸；源模型和上游图纸不变，保存重开规范化指纹一致。
+
+F7 已完成离线证据门禁及首次资格事务候选：新增不可变矩阵请求、单案例证据和汇总三项 Schema，固定六类
+零件、DimensionPlan 1.0 全部 18 类尺寸及六项生产执行元素的覆盖要求。默认 MCP 增加两项仅供 F7 实证的
+`qualify_dimensioned_part_drawing` / `verify_qualified_dimensioned_part_drawing` 工程语义工具；它们要求计划、
+原始请求、输出路径和矩阵案例逐项哈希绑定，只允许 `planned` 能力取证，已知 `unsupported` 仍在 COM 前
+拒绝，并且绝不修改能力清单。生产 `create/verify` 的 `supported + live + evidence_sha256` 门禁保持不变。
+矩阵运行器对每个案例执行 `validate(capability_blocked) → qualify → independent qualification verify`，逐阶段
+核对 canonical/request 哈希，并在 C# 事务侧车已通过内存回读、保存关闭、只读重开及独立核验后才原子
+发布案例证据。汇总器重新
+哈希计划、输出、侧车和全部冻结上游输入，拒绝悬空、重复、未计划或身份/指纹不一致；只有六类、18 类
+尺寸和所需元素全部具有真实证据时，才允许生成单独的 `0.4.0/0.3.0` 能力清单晋级候选，且不会自动覆盖
+`current.json`。当前仓库仅有 4 组 F0 模型/图纸语料、1 组 F1 尺寸 handoff，尚无覆盖六类零件的已发布
+DimensionPlan，因此完整真实 SolidWorks 矩阵及 F4/F5 勾选仍保持未完成；能力清单继续为
+`planned/unsupported`，生产创建继续失败关闭。
+
+F7 首个固定环资格案例现已在 SolidWorks 2025 SP5 完成原生创建和独立新进程只读核验：直径值、持久引用、
+保存关闭/重开指纹及源模型丢弃后干净重开均通过。所有默认工程语义 COM 事务改由后台 C# Execution Service
+在确定性门禁之后按需启动 SolidWorks，并在每个事务后只退出其拥有的会话；PID 与进程启动时间通过本机
+所有权租约跨 Execution Service 重启核验。任务自有文档无法正常关闭时，只有精确所有权或显式只读恢复集
+门禁通过后才允许有界进程兜底。资格创建 PID 和独立核验 PID 均在返回前确认 `remaining_process_ids=[]`。
+该单案例证据不替代五个真实零件的六类完整矩阵，也不触发能力晋级。
+
+为先建立可调优基线，仓库现提供证据绑定的 first-draft 生成器及固定环代理配置。它已从现有唯一完整 F1
+handoff 生成六份独立 candidate，按三类尺寸/份覆盖全部 18 类 DimensionPlan 联合；每份均通过完整性、
+Schema、来源、附着、语义、覆盖、冗余和布局八项工程门禁。汇总制品强制记录
+`category_evidence=proxy`、`eligible_for_f7_promotion=false`，候选文件也不使用生产发布名
+`dimension_plan.json`。因此这批输出可用于后续效果调优和真实零件绑定替换，但不计作六类真实 SolidWorks
+证据，也不解除 `capability_blocked`。
+
+五个真实零件现已完成六类实机验收矩阵：板、C 型夹、支撑板、固定环和 `ACCCMD-12/12345`
+分别覆盖 plate、bracket、threaded、shaft_sleeve、flange、slot_cavity；每个案例均完成资格创建、
+保存关闭/只读重开和独立核验，并发布图纸、验证侧车和案例证据。该结果满足“五个真实零件可顺利完成
+标注”的开发验收口径，但矩阵当前只包含 linear/diameter 两类尺寸，未达到 F7 正式能力晋级所需的全部
+18 类尺寸覆盖。因此能力清单仍不晋级，`current.json` 保持不变，正式 F7 promotion 继续失败关闭。
 
 ### G. 最终工程图排版布局
 

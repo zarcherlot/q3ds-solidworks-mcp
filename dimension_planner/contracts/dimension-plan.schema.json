@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json",
+  "title": "SolidWorks DimensionPlan 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "protocol_id", "schema_version", "plan_id", "created_at_utc",
+    "producer", "execution_policy", "handoff", "handoff_id", "source_model",
+    "source_drawing", "view_plan", "verification_sidecar", "configuration",
+    "dimensions", "assumptions", "open_questions"
+  ],
+  "properties": {
+    "$schema": { "const": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json" },
+    "protocol_id": { "const": "solidworks-dimension-plan" },
+    "schema_version": { "const": "1.0" },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "execution_policy": { "$ref": "#/$defs/executionPolicy" },
+    "handoff": { "$ref": "#/$defs/artifact" },
+    "handoff_id": { "$ref": "#/$defs/id" },
+    "source_model": { "$ref": "#/$defs/artifact" },
+    "source_drawing": { "$ref": "#/$defs/artifact" },
+    "view_plan": { "$ref": "#/$defs/artifact" },
+    "verification_sidecar": { "$ref": "#/$defs/artifact" },
+    "configuration": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/dimension" }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "open_questions": { "type": "array", "maxItems": 0 }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "ruleset_id", "ruleset_sha256"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+        "ruleset_id": { "$ref": "#/$defs/id" },
+        "ruleset_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "executionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_integrity_mismatch", "on_selection_ambiguity", "on_unsupported_dimension",
+        "on_layout_violation", "allow_source_model_write",
+        "allow_upstream_drawing_overwrite", "allow_partial_commit"
+      ],
+      "properties": {
+        "on_integrity_mismatch": { "const": "fail" },
+        "on_selection_ambiguity": { "const": "fail" },
+        "on_unsupported_dimension": { "const": "fail" },
+        "on_layout_violation": { "const": "fail" },
+        "allow_source_model_write": { "const": false },
+        "allow_upstream_drawing_overwrite": { "const": false },
+        "allow_partial_commit": { "const": false }
+      }
+    },
+    "dimensionKind": {
+      "enum": [
+        "linear", "aligned", "diameter", "radius", "angular", "reference",
+        "hole_diameter", "hole_depth", "hole_quantity", "hole_spacing",
+        "hole_group_location", "overall", "step", "boss", "slot", "chamfer",
+        "fillet", "symmetric"
+      ]
+    },
+    "modelOrPmiSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_tier", "handoff_collection", "source_ids"],
+      "properties": {
+        "source_tier": { "const": "model_or_pmi" },
+        "handoff_collection": {
+          "enum": ["model_driven_dimensions", "pmi_annotations", "manufacturing_features"]
+        },
+        "source_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "userConfirmedSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_tier", "approved_input_ids"],
+      "properties": {
+        "source_tier": { "const": "user_confirmed_input" },
+        "approved_input_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "referenceMeasurementSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_tier", "measurement_ids", "manufacturing_requirement"],
+      "properties": {
+        "source_tier": { "const": "reference_geometry_measurement" },
+        "measurement_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "manufacturing_requirement": { "const": false }
+      }
+    },
+    "source": {
+      "oneOf": [
+        { "$ref": "#/$defs/modelOrPmiSource" },
+        { "$ref": "#/$defs/userConfirmedSource" },
+        { "$ref": "#/$defs/referenceMeasurementSource" }
+      ]
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attachment_id", "entity_id", "model_persistent_reference",
+        "persistent_reference_kind", "role"
+      ],
+      "properties": {
+        "attachment_id": { "$ref": "#/$defs/id" },
+        "entity_id": { "$ref": "#/$defs/id" },
+        "model_persistent_reference": {
+          "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        },
+        "persistent_reference_kind": { "enum": ["entity", "backing_face"] },
+        "role": {
+          "enum": ["first", "second", "arc", "center", "leader", "feature", "symmetry_axis"]
+        }
+      }
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value_mode", "quantity_kind", "nominal_si"],
+      "properties": {
+        "value_mode": { "enum": ["model_driven", "approved_value", "measured_reference"] },
+        "quantity_kind": { "enum": ["length", "angle", "count"] },
+        "nominal_si": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "tolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "lower_si", "upper_si", "fit_code"],
+      "properties": {
+        "kind": { "enum": ["bilateral", "unilateral", "limit", "fit"] },
+        "lower_si": { "type": ["number", "null"] },
+        "upper_si": { "type": ["number", "null"] },
+        "fit_code": { "type": ["string", "null"], "minLength": 1, "maxLength": 32 }
+      }
+    },
+    "displayFormat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit", "precision", "prefix", "suffix", "show_parentheses", "show_units",
+        "dual_units"
+      ],
+      "properties": {
+        "unit": { "enum": ["document_default", "mm", "inch", "degree", "count"] },
+        "precision": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "prefix": { "type": "string", "maxLength": 128 },
+        "suffix": { "type": "string", "maxLength": 128 },
+        "show_parentheses": { "type": "boolean" },
+        "show_units": { "type": "boolean" },
+        "dual_units": { "const": false }
+      }
+    },
+    "hierarchy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "priority", "chain_id", "baseline_id"],
+      "properties": {
+        "level": { "enum": ["functional", "manufacturing", "inspection", "reference"] },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "chain_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "baseline_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      }
+    },
+    "verificationTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value_abs_si", "position_abs_m", "attachment_count_exact", "display_text_exact"
+      ],
+      "properties": {
+        "value_abs_si": { "type": "number", "minimum": 0 },
+        "position_abs_m": { "type": "number", "exclusiveMinimum": 0 },
+        "attachment_count_exact": { "const": true },
+        "display_text_exact": { "type": "boolean" }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension_id", "kind", "source", "target_view_id", "attachments",
+        "feature_ids", "value", "tolerance", "display_format", "dimension_zone_id",
+        "hierarchy", "initial_position_sheet_m", "verification_tolerance"
+      ],
+      "properties": {
+        "dimension_id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/dimensionKind" },
+        "source": { "$ref": "#/$defs/source" },
+        "target_view_id": { "$ref": "#/$defs/id" },
+        "attachments": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/attachment" }
+        },
+        "feature_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "value": { "$ref": "#/$defs/value" },
+        "tolerance": { "oneOf": [{ "$ref": "#/$defs/tolerance" }, { "type": "null" }] },
+        "display_format": { "$ref": "#/$defs/displayFormat" },
+        "dimension_zone_id": { "$ref": "#/$defs/id" },
+        "hierarchy": { "$ref": "#/$defs/hierarchy" },
+        "initial_position_sheet_m": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "verification_tolerance": { "$ref": "#/$defs/verificationTolerance" }
+      }
+    }
+  }
+}

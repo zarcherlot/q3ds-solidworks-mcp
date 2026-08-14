@@ -1,0 +1,68 @@
+{
+  "protocol_id": "solidworks-dimension-six-category-first-draft-profile",
+  "schema_version": "1.0",
+  "profile_id": "f7-six-category-fixed-ring-proxy-v1",
+  "created_at_utc": "2026-08-13T09:30:00Z",
+  "preferred_views": ["hole_0_opening", "hole_120_opening", "hole_240_opening"],
+  "categories": [
+    {
+      "category": "plate",
+      "plan_id": "DP-F7-DRAFT-PLATE-V1",
+      "dimensions": [
+        {"kind": "linear", "source_dimension_id": "MD-ded6b33ef89d4db2"},
+        {"kind": "aligned", "source_dimension_id": "MD-4572b16f0405ce39"},
+        {"kind": "diameter", "source_dimension_id": "MD-8e4cdb13dd033880"}
+      ]
+    },
+    {
+      "category": "shaft_sleeve",
+      "plan_id": "DP-F7-DRAFT-SHAFT-SLEEVE-V1",
+      "dimensions": [
+        {"kind": "radius", "source_dimension_id": "MD-f26dc5e94882ff71"},
+        {"kind": "angular", "source_dimension_id": "MD-7b100ab50cfcb7ca"},
+        {"kind": "reference", "source_dimension_id": "MD-9c433a5f60bd4cbe"}
+      ]
+    },
+    {
+      "category": "bracket",
+      "plan_id": "DP-F7-DRAFT-BRACKET-V1",
+      "dimensions": [
+        {"kind": "hole_diameter", "source_dimension_id": "MD-cda8f9f70597879e"},
+        {"kind": "hole_depth", "source_dimension_id": "MD-22fa8828c042b58b"},
+        {"kind": "hole_quantity", "source_dimension_id": "MD-b5d6056abe761a93"}
+      ]
+    },
+    {
+      "category": "flange",
+      "plan_id": "DP-F7-DRAFT-FLANGE-V1",
+      "dimensions": [
+        {"kind": "hole_spacing", "source_dimension_id": "MD-54d8ffb726bae05e"},
+        {"kind": "hole_group_location", "source_dimension_id": "MD-76fd631e8086f808"},
+        {"kind": "overall", "source_dimension_id": "MD-ded6b33ef89d4db2"}
+      ]
+    },
+    {
+      "category": "slot_cavity",
+      "plan_id": "DP-F7-DRAFT-SLOT-CAVITY-V1",
+      "dimensions": [
+        {"kind": "step", "source_dimension_id": "MD-f26dc5e94882ff71"},
+        {"kind": "boss", "source_dimension_id": "MD-54d8ffb726bae05e"},
+        {"kind": "slot", "source_dimension_id": "MD-9c433a5f60bd4cbe"}
+      ]
+    },
+    {
+      "category": "threaded",
+      "plan_id": "DP-F7-DRAFT-THREADED-V1",
+      "dimensions": [
+        {"kind": "chamfer", "source_dimension_id": "MD-e7d33b2ed2528992"},
+        {"kind": "fillet", "source_dimension_id": "MD-d8f75991440440f4"},
+        {"kind": "symmetric", "source_dimension_id": "MD-76fd631e8086f808"}
+      ]
+    }
+  ],
+  "assumptions": [
+    "This first draft reuses one complete fixed-ring handoff only to guarantee deterministic candidate output.",
+    "Category labels are provisional proxies and are not authentic six-part evidence.",
+    "No tolerance, fit, or unapproved manufacturing requirement is inferred."
+  ]
+}

@@ -82,6 +82,45 @@ def _contract_tools():
             {"plan", "request", "output_path"},
             {"plan", "request", "output_path"},
         ),
+        "initialize_part_drawing_dimension_handoff": (
+            {
+                "view_plan_path",
+                "verified_drawing_path",
+                "verification_sidecar_path",
+                "publication_directory",
+                "approved_user_inputs",
+            },
+            {
+                "view_plan_path",
+                "verified_drawing_path",
+                "verification_sidecar_path",
+                "publication_directory",
+            },
+        ),
+        "publish_validated_part_drawing_dimension_plan": (
+            {"plan", "request"},
+            {"plan", "request"},
+        ),
+        "validate_part_drawing_dimension_plan": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
+        "create_dimensioned_part_drawing": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
+        "verify_dimensioned_part_drawing": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
+        "qualify_dimensioned_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
+        "verify_qualified_dimensioned_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
     }
     for name in required_tools:
         parameters, required = expected[name]
@@ -115,7 +154,7 @@ def test_schema_contract_in_sync():
     assert not errors, "semantic MCP contract drift:\n  - " + "\n  - ".join(errors)
 
 
-def test_default_surface_is_viewplan_only_and_contains_no_v1_helpers():
+def test_default_surface_contains_only_repository_view_and_dimension_protocols():
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
     legacy_names = {
@@ -125,10 +164,8 @@ def test_default_surface_is_viewplan_only_and_contains_no_v1_helpers():
     }
     assert not (names & legacy_names)
     assert all(not hasattr(server, name) for name in legacy_names)
-    assert "ViewPlan 1.4 is the default and only part-drawing protocol" in (
-        server.MCP_INSTRUCTIONS
-    )
-    assert server.mcp.version == "2.2.0"
+    assert "ViewPlan 1.4 and DimensionPlan 1.0" in server.MCP_INSTRUCTIONS
+    assert server.mcp.version == "2.3.0"
 
 
 def test_host_bootstrap_tools_are_semantic_and_do_not_expose_cli_escape_hatches():
@@ -181,6 +218,35 @@ def test_viewplan_tools_publish_the_exact_structured_viewplan_contract():
         assert plan["properties"]["schema_version"]["const"] == "1.4"
         assert plan["properties"]["views"]["minItems"] == 1
         assert "model_path" in plan["required"]
+
+
+def test_dimension_tools_publish_the_exact_structured_dimension_contract():
+    tools = asyncio.run(server.mcp.list_tools())
+    by_name = {tool.name: tool for tool in tools}
+    for name in (
+        "publish_validated_part_drawing_dimension_plan",
+        "validate_part_drawing_dimension_plan",
+        "create_dimensioned_part_drawing",
+        "verify_dimensioned_part_drawing",
+        "qualify_dimensioned_part_drawing",
+        "verify_qualified_dimensioned_part_drawing",
+    ):
+        plan = by_name[name].parameters["properties"]["plan"]
+        assert plan["type"] == "object"
+        assert plan["additionalProperties"] is False
+        assert plan["properties"]["protocol_id"]["const"] == "solidworks-dimension-plan"
+        assert plan["properties"]["schema_version"]["const"] == "1.0"
+        assert plan["properties"]["dimensions"]["minItems"] == 1
+        assert "handoff_id" in plan["required"]
+
+        request = by_name[name].parameters["properties"]["request"]
+        assert request["type"] == "object"
+        assert request["additionalProperties"] is False
+        assert set(request["required"]) == {
+            "handoff_path",
+            "handoff_sha256",
+            "publication_directory",
+        }
 
 
 def test_default_server_publishes_no_external_skill_invocation_prompts():

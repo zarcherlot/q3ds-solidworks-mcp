@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-planning-handoff-request.schema.json",
+  "title": "Immutable Dimension Planning Handoff Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "source",
+    "publication_directory",
+    "approved_user_inputs"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-planning-handoff-request" },
+    "schema_version": { "const": "1.0" },
+    "source": { "$ref": "#/$defs/source" },
+    "publication_directory": { "type": "string", "minLength": 3 },
+    "approved_user_inputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/approvedUserInput" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view_plan", "verified_drawing", "verification_sidecar"],
+      "properties": {
+        "view_plan": { "$ref": "#/$defs/artifact" },
+        "verified_drawing": { "$ref": "#/$defs/artifact" },
+        "verification_sidecar": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "approvedUserInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_id",
+        "source_tier",
+        "approved_by",
+        "approved_at_utc",
+        "approval_reference",
+        "target_feature_ids",
+        "value"
+      ],
+      "properties": {
+        "input_id": { "$ref": "#/$defs/id" },
+        "source_tier": { "const": "user_confirmed_input" },
+        "approved_by": { "type": "string", "minLength": 1 },
+        "approved_at_utc": { "type": "string", "format": "date-time" },
+        "approval_reference": { "type": "string", "minLength": 1 },
+        "target_feature_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "value": {
+          "oneOf": [
+            { "$ref": "#/$defs/approvedQuantity" },
+            { "$ref": "#/$defs/approvedText" }
+          ]
+        }
+      }
+    },
+    "approvedQuantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "quantity_kind", "value_si"],
+      "properties": {
+        "kind": { "const": "quantity" },
+        "quantity_kind": { "enum": ["length", "angle", "count"] },
+        "value_si": { "type": "number" }
+      }
+    },
+    "approvedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "text"],
+      "properties": {
+        "kind": { "const": "exact_text" },
+        "text": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

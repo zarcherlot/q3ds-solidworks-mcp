@@ -1,0 +1,5 @@
+Read the complete immutable handoff, DimensionPlan 1.0 schema, current dimension capability registry, and original DimensionPlanningRequest. Construct one and only one candidate in memory.
+
+Preserve the request and all frozen artifact bindings unchanged. Set the producer identity from manifest.json. Cover manufacturing and inspection intent only where supported by trusted evidence; record intentional omissions explicitly. Avoid duplicate or derivable dimensions and obey all layout clearances. Use approved tolerances or exact approved text only through their approved input IDs. Keep measured-reference dimensions non-manufacturing and without tolerance.
+
+Submit the same complete candidate to the semantic publication tool. After publication, reuse the exact candidate, original request, and requested output path through validate, create, and independent verify. If publication is capability_blocked, retain the immutable plan and stop before create; do not substitute, simplify, or republish it.

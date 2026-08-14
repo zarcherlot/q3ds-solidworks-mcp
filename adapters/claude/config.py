@@ -72,7 +72,12 @@ EXECUTE_ENDPOINT = f"{EXECUTION_BASE_URL}/api/tool/execute"
 STATE_ENDPOINT = f"{EXECUTION_BASE_URL}/api/tool/state"
 HEALTH_ENDPOINT = f"{EXECUTION_BASE_URL}/health"
 ENSURE_ENDPOINT = f"{EXECUTION_BASE_URL}/ensure_ready"
+RELEASE_OWNED_SESSION_ENDPOINT = f"{EXECUTION_BASE_URL}/release_owned_session"
 HOST_BOOTSTRAP_ENDPOINT = f"{EXECUTION_BASE_URL}/host/bootstrap"
+DIMENSION_HANDOFF_ENDPOINT = f"{EXECUTION_BASE_URL}/api/dimension-planning/handoff"
+DIMENSION_PROBE_CLEANUP_ENDPOINT = (
+    f"{EXECUTION_BASE_URL}/api/research/dimension-probe/cleanup-session"
+)
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "30"))
 SIMULATION_TIMEOUT = float(os.getenv("SIMULATION_TIMEOUT", "600"))
 VIEW_PLAN_TIMEOUT = float(os.getenv("VIEW_PLAN_TIMEOUT", "180"))

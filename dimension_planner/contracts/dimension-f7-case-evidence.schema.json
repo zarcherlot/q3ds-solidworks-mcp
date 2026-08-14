@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-dimension-f7-case-evidence-1.0.schema.json",
+  "title": "Dimension F7 Case Evidence 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "case_id", "category", "generated_at_utc",
+    "solidworks_revision", "execution_service_sha256", "capability_manifest_sha256",
+    "plan", "output", "frozen_inputs", "planned_dimension_ids", "planned_kinds",
+    "verified_dimension_ids", "stages", "invariants"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-f7-case-evidence" },
+    "schema_version": { "const": "1.0" },
+    "case_id": { "$ref": "#/$defs/id" },
+    "category": { "$ref": "#/$defs/category" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "execution_service_sha256": { "$ref": "#/$defs/sha256" },
+    "capability_manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "plan": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "plan_id", "path", "file_sha256", "canonical_sha256", "planning_request_sha256"
+      ],
+      "properties": {
+        "plan_id": { "$ref": "#/$defs/id" },
+        "path": { "type": "string", "minLength": 3 },
+        "file_sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_sha256": { "$ref": "#/$defs/sha256" },
+        "planning_request_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "verification_sidecar_path", "verification_sidecar_sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "verification_sidecar_path": { "type": "string", "minLength": 3 },
+        "verification_sidecar_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "frozen_inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "dimension_plan", "handoff", "source_model", "source_drawing",
+        "view_plan", "verification_sidecar"
+      ],
+      "properties": {
+        "dimension_plan": { "$ref": "#/$defs/sha256" },
+        "handoff": { "$ref": "#/$defs/sha256" },
+        "source_model": { "$ref": "#/$defs/sha256" },
+        "source_drawing": { "$ref": "#/$defs/sha256" },
+        "view_plan": { "$ref": "#/$defs/sha256" },
+        "verification_sidecar": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "planned_dimension_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" }
+    },
+    "planned_kinds": {
+      "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/kind" }
+    },
+    "verified_dimension_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" }
+    },
+    "stages": {
+      "type": "object", "additionalProperties": false,
+      "required": ["validate", "create", "verify"],
+      "properties": {
+        "validate": { "$ref": "#/$defs/stage" },
+        "create": { "$ref": "#/$defs/stage" },
+        "verify": { "$ref": "#/$defs/stage" }
+      }
+    },
+    "invariants": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "no_dangling", "no_duplicate", "no_unplanned", "source_hashes_unchanged",
+        "save_close_readonly_reopen", "independent_readonly_verify",
+        "persisted_fingerprint_match"
+      ],
+      "properties": {
+        "no_dangling": { "const": true },
+        "no_duplicate": { "const": true },
+        "no_unplanned": { "const": true },
+        "source_hashes_unchanged": { "const": true },
+        "save_close_readonly_reopen": { "const": true },
+        "independent_readonly_verify": { "const": true },
+        "persisted_fingerprint_match": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "category": { "enum": ["plate", "shaft_sleeve", "bracket", "flange", "slot_cavity", "threaded"] },
+    "kind": {
+      "enum": [
+        "linear", "aligned", "diameter", "radius", "angular", "reference",
+        "hole_diameter", "hole_depth", "hole_quantity", "hole_spacing",
+        "hole_group_location", "overall", "step", "boss", "slot", "chamfer",
+        "fillet", "symmetric"
+      ]
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ok", "status", "planning_request_sha256", "plan_canonical_sha256"],
+      "properties": {
+        "ok": { "const": true },
+        "status": { "enum": ["VALID", "COMPLETED"] },
+        "planning_request_sha256": { "$ref": "#/$defs/sha256" },
+        "plan_canonical_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

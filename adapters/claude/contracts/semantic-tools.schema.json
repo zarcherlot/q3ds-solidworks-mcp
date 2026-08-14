@@ -13,7 +13,14 @@
     "publish_validated_part_drawing_view_plan",
     "validate_part_drawing_view_plan",
     "create_part_drawing_from_view_plan",
-    "verify_part_drawing_view_plan"
+    "verify_part_drawing_view_plan",
+    "initialize_part_drawing_dimension_handoff",
+    "publish_validated_part_drawing_dimension_plan",
+    "validate_part_drawing_dimension_plan",
+    "qualify_dimensioned_part_drawing",
+    "verify_qualified_dimensioned_part_drawing",
+    "create_dimensioned_part_drawing",
+    "verify_dimensioned_part_drawing"
   ],
   "properties": {
     "solidworks_status": {
@@ -131,6 +138,50 @@
           }
         }
       }
+    },
+    "initialize_part_drawing_dimension_handoff": {
+      "$ref": "#/$defs/tool",
+      "properties": {
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "view_plan_path",
+            "verified_drawing_path",
+            "verification_sidecar_path",
+            "publication_directory"
+          ],
+          "properties": {
+            "view_plan_path": { "type": "string", "minLength": 1 },
+            "verified_drawing_path": { "type": "string", "minLength": 1 },
+            "verification_sidecar_path": { "type": "string", "minLength": 1 },
+            "publication_directory": { "type": "string", "minLength": 1 },
+            "approved_user_inputs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/approvedDimensionInput" },
+              "default": []
+            }
+          }
+        }
+      }
+    },
+    "publish_validated_part_drawing_dimension_plan": {
+      "$ref": "#/$defs/dimensionPlanRequestTool"
+    },
+    "validate_part_drawing_dimension_plan": {
+      "$ref": "#/$defs/dimensionPlanOutputTool"
+    },
+    "qualify_dimensioned_part_drawing": {
+      "$ref": "#/$defs/dimensionQualificationTool"
+    },
+    "verify_qualified_dimensioned_part_drawing": {
+      "$ref": "#/$defs/dimensionQualificationTool"
+    },
+    "create_dimensioned_part_drawing": {
+      "$ref": "#/$defs/dimensionPlanOutputTool"
+    },
+    "verify_dimensioned_part_drawing": {
+      "$ref": "#/$defs/dimensionPlanOutputTool"
     }
   },
   "$defs": {
@@ -179,6 +230,111 @@
           }
         }
       ]
+    },
+    "dimensionPlanRequestTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["plan", "request"],
+              "properties": {
+                "plan": { "$ref": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json" },
+                "request": { "$ref": "https://q3ds.local/contracts/dimension-planning-request.schema.json" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dimensionPlanOutputTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["plan", "request", "output_path"],
+              "properties": {
+                "plan": { "$ref": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json" },
+                "request": { "$ref": "https://q3ds.local/contracts/dimension-planning-request.schema.json" },
+                "output_path": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dimensionQualificationTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "plan", "request", "output_path", "matrix_request_path",
+                "matrix_request_sha256", "case_id"
+              ],
+              "properties": {
+                "plan": { "$ref": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json" },
+                "request": { "$ref": "https://q3ds.local/contracts/dimension-planning-request.schema.json" },
+                "output_path": { "type": "string", "minLength": 1 },
+                "matrix_request_path": { "type": "string", "minLength": 1 },
+                "matrix_request_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "case_id": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "approvedDimensionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_id", "source_tier", "approved_by", "approved_at_utc",
+        "approval_reference", "target_feature_ids", "value"
+      ],
+      "properties": {
+        "input_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "source_tier": { "const": "user_confirmed_input" },
+        "approved_at_utc": { "type": "string", "format": "date-time" },
+        "approved_by": { "type": "string", "minLength": 1 },
+        "approval_reference": { "type": "string", "minLength": 1 },
+        "value": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "quantity_kind", "value_si"],
+              "properties": {
+                "kind": { "const": "quantity" },
+                "quantity_kind": { "enum": ["length", "angle", "count"] },
+                "value_si": { "type": "number" }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "text"],
+              "properties": {
+                "kind": { "const": "exact_text" },
+                "text": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        },
+        "target_feature_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+          "uniqueItems": true
+        }
+      }
     }
   }
 }

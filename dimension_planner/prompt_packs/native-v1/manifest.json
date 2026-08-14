@@ -1,0 +1,14 @@
+{
+  "pack_id": "dimension-native-v1",
+  "pack_version": "1.0.0",
+  "protocol_id": "solidworks-dimension-plan",
+  "schema_version": "1.0",
+  "producer": {
+    "name": "q3ds-dimension-skill",
+    "version": "1.0.0",
+    "ruleset_id": "dimension-native-v1",
+    "ruleset_sha256": "acd222da51d4c4fdc997159193757dbf5a3cbe03e21b547c5985fab522ae6d1c"
+  },
+  "ruleset_hash_algorithm": "sha256(system.md bytes + LF---LF + task.md bytes)",
+  "files": ["system.md", "task.md"]
+}

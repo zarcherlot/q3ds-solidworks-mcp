@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-dimension-drawing-verification-1.0.schema.json",
+  "title": "Committed Dimension Drawing Verification 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "operation_id", "generated_at_utc", "plan_id",
+    "plan_file_path", "plan_file_sha256", "plan_canonical_sha256", "output_path",
+    "artifact_sha256", "verified", "dimension_handles", "in_memory_verification",
+    "reopen_verification", "frozen_inputs"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-drawing-verification" },
+    "schema_version": { "const": "1.0" },
+    "operation_id": { "$ref": "#/$defs/nonEmpty" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "plan_file_path": { "$ref": "#/$defs/nonEmpty" },
+    "plan_file_sha256": { "$ref": "#/$defs/sha256" },
+    "plan_canonical_sha256": { "$ref": "#/$defs/sha256" },
+    "output_path": { "$ref": "#/$defs/nonEmpty" },
+    "artifact_sha256": { "$ref": "#/$defs/sha256" },
+    "verified": { "const": true },
+    "dimension_handles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "in_memory_verification": { "$ref": "#/$defs/verification" },
+    "reopen_verification": { "$ref": "#/$defs/verification" },
+    "frozen_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension_plan", "handoff", "source_model", "source_drawing", "view_plan",
+        "verification_sidecar"
+      ],
+      "properties": {
+        "dimension_plan": { "$ref": "#/$defs/sha256" },
+        "handoff": { "$ref": "#/$defs/sha256" },
+        "source_model": { "$ref": "#/$defs/sha256" },
+        "source_drawing": { "$ref": "#/$defs/sha256" },
+        "view_plan": { "$ref": "#/$defs/sha256" },
+        "verification_sidecar": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "actual_total_count", "baseline_count", "planned_count", "dimensions"],
+      "properties": {
+        "verified": { "const": true },
+        "actual_total_count": { "type": "integer", "minimum": 1 },
+        "baseline_count": { "type": "integer", "minimum": 0 },
+        "planned_count": { "type": "integer", "minimum": 1 },
+        "dimensions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/dimension" } }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension_id", "view", "selection_name", "full_name", "native_type",
+        "is_hole_callout", "value_si", "position_sheet_m", "prefix", "suffix", "text", "precision",
+        "driven_state", "use_document_units", "unit", "show_parentheses", "display_as_chain",
+        "hole_callout_variables", "tolerance",
+        "model_persistent_references"
+      ],
+      "properties": {
+        "dimension_id": { "$ref": "#/$defs/id" },
+        "view": { "$ref": "#/$defs/nonEmpty" },
+        "selection_name": { "$ref": "#/$defs/nonEmpty" },
+        "full_name": { "type": "string" },
+        "native_type": { "type": "integer" },
+        "is_hole_callout": { "type": "boolean" },
+        "value_si": { "type": ["number", "null"] },
+        "position_sheet_m": {
+          "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "items": false, "minItems": 2, "maxItems": 2
+        },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" },
+        "text": { "type": "string" },
+        "precision": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "driven_state": { "type": "integer" },
+        "use_document_units": { "type": "boolean" },
+        "unit": { "type": "integer" },
+        "show_parentheses": { "type": "boolean" },
+        "display_as_chain": { "type": "boolean" },
+        "hole_callout_variables": {
+          "type": "array", "items": { "$ref": "#/$defs/nativeHoleCalloutVariable" }
+        },
+        "tolerance": {
+          "oneOf": [{ "$ref": "#/$defs/nativeTolerance" }, { "type": "null" }]
+        },
+        "model_persistent_references": {
+          "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "nativeHoleCalloutVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable_name", "user_readable_name", "type", "variable_type", "tolerance_type",
+        "tolerance_minimum_si", "tolerance_maximum_si", "show_parentheses", "hole_fit",
+        "shaft_fit", "fit_type", "value_kind", "value", "precision", "tolerance_precision"
+      ],
+      "properties": {
+        "variable_name": { "type": "string" },
+        "user_readable_name": { "type": "string" },
+        "type": { "type": "integer" },
+        "variable_type": { "type": "integer" },
+        "tolerance_type": { "type": "integer" },
+        "tolerance_minimum_si": { "type": "number" },
+        "tolerance_maximum_si": { "type": "number" },
+        "show_parentheses": { "type": "boolean" },
+        "hole_fit": { "type": "string" },
+        "shaft_fit": { "type": "string" },
+        "fit_type": { "type": "integer" },
+        "value_kind": { "enum": ["none", "length", "angle", "string"] },
+        "value": { "type": ["number", "string", "null"] },
+        "precision": { "type": ["integer", "null"] },
+        "tolerance_precision": { "type": ["integer", "null"] }
+      }
+    },
+    "nativeTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type", "minimum_valid", "maximum_valid", "minimum_si", "maximum_si",
+        "hole_fit", "shaft_fit"
+      ],
+      "properties": {
+        "type": { "type": "integer" },
+        "minimum_valid": { "type": "boolean" },
+        "maximum_valid": { "type": "boolean" },
+        "minimum_si": { "type": "number" },
+        "maximum_si": { "type": "number" },
+        "hole_fit": { "type": "string" },
+        "shaft_fit": { "type": "string" }
+      }
+    }
+  }
+}

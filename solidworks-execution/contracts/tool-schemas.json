@@ -872,6 +872,84 @@
         },
         "output": "-> see execution-response.json; result_geometry contains the independent read-only snapshot, drawing hash, plan hash, and audit-sidecar path."
     },
+    "validate_frozen_part_drawing_dimension_plan": {
+        "description": "PRIVATE COM-FREE EXECUTOR ENTRY: validate the locked DimensionPlan 1.0 Schema, published plan path/hash, immutable F1 handoff, five upstream artifacts, complete F4/F5 native compiler union, approved tolerance provenance, new output paths, and live capability promotion state without contacting SolidWorks.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, complete solidworks-dimension-plan schema 1.0 object)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, absolute new .SLDDRW path; sidecar must also be new)"
+            }
+        },
+        "output": "-> see execution-response.json; contract/preflight-valid results include plan hashes and execution_readiness supported/capability_blocked with solidworks_contacted=false."
+    },
+    "execute_part_drawing_dimension_plan": {
+        "description": "PRIVATE MUTATING EXECUTOR ENTRY: execute one immutable DimensionPlan 1.0 only after every required capability has live evidence. Copies the verified upstream drawing with CopyDocument, creates only planned F4/F5 native dimensions and trusted tolerances, verifies text/hole variables/tolerance/attachments in memory, saves/closes/reopens read-only, exactly re-verifies, and atomically commits a new drawing plus sidecar without modifying frozen inputs.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact structured copy of plan_path)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, absolute new .SLDDRW path; sidecar must also be new)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains immutable-input hashes, created dimension handles, in-memory/reopen snapshots, output hash and sidecar path."
+    },
+    "verify_committed_part_drawing_dimension_plan": {
+        "description": "PRIVATE READ-ONLY EXECUTOR ENTRY: independently reopen and verify one committed DimensionPlan 1.0 drawing. Revalidates the exact published plan, frozen inputs, artifact and sidecar hashes, then checks persisted dimension identity, count, text, hole-callout variables, tolerance and attachment evidence without saving or mutating state.",
+        "input": {
+            "operation_id": "string (required, unique request id)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact structured copy of plan_path)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, existing absolute committed .SLDDRW path with dimension-verification sidecar)"
+            }
+        },
+        "output": "-> see execution-response.json; verified result_geometry contains the independent read-only reopen snapshot and immutable artifact/plan hashes."
+    },
+    "qualify_part_drawing_dimension_plan": {
+        "description": "PRIVATE F7 QUALIFICATION ENTRY: execute one immutable matrix-bound DimensionPlan 1.0 while its required capabilities are planned. Known-unsupported capabilities fail before COM. This evidence-only transaction never changes the production capability registry.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact structured copy of plan_path)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, exact all-new output declared by the F7 case)",
+                "matrix_request_path": "string (required, immutable absolute F7 matrix request)",
+                "matrix_request_sha256": "string (required, SHA-256 of matrix_request_path)",
+                "planning_request_sha256": "string (required, unchanged original request hash)",
+                "case_id": "string (required, unique matrix case identity)"
+            }
+        },
+        "output": "-> see execution-response.json; successful evidence includes normal transaction readbacks plus an immutable qualification binding and capability_registry_promoted=false."
+    },
+    "verify_qualified_part_drawing_dimension_plan": {
+        "description": "PRIVATE READ-ONLY F7 QUALIFICATION VERIFIER: independently reopen one qualification drawing after revalidating the exact matrix, plan, request, output and sidecar bindings. Planned capabilities are eligible; known-unsupported capabilities fail before COM.",
+        "input": {
+            "operation_id": "string (required, unique request id)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact structured copy of plan_path)",
+                "plan_path": "string (required, existing absolute immutable dimension_plan.json path)",
+                "plan_sha256": "string (required, SHA-256 of plan_path)",
+                "output_path": "string (required, existing exact output declared by the F7 case)",
+                "matrix_request_path": "string (required, immutable absolute F7 matrix request)",
+                "matrix_request_sha256": "string (required, SHA-256 of matrix_request_path)",
+                "planning_request_sha256": "string (required, unchanged original request hash)",
+                "case_id": "string (required, unique matrix case identity)"
+            }
+        },
+        "output": "-> see execution-response.json; successful evidence includes the independent read-only snapshot, immutable qualification binding and capability_registry_promoted=false."
+    },
     "execute_drawing_plan": {
         "description": "INTERNAL EXECUTOR ENTRY: validate and transactionally execute one frozen schema-1.0 part drawing plan. Creates views through private atomic COM operations, rebuilds, saves to a same-directory transaction file, closes, reopens read-only, verifies, then atomically commits the .SLDDRW plus a verification sidecar.",
         "input": {

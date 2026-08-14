@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/dimension-executor-capabilities.schema.json",
+  "title": "DimensionPlan 1.0 Executor Capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "registry_version", "executor",
+    "executor_version", "plan_protocol_id", "plan_schema_version",
+    "solidworks_target", "solidworks_revision", "promotion_policy",
+    "live_evidence", "capabilities", "dimension_types", "elements"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-executor-capabilities" },
+    "schema_version": { "const": "1.0" },
+    "registry_version": { "$ref": "#/$defs/version" },
+    "executor": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "executor_version": { "$ref": "#/$defs/version" },
+    "plan_protocol_id": { "const": "solidworks-dimension-plan" },
+    "plan_schema_version": { "const": "1.0" },
+    "solidworks_target": { "const": "2025 SP5" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "promotion_policy": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "live_evidence": {
+      "oneOf": [{ "$ref": "#/$defs/liveEvidence" }, { "type": "null" }]
+    },
+    "capabilities": {
+      "type": "array", "minItems": 14, "maxItems": 14,
+      "prefixItems": [
+        { "$ref": "#/$defs/probeModelImport" },
+        { "$ref": "#/$defs/probeIteration" },
+        { "$ref": "#/$defs/probeAttachment" },
+        { "$ref": "#/$defs/probePosition" },
+        { "$ref": "#/$defs/probeBounds" },
+        { "$ref": "#/$defs/probeLinear" },
+        { "$ref": "#/$defs/probeDiameter" },
+        { "$ref": "#/$defs/probeRadius" },
+        { "$ref": "#/$defs/probeAngular" },
+        { "$ref": "#/$defs/probeHole" },
+        { "$ref": "#/$defs/probeChamfer" },
+        { "$ref": "#/$defs/probeTolerance" },
+        { "$ref": "#/$defs/probeText" },
+        { "$ref": "#/$defs/probeIdentity" }
+      ],
+      "items": false
+    },
+    "dimension_types": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "linear", "aligned", "diameter", "radius", "angular", "reference",
+        "hole_diameter", "hole_depth", "hole_quantity", "hole_spacing",
+        "hole_group_location", "overall", "step", "boss", "slot", "chamfer",
+        "fillet", "symmetric"
+      ],
+      "properties": {
+        "linear": { "$ref": "#/$defs/capability" },
+        "aligned": { "$ref": "#/$defs/capability" },
+        "diameter": { "$ref": "#/$defs/capability" },
+        "radius": { "$ref": "#/$defs/capability" },
+        "angular": { "$ref": "#/$defs/capability" },
+        "reference": { "$ref": "#/$defs/capability" },
+        "hole_diameter": { "$ref": "#/$defs/capability" },
+        "hole_depth": { "$ref": "#/$defs/capability" },
+        "hole_quantity": { "$ref": "#/$defs/capability" },
+        "hole_spacing": { "$ref": "#/$defs/capability" },
+        "hole_group_location": { "$ref": "#/$defs/capability" },
+        "overall": { "$ref": "#/$defs/capability" },
+        "step": { "$ref": "#/$defs/capability" },
+        "boss": { "$ref": "#/$defs/capability" },
+        "slot": { "$ref": "#/$defs/capability" },
+        "chamfer": { "$ref": "#/$defs/capability" },
+        "fillet": { "$ref": "#/$defs/capability" },
+        "symmetric": { "$ref": "#/$defs/capability" }
+      }
+    },
+    "elements": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "model_dimension_import", "attachment_persistent_reference",
+        "annotation_position", "annotation_text_bounds", "dimension_tolerance",
+        "dimension_prefix_suffix", "save_reopen_stable_identity"
+      ],
+      "properties": {
+        "model_dimension_import": { "$ref": "#/$defs/capability" },
+        "attachment_persistent_reference": { "$ref": "#/$defs/capability" },
+        "annotation_position": { "$ref": "#/$defs/capability" },
+        "annotation_text_bounds": { "$ref": "#/$defs/capability" },
+        "dimension_tolerance": { "$ref": "#/$defs/capability" },
+        "dimension_prefix_suffix": { "$ref": "#/$defs/capability" },
+        "save_reopen_stable_identity": { "$ref": "#/$defs/capability" }
+      }
+    }
+  },
+  "$defs": {
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "liveEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["summary_sha256", "solidworks_revision"],
+      "properties": {
+        "summary_sha256": { "$ref": "#/$defs/sha256" },
+        "solidworks_revision": { "const": "33.5.0" }
+      }
+    },
+    "capability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "reason", "verification", "evidence_sha256"],
+      "properties": {
+        "status": { "enum": ["supported", "planned", "unsupported"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "verification": { "enum": ["none", "unit", "live"] },
+        "evidence_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "enum": ["supported", "unsupported"] } } },
+          "then": {
+            "properties": {
+              "verification": { "const": "live" },
+              "evidence_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "planned" } } },
+          "then": { "properties": { "evidence_sha256": { "type": "null" } } }
+        }
+      ]
+    },
+    "probe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "enum": ["supported", "planned", "unsupported"] }
+      }
+    },
+    "probeModelImport": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "model_dimension_import" } } }] },
+    "probeIteration": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "display_dimension_iteration" } } }] },
+    "probeAttachment": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "attachment_persistent_reference" } } }] },
+    "probePosition": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "annotation_position" } } }] },
+    "probeBounds": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "annotation_text_bounds" } } }] },
+    "probeLinear": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "linear_dimension" } } }] },
+    "probeDiameter": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "diameter_dimension" } } }] },
+    "probeRadius": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "radius_dimension" } } }] },
+    "probeAngular": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "angular_dimension" } } }] },
+    "probeHole": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "hole_callout" } } }] },
+    "probeChamfer": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "chamfer_dimension" } } }] },
+    "probeTolerance": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "dimension_tolerance" } } }] },
+    "probeText": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "dimension_prefix_suffix" } } }] },
+    "probeIdentity": { "allOf": [{ "$ref": "#/$defs/probe" }, { "properties": { "id": { "const": "save_reopen_stable_identity" } } }] }
+  }
+}
