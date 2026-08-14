@@ -483,6 +483,39 @@ def test_coverage_gate_rejects_unexpressed_manufacturing_feature(tmp_path: Path)
     assert result.issues[0].code == "DP-COVERAGE-FEATURE-MISSING"
 
 
+def test_coverage_gate_rejects_omitted_model_dimension_marked_for_drawing(
+    tmp_path: Path,
+) -> None:
+    plan, request, handoff = _fixture(tmp_path)
+    handoff["model_driven_dimensions"][0].update(
+        native_type=2,
+        marked_for_drawing=True,
+        reference_dimension=False,
+        manufacturing_requirement=True,
+        owner_feature_id="MF-1",
+        owner_feature_name="Sketch1",
+        owner_feature_type="ProfileFeature",
+        owner_feature_persistent_reference="Cg==",
+    )
+    handoff["model_driven_dimensions"].append(
+        {
+            **handoff["model_driven_dimensions"][0],
+            "dimension_id": "MD-2",
+            "full_name": "D2@Sketch1@part.SLDPRT",
+            "value_si": 0.02,
+        }
+    )
+    request = _republish_handoff(plan, request, handoff)
+
+    result = RepositoryDimensionPlanValidator().validate(plan, request)
+
+    assert result.semantics == "pass"
+    assert result.coverage == "fail"
+    assert [row.code for row in result.issues] == [
+        "DP-COVERAGE-MODEL-DIMENSION-MISSING"
+    ]
+
+
 def test_redundancy_gate_rejects_duplicate_and_closed_chain(tmp_path: Path) -> None:
     plan, request, _ = _fixture(tmp_path)
     duplicate = _dimension(2)

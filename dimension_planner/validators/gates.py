@@ -432,6 +432,29 @@ class DimensionSemanticsValidator:
 class DimensionCoverageValidator:
     def validate(self, plan, handoff) -> tuple[DimensionValidationIssue, ...]:
         issues: list[DimensionValidationIssue] = []
+        consumed_model_dimensions = {
+            source_id
+            for dimension in plan["dimensions"]
+            if dimension["hierarchy"]["level"] != "reference"
+            and dimension["source"]["source_tier"] == "model_or_pmi"
+            and dimension["source"]["handoff_collection"]
+            == "model_driven_dimensions"
+            for source_id in dimension["source"]["source_ids"]
+        }
+        for model_dimension in handoff["model_driven_dimensions"]:
+            if (
+                model_dimension.get("manufacturing_requirement") is True
+                and model_dimension["dimension_id"] not in consumed_model_dimensions
+            ):
+                issues.append(
+                    issue(
+                        "DP-COVERAGE-MODEL-DIMENSION-MISSING",
+                        "coverage",
+                        "model dimension marked for drawing has no non-reference "
+                        "DimensionPlan entry: " + model_dimension["dimension_id"],
+                        "/dimensions",
+                    )
+                )
         covered_features = {
             feature_id
             for dimension in plan["dimensions"]
@@ -684,4 +707,3 @@ def _duplicates(rows, key: str) -> tuple[str, ...]:
         if isinstance(row, Mapping) and isinstance(row.get(key), str)
     )
     return tuple(sorted(value for value, count in counts.items() if count > 1))
-

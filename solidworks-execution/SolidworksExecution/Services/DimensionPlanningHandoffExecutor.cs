@@ -95,10 +95,12 @@ namespace SolidworksExecution.Services
                 drawingContext["path"] = request.VerifiedDrawing.Path;
                 JArray modelDimensions = ReadModelDimensions(sourceModel);
                 JArray pmi = ReadModelAnnotations(sourceModel);
-                JArray features = ReadManufacturingFeatures(sourceModel);
+                JArray features = ReadManufacturingFeatures(sourceModel, modelDimensions);
 
                 EnsureClean(sourceModel, "source model after readback");
                 EnsureClean(drawingModel, "verified drawing after readback");
+                AddModelDimensionImportCandidates(drawingModel, drawing, sourceModel,
+                    views, modelDimensions);
 
                 Close(drawingModel);
                 drawingModel = null;
@@ -163,7 +165,10 @@ namespace SolidworksExecution.Services
                     ["view_count"] = views.Count,
                     ["model_dimension_count"] = modelDimensions.Count,
                     ["pmi_annotation_count"] = pmi.Count,
-                    ["manufacturing_feature_count"] = features.Count
+                    ["manufacturing_feature_count"] = features.Count,
+                    ["model_dimension_import_candidate_count"] =
+                        modelDimensions.OfType<JObject>().Sum(row =>
+                            (row["import_candidates"] as JArray ?? new JArray()).Count)
                 };
             }
             finally
@@ -489,14 +494,46 @@ namespace SolidworksExecution.Services
                         {
                             double value = DimensionValue(dimension);
                             if (!Double.IsNaN(value) && !Double.IsInfinity(value))
+                            {
+                                bool markedForDrawing = false;
+                                bool referenceDimension = false;
+                                int nativeType = 0;
+                                IFeature owner = null;
+                                try { markedForDrawing = display.MarkedForDrawing; } catch { }
+                                try { referenceDimension = display.IsReferenceDim(); } catch { }
+                                try { nativeType = display.Type2; } catch { }
+                                try { owner = dimension.GetFeatureOwner() as IFeature; } catch { }
+                                string ownerName = owner != null ? owner.Name ?? "" : "";
+                                string ownerType = owner != null
+                                    ? owner.GetTypeName2() ?? owner.GetTypeName() ?? "" : "";
+                                string ownerId = owner != null
+                                    ? "MF-" + StableToken(ownerName + "|" + ownerType) : null;
+                                string ownerReference = owner != null
+                                    ? PersistReference(model.Extension, owner) : null;
                                 result.Add(new JObject
                                 {
                                     ["dimension_id"] = "MD-" + StableToken(fullName),
                                     ["full_name"] = fullName,
                                     ["value_si"] = Round(value),
+                                    ["native_type"] = nativeType,
+                                    ["marked_for_drawing"] = markedForDrawing,
+                                    ["reference_dimension"] = referenceDimension,
+                                    ["manufacturing_requirement"] =
+                                        markedForDrawing && !referenceDimension,
+                                    ["owner_feature_id"] = ownerId != null
+                                        ? (JToken)ownerId : JValue.CreateNull(),
+                                    ["owner_feature_name"] = owner != null
+                                        ? (JToken)ownerName : JValue.CreateNull(),
+                                    ["owner_feature_type"] = owner != null
+                                        ? (JToken)ownerType : JValue.CreateNull(),
+                                    ["owner_feature_persistent_reference"] =
+                                        ownerReference != null
+                                        ? (JToken)ownerReference : JValue.CreateNull(),
+                                    ["import_candidates"] = new JArray(),
                                     ["source_tier"] = "model_or_pmi",
                                     ["provenance"] = "model_driven_dimension"
                                 });
+                            }
                         }
                     }
                     current = next;
@@ -506,6 +543,174 @@ namespace SolidworksExecution.Services
             if (featureGuard >= 100000) throw new InvalidOperationException(
                 "DIMENSION_HANDOFF_FEATURE_ITERATION_LIMIT");
             return result;
+        }
+
+        private static void AddModelDimensionImportCandidates(IModelDoc2 drawingModel,
+            IDrawingDoc drawing, IModelDoc2 sourceModel, JArray views,
+            JArray modelDimensions)
+        {
+            var dimensionsByName = modelDimensions.OfType<JObject>()
+                .Where(row => !String.IsNullOrWhiteSpace(row.Value<string>("full_name")))
+                .ToDictionary(row => row.Value<string>("full_name"), row => row,
+                    StringComparer.Ordinal);
+            var viewRowsByName = views.OfType<JObject>()
+                .Where(row => !String.IsNullOrWhiteSpace(
+                    row.Value<string>("solidworks_name")))
+                .ToDictionary(row => row.Value<string>("solidworks_name"), row => row,
+                    StringComparer.Ordinal);
+            var baselineNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JObject viewRow in viewRowsByName.Values)
+            {
+                IView view = FindView(drawing,
+                    viewRow.Value<string>("solidworks_name"));
+                if (view == null) continue;
+                object cursor = view.GetFirstDisplayDimension5();
+                int guard = 0;
+                while (cursor != null && guard++ < 10000)
+                {
+                    var display = cursor as IDisplayDimension;
+                    cursor = display != null ? display.GetNext5() : null;
+                    string name = DisplaySelectionName(display);
+                    if (!String.IsNullOrWhiteSpace(name)) baselineNames.Add(name);
+                }
+                if (guard >= 10000) throw new InvalidOperationException(
+                    "DIMENSION_HANDOFF_BASELINE_DIMENSION_ITERATION_LIMIT");
+            }
+
+            drawingModel.ClearSelection2(true);
+            int types = (int)swInsertAnnotation_e.swInsertDimensionsMarkedForDrawing |
+                (int)swInsertAnnotation_e.swInsertDimensionsNotMarkedForDrawing |
+                (int)swInsertAnnotation_e.swInsertHoleWizardProfileDimensions |
+                (int)swInsertAnnotation_e.swInsertHoleWizardLocationDimensions |
+                (int)swInsertAnnotation_e.swInsertholeCallout |
+                (int)swInsertAnnotation_e.swInsertTolerancedDims;
+            drawing.InsertModelAnnotations3(
+                (int)swImportModelItemsSource_e.swImportModelItemsFromEntireModel,
+                types, true, true, false, true);
+            drawingModel.ForceRebuild3(false);
+
+            var importedAnnotations = new List<IAnnotation>();
+            foreach (KeyValuePair<string, JObject> pair in viewRowsByName)
+            {
+                IView view = FindView(drawing, pair.Key);
+                if (view == null) continue;
+                JObject viewRow = pair.Value;
+                var entityIdsByReference = viewRow["projected_geometry"]
+                    .OfType<JObject>()
+                    .Where(row => !String.IsNullOrWhiteSpace(
+                        row.Value<string>("model_persistent_reference")))
+                    .GroupBy(row => row.Value<string>("model_persistent_reference"),
+                        StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key,
+                        group => group.Select(row => row.Value<string>("entity_id"))
+                            .Where(value => !String.IsNullOrWhiteSpace(value)).ToList(),
+                        StringComparer.Ordinal);
+                object cursor = view.GetFirstDisplayDimension5();
+                int guard = 0;
+                while (cursor != null && guard++ < 10000)
+                {
+                    var display = cursor as IDisplayDimension;
+                    cursor = display != null ? display.GetNext5() : null;
+                    if (display == null) continue;
+                    string selectionName = DisplaySelectionName(display);
+                    if (baselineNames.Contains(selectionName)) continue;
+                    IAnnotation annotation = display.GetAnnotation() as IAnnotation;
+                    if (annotation != null) importedAnnotations.Add(annotation);
+                    IDimension dimension = null;
+                    try { dimension = display.GetDimension2(0) as IDimension; } catch { }
+                    string fullName = dimension != null ? dimension.FullName ?? "" : "";
+                    JObject source;
+                    if (!dimensionsByName.TryGetValue(fullName, out source)) continue;
+                    var references = new List<string>();
+                    Array attached = annotation != null
+                        ? annotation.GetAttachedEntities3() as Array : null;
+                    if (attached != null)
+                        foreach (object entity in attached)
+                        {
+                            byte[] bytes = ToByteArray(
+                                sourceModel.Extension.GetPersistReference3(entity));
+                            if (bytes != null && bytes.Length > 0)
+                                references.Add(Convert.ToBase64String(bytes));
+                        }
+                    if (references.Count == 0) continue;
+                    var consumedByReference = new Dictionary<string, int>(
+                        StringComparer.Ordinal);
+                    var entityIds = new JArray();
+                    bool complete = true;
+                    foreach (string reference in references)
+                    {
+                        List<string> candidates;
+                        int used;
+                        consumedByReference.TryGetValue(reference, out used);
+                        if (!entityIdsByReference.TryGetValue(reference, out candidates) ||
+                            candidates.Count == 0)
+                        {
+                            complete = false;
+                            break;
+                        }
+                        entityIds.Add(candidates[Math.Min(used, candidates.Count - 1)]);
+                        consumedByReference[reference] = used + 1;
+                    }
+                    double[] position = annotation != null
+                        ? annotation.GetPosition() as double[] : null;
+                    if (!complete || position == null || position.Length < 2 ||
+                        position.Take(2).Any(value => Double.IsNaN(value) ||
+                            Double.IsInfinity(value))) continue;
+                    (source["import_candidates"] as JArray).Add(new JObject
+                    {
+                        ["view_id"] = viewRow.Value<string>("view_id"),
+                        ["native_type"] = display.Type2,
+                        ["is_hole_callout"] = display.IsHoleCallout(),
+                        ["position_sheet_m"] = new JArray(
+                            Round(position[0]), Round(position[1])),
+                        ["attachment_entity_ids"] = entityIds,
+                        ["model_persistent_references"] = new JArray(references)
+                    });
+                }
+                if (guard >= 10000) throw new InvalidOperationException(
+                    "DIMENSION_HANDOFF_IMPORTED_DIMENSION_ITERATION_LIMIT");
+            }
+            foreach (IAnnotation annotation in importedAnnotations)
+            {
+                drawingModel.ClearSelection2(true);
+                if (annotation == null || !annotation.Select3(false, null))
+                    throw new InvalidOperationException(
+                        "DIMENSION_HANDOFF_IMPORT_PROBE_DELETE_FAILED");
+                drawingModel.EditDelete();
+            }
+            drawingModel.ClearSelection2(true);
+        }
+
+        private static IView FindView(IDrawingDoc drawing, string name)
+        {
+            object cursor = drawing.GetFirstView();
+            int guard = 0;
+            while (cursor != null && guard++ < 2000)
+            {
+                var view = cursor as IView;
+                cursor = view != null ? view.GetNextView() : null;
+                if (view != null && String.Equals(view.Name, name,
+                    StringComparison.Ordinal)) return view;
+            }
+            return null;
+        }
+
+        private static string DisplaySelectionName(IDisplayDimension display)
+        {
+            try { return display != null ? display.GetNameForSelection() ?? "" : ""; }
+            catch { return ""; }
+        }
+
+        private static byte[] ToByteArray(object raw)
+        {
+            byte[] bytes = raw as byte[];
+            Array array = raw as Array;
+            if (bytes != null || array == null) return bytes;
+            bytes = new byte[array.Length];
+            for (int index = 0; index < array.Length; index++)
+                bytes[index] = Convert.ToByte(array.GetValue(index),
+                    CultureInfo.InvariantCulture);
+            return bytes;
         }
 
         private static JArray ReadModelAnnotations(IModelDoc2 model)
@@ -540,9 +745,11 @@ namespace SolidworksExecution.Services
             return result;
         }
 
-        private static JArray ReadManufacturingFeatures(IModelDoc2 model)
+        private static JArray ReadManufacturingFeatures(IModelDoc2 model,
+            JArray modelDimensions)
         {
             var result = new JArray();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
             IFeature feature = model.FirstFeature() as IFeature;
             int guard = 0;
             while (feature != null && guard++ < 100000)
@@ -551,15 +758,15 @@ namespace SolidworksExecution.Services
                 string classification = ClassifyFeature(type, feature.Name);
                 if (classification != null)
                 {
+                    string featureId = "MF-" + StableToken(feature.Name + "|" + type);
                     string persist = PersistReference(model.Extension, feature);
                     if (String.IsNullOrEmpty(persist))
                         throw new InvalidOperationException(
                             "DIMENSION_HANDOFF_FEATURE_REFERENCE_MISSING: " +
                             feature.Name);
-                    result.Add(new JObject
+                    if (seen.Add(featureId)) result.Add(new JObject
                     {
-                        ["feature_id"] = "MF-" + StableToken(
-                            feature.Name + "|" + type),
+                        ["feature_id"] = featureId,
                         ["name"] = feature.Name,
                         ["type_name"] = type,
                         ["classification"] = classification,
@@ -571,6 +778,27 @@ namespace SolidworksExecution.Services
             }
             if (guard >= 100000) throw new InvalidOperationException(
                 "DIMENSION_HANDOFF_FEATURE_ITERATION_LIMIT");
+            foreach (JObject dimension in modelDimensions.OfType<JObject>())
+            {
+                string featureId = dimension.Value<string>("owner_feature_id");
+                string name = dimension.Value<string>("owner_feature_name");
+                string type = dimension.Value<string>("owner_feature_type");
+                string persist = dimension.Value<string>(
+                    "owner_feature_persistent_reference");
+                if (String.IsNullOrWhiteSpace(featureId) ||
+                    String.IsNullOrWhiteSpace(name) ||
+                    String.IsNullOrWhiteSpace(type) ||
+                    String.IsNullOrWhiteSpace(persist) || !seen.Add(featureId)) continue;
+                result.Add(new JObject
+                {
+                    ["feature_id"] = featureId,
+                    ["name"] = name,
+                    ["type_name"] = type,
+                    ["classification"] = "model_feature",
+                    ["persistent_reference"] = persist,
+                    ["source_tier"] = "model_or_pmi"
+                });
+            }
             return result;
         }
 

@@ -284,6 +284,24 @@ def test_dimension_handoff_preserves_distinct_projected_edges():
     assert 'viewId + "|" + measurementKind + "|" + entityId' in executor
 
 
+def test_dimension_handoff_freezes_model_dimension_drawing_intent():
+    with open(_DIMENSION_HANDOFF_EXECUTOR, encoding="utf-8-sig") as handle:
+        executor = handle.read()
+
+    assert "display.MarkedForDrawing" in executor
+    assert "display.IsReferenceDim()" in executor
+    assert '"manufacturing_requirement"' in executor
+    assert "markedForDrawing && !referenceDimension" in executor
+    assert "dimension.GetFeatureOwner()" in executor
+    assert '"owner_feature_id"' in executor
+    assert "ReadManufacturingFeatures(sourceModel, modelDimensions)" in executor
+    assert "AddModelDimensionImportCandidates(drawingModel, drawing, sourceModel," in executor
+    assert "drawing.InsertModelAnnotations3(" in executor
+    assert '"import_candidates"' in executor
+    assert '"attachment_entity_ids"' in executor
+    assert "DIMENSION_HANDOFF_IMPORT_PROBE_DELETE_FAILED" in executor
+
+
 def test_dimension_reopen_readback_retries_transient_server_fault_as_one_snapshot():
     with open(_DIMENSION_NATIVE_EXECUTOR, encoding="utf-8-sig") as handle:
         executor = handle.read()

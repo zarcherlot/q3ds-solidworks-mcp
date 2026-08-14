@@ -172,8 +172,42 @@
         "dimension_id": { "$ref": "#/$defs/id" },
         "full_name": { "type": "string", "minLength": 1 },
         "value_si": { "type": "number" },
+        "native_type": { "type": "integer" },
+        "marked_for_drawing": { "type": "boolean" },
+        "reference_dimension": { "type": "boolean" },
+        "manufacturing_requirement": { "type": "boolean" },
+        "owner_feature_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "owner_feature_name": { "type": ["string", "null"] },
+        "owner_feature_type": { "type": ["string", "null"] },
+        "owner_feature_persistent_reference": { "type": ["string", "null"] },
+        "import_candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelDimensionImportCandidate" }
+        },
         "source_tier": { "const": "model_or_pmi" },
         "provenance": { "const": "model_driven_dimension" }
+      }
+    },
+    "modelDimensionImportCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view_id", "native_type", "is_hole_callout", "position_sheet_m",
+        "attachment_entity_ids", "model_persistent_references"
+      ],
+      "properties": {
+        "view_id": { "$ref": "#/$defs/id" },
+        "native_type": { "type": "integer" },
+        "is_hole_callout": { "type": "boolean" },
+        "position_sheet_m": { "$ref": "#/$defs/point2" },
+        "attachment_entity_ids": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "model_persistent_references": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
       }
     },
     "pmiAnnotation": {
