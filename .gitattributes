@@ -7,6 +7,8 @@
 /drawing_planner/capabilities/*.json text eol=lf
 /drawing_planner/contracts/*.json text eol=lf
 /drawing_planner/prompt_packs/** text eol=lf
+/dimension_planner/contracts/*.json text eol=lf
+/dimension_planner/prompt_packs/** text eol=lf
 /solidworks-execution/**/*.cs text eol=lf
 /solidworks-execution/**/*.csproj text eol=lf
 
