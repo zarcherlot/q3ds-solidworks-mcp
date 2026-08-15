@@ -455,7 +455,9 @@ def test_attachment_gate_rejects_invisible_entity(tmp_path: Path) -> None:
     assert result.semantics == "not_run"
 
 
-def test_semantics_gate_rejects_invalid_attachment_arity(tmp_path: Path) -> None:
+def test_native_model_import_allows_single_resolved_attachment_identity(
+    tmp_path: Path,
+) -> None:
     plan, request, _ = _fixture(tmp_path)
     second = plan["dimensions"][0]["attachments"][1]
     second.update(
@@ -464,8 +466,7 @@ def test_semantics_gate_rejects_invalid_attachment_arity(tmp_path: Path) -> None
     )
     result = RepositoryDimensionPlanValidator().validate(plan, request)
     assert result.attachment == "pass"
-    assert result.semantics == "fail"
-    assert result.issues[0].code == "DP-SEMANTICS-ATTACHMENT-ARITY"
+    assert result.semantics == "pass"
 
 
 def test_coverage_gate_rejects_unexpressed_manufacturing_feature(tmp_path: Path) -> None:

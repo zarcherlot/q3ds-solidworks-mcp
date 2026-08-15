@@ -61,10 +61,14 @@ namespace SolidworksExecution.Contracts
                     source["measurement_ids"]);
                 bool importModelDimension = string.Equals(tier, "model_or_pmi",
                     StringComparison.Ordinal) && string.Equals(collection,
-                    "model_driven_dimensions", StringComparison.Ordinal);
+                    "model_driven_dimensions", StringComparison.Ordinal) &&
+                    !string.Equals(kind, "hole_quantity", StringComparison.Ordinal);
                 if (string.Equals(tier, "model_or_pmi", StringComparison.Ordinal) &&
                     !importModelDimension && !string.Equals(collection,
-                    "manufacturing_features", StringComparison.Ordinal))
+                    "manufacturing_features", StringComparison.Ordinal) &&
+                    !(string.Equals(kind, "hole_quantity", StringComparison.Ordinal) &&
+                      string.Equals(collection, "model_driven_dimensions",
+                          StringComparison.Ordinal)))
                     return Fail("DIMENSION_CAPABILITY_BLOCKED", pointer + "/source",
                         "F4 supports model dimensions and basic manufacturing-feature callouts only.",
                         out error);
@@ -75,10 +79,12 @@ namespace SolidworksExecution.Contracts
                 var attachments = new List<DimensionPlanExecutionAttachment>();
                 foreach (JObject attachment in ((JArray)item["attachments"]).OfType<JObject>())
                 {
-                    if (!string.Equals(attachment.Value<string>("persistent_reference_kind"),
-                        "entity", StringComparison.Ordinal))
+                    if (!importModelDimension &&
+                        !string.Equals(attachment.Value<string>("persistent_reference_kind"),
+                            "entity", StringComparison.Ordinal))
                         return Fail("DIMENSION_CAPABILITY_BLOCKED", pointer + "/attachments",
-                            "F4 cannot create dimensions from backing-face silhouette references.",
+                            "F4 cannot create new dimensions from backing-face silhouette references; " +
+                            "native imported model dimensions may preserve them.",
                             out error);
                     attachments.Add(new DimensionPlanExecutionAttachment
                     {
@@ -90,18 +96,20 @@ namespace SolidworksExecution.Contracts
                 }
                 int expected = TwoAttachmentKinds.Contains(kind) ? 2 : 1;
                 if (kind == "symmetric") expected = 3;
-                if (kind != "reference" && attachments.Count != expected)
+                if (!importModelDimension && kind != "reference" &&
+                    attachments.Count != expected)
                     return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
                         kind + " requires exactly " + expected + " attachment(s) in F4.", out error);
-                if (kind == "reference" && (attachments.Count < 1 || attachments.Count > 2))
+                if (!importModelDimension && kind == "reference" &&
+                    (attachments.Count < 1 || attachments.Count > 2))
                     return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
                         "reference requires one or two attachments in F4/F5.", out error);
-                if (TwoAttachmentKinds.Contains(kind) &&
+                if (!importModelDimension && TwoAttachmentKinds.Contains(kind) &&
                     (attachments.Count(item => item.Role == "first") != 1 ||
                     attachments.Count(item => item.Role == "second") != 1))
                     return Fail("DIMENSION_PLAN_COMPILE_INVALID", pointer + "/attachments",
                         kind + " requires one first and one second attachment.", out error);
-                if (kind == "symmetric" &&
+                if (!importModelDimension && kind == "symmetric" &&
                     (attachments.Count(item => item.Role == "first") != 1 ||
                     attachments.Count(item => item.Role == "second") != 1 ||
                     attachments.Count(item => item.Role == "symmetry_axis") != 1))

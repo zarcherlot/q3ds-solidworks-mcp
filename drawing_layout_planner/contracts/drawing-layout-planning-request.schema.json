@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json",
+  "title": "Deterministic Drawing Layout Planning Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "request_id", "plan_id", "created_at_utc", "source_dimension_request", "handoff", "publication_directory", "authorization", "intents", "assumptions"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-planning-request" },
+    "schema_version": { "const": "1.0" },
+    "request_id": { "$ref": "#/$defs/id" },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "source_dimension_request": { "$ref": "#/$defs/dimensionPlanningRequest" },
+    "handoff": { "$ref": "#/$defs/artifact" },
+    "publication_directory": { "type": "string", "minLength": 1 },
+    "authorization": { "$ref": "#/$defs/authorization" },
+    "intents": { "$ref": "#/$defs/intents" },
+    "assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "point2": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "dimensionPlanningRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "handoff_path", "handoff_sha256", "planner_profile", "publication_directory", "user_requirements"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "handoff_path": { "type": "string", "minLength": 1 },
+        "handoff_sha256": { "$ref": "#/$defs/sha256" },
+        "planner_profile": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "publication_directory": { "type": "string", "minLength": 1 },
+        "user_requirements": { "type": "object" }
+      }
+    },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "denominator": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "priority": { "type": "integer", "minimum": 0, "maximum": 1000 },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["movable_view_names", "scalable_view_names", "allow_sheet_scale_change", "allowed_sheet_formats"],
+      "properties": {
+        "movable_view_names": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "scalable_view_names": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "allow_sheet_scale_change": { "type": "boolean" },
+        "allowed_sheet_formats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["authorization_id", "format_id", "width_m", "height_m", "approved_by", "approved_at_utc", "approval_reference"],
+            "properties": {
+              "authorization_id": { "$ref": "#/$defs/id" },
+              "format_id": { "$ref": "#/$defs/id" },
+              "width_m": { "type": "number", "exclusiveMinimum": 0 },
+              "height_m": { "type": "number", "exclusiveMinimum": 0 },
+              "approved_by": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "approved_at_utc": { "type": "string", "format": "date-time" },
+              "approval_reference": { "type": "string", "minLength": 1, "maxLength": 1000 }
+            }
+          }
+        }
+      }
+    },
+    "dimensionIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension_id", "object_id", "preferred_position_sheet_m", "tier", "stack_index", "priority"],
+      "properties": {
+        "dimension_id": { "$ref": "#/$defs/id" },
+        "object_id": { "$ref": "#/$defs/id" },
+        "preferred_position_sheet_m": { "$ref": "#/$defs/point2" },
+        "tier": { "enum": ["inner", "middle", "outer", "reference"] },
+        "stack_index": { "type": "integer", "minimum": 0 },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "annotationIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_id", "preferred_position_sheet_m", "priority"],
+      "properties": {
+        "object_id": { "$ref": "#/$defs/id" },
+        "preferred_position_sheet_m": { "$ref": "#/$defs/point2" },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "leaderIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_id", "attachment_point_sheet_m", "preferred_end_sheet_m", "priority"],
+      "properties": {
+        "object_id": { "$ref": "#/$defs/id" },
+        "attachment_point_sheet_m": { "$ref": "#/$defs/point2" },
+        "preferred_end_sheet_m": { "$ref": "#/$defs/point2" },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "viewIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view_name", "preferred_position_sheet_m", "priority"],
+      "properties": {
+        "view_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "preferred_position_sheet_m": { "$ref": "#/$defs/point2" },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "viewScaleIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view_name", "candidates", "priority"],
+      "properties": {
+        "view_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "candidates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scale" } },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "sheetScaleIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "priority"],
+      "properties": {
+        "candidates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scale" } },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "sheetFormatIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorization_ids", "priority"],
+      "properties": {
+        "authorization_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "priority": { "$ref": "#/$defs/priority" }
+      }
+    },
+    "intents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimensions", "annotations", "leaders", "views", "view_scales", "sheet_scale", "sheet_format"],
+      "properties": {
+        "dimensions": { "type": "array", "items": { "$ref": "#/$defs/dimensionIntent" } },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/annotationIntent" } },
+        "leaders": { "type": "array", "items": { "$ref": "#/$defs/leaderIntent" } },
+        "views": { "type": "array", "items": { "$ref": "#/$defs/viewIntent" } },
+        "view_scales": { "type": "array", "items": { "$ref": "#/$defs/viewScaleIntent" } },
+        "sheet_scale": { "oneOf": [{ "$ref": "#/$defs/sheetScaleIntent" }, { "type": "null" }] },
+        "sheet_format": { "oneOf": [{ "$ref": "#/$defs/sheetFormatIntent" }, { "type": "null" }] }
+      },
+      "anyOf": [
+        { "properties": { "dimensions": { "minItems": 1 } } },
+        { "properties": { "annotations": { "minItems": 1 } } },
+        { "properties": { "leaders": { "minItems": 1 } } },
+        { "properties": { "views": { "minItems": 1 } } },
+        { "properties": { "view_scales": { "minItems": 1 } } },
+        { "properties": { "sheet_scale": { "type": "object" } } },
+        { "properties": { "sheet_format": { "type": "object" } } }
+      ]
+    }
+  }
+}

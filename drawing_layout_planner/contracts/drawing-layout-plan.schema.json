@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-drawing-layout-plan-1.0.schema.json",
+  "title": "SolidWorks DrawingLayoutPlan 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "protocol_id", "schema_version", "plan_id", "created_at_utc",
+    "producer", "execution_policy", "handoff", "handoff_id",
+    "source_dimension_plan", "source_drawing", "dimension_verification_sidecar",
+    "configuration", "source_invariants", "authorization", "operations",
+    "assumptions", "open_questions"
+  ],
+  "properties": {
+    "$schema": { "const": "https://q3ds.local/contracts/solidworks-drawing-layout-plan-1.0.schema.json" },
+    "protocol_id": { "const": "solidworks-drawing-layout-plan" },
+    "schema_version": { "const": "1.0" },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "execution_policy": { "$ref": "#/$defs/executionPolicy" },
+    "handoff": { "$ref": "#/$defs/artifact" },
+    "handoff_id": { "$ref": "#/$defs/id" },
+    "source_dimension_plan": { "$ref": "#/$defs/artifact" },
+    "source_drawing": { "$ref": "#/$defs/artifact" },
+    "dimension_verification_sidecar": { "$ref": "#/$defs/artifact" },
+    "configuration": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "source_invariants": { "$ref": "#/$defs/sourceInvariants" },
+    "authorization": { "$ref": "#/$defs/authorization" },
+    "operations": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/operation" }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "open_questions": { "type": "array", "maxItems": 0 }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "point2": {
+      "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "items": false, "minItems": 2, "maxItems": 2
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "producer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "ruleset_id", "ruleset_sha256"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+        "ruleset_id": { "$ref": "#/$defs/id" },
+        "ruleset_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "executionPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "on_integrity_mismatch", "on_layout_violation", "on_unsupported_operation",
+        "preserve_dimension_count", "preserve_dimension_values",
+        "preserve_dimension_attachments", "preserve_configuration",
+        "preserve_display_state", "preserve_projection_method",
+        "preserve_section_definitions", "preserve_model_associativity",
+        "preserve_frozen_geometry", "allow_delete_objects",
+        "allow_new_manufacturing_annotations", "allow_source_model_write",
+        "allow_upstream_drawing_overwrite", "allow_partial_commit"
+      ],
+      "properties": {
+        "on_integrity_mismatch": { "const": "fail" },
+        "on_layout_violation": { "const": "fail" },
+        "on_unsupported_operation": { "const": "fail" },
+        "preserve_dimension_count": { "const": true },
+        "preserve_dimension_values": { "const": true },
+        "preserve_dimension_attachments": { "const": true },
+        "preserve_configuration": { "const": true },
+        "preserve_display_state": { "const": true },
+        "preserve_projection_method": { "const": true },
+        "preserve_section_definitions": { "const": true },
+        "preserve_model_associativity": { "const": true },
+        "preserve_frozen_geometry": { "const": true },
+        "allow_delete_objects": { "const": false },
+        "allow_new_manufacturing_annotations": { "const": false },
+        "allow_source_model_write": { "const": false },
+        "allow_upstream_drawing_overwrite": { "const": false },
+        "allow_partial_commit": { "const": false }
+      }
+    },
+    "sourceInvariants": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "dimension_semantics_sha256", "dimension_ids", "object_snapshot_sha256",
+        "object_ids", "view_names", "locked_object_ids",
+        "required_boundary_capabilities"
+      ],
+      "properties": {
+        "dimension_semantics_sha256": { "$ref": "#/$defs/sha256" },
+        "dimension_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "object_snapshot_sha256": { "$ref": "#/$defs/sha256" },
+        "object_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "view_names": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "locked_object_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "required_boundary_capabilities": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "enum": [
+            "view_outline_bounds", "dimension_display_bounds", "note_text_bounds",
+            "leader_bounds", "view_label_bounds", "section_symbol_bounds",
+            "center_element_bounds", "sheet_border_bounds", "title_block_bounds",
+            "rebuild_drift", "save_reopen_drift"
+          ] }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["movable_view_names", "scalable_view_names", "allow_sheet_scale_change", "allowed_sheet_formats"],
+      "properties": {
+        "movable_view_names": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "scalable_view_names": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "allow_sheet_scale_change": { "type": "boolean" },
+        "allowed_sheet_formats": { "type": "array", "items": { "$ref": "#/$defs/sheetFormatAuthorization" } }
+      }
+    },
+    "sheetFormatAuthorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authorization_id", "format_id", "width_m", "height_m", "approved_by", "approved_at_utc", "approval_reference"],
+      "properties": {
+        "authorization_id": { "$ref": "#/$defs/id" },
+        "format_id": { "$ref": "#/$defs/id" },
+        "width_m": { "type": "number", "exclusiveMinimum": 0 },
+        "height_m": { "type": "number", "exclusiveMinimum": 0 },
+        "approved_by": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "approved_at_utc": { "type": "string", "format": "date-time" },
+        "approval_reference": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "operation": {
+      "oneOf": [
+        { "$ref": "#/$defs/moveDimension" },
+        { "$ref": "#/$defs/moveAnnotation" },
+        { "$ref": "#/$defs/routeLeader" },
+        { "$ref": "#/$defs/moveView" },
+        { "$ref": "#/$defs/setDimensionHierarchy" },
+        { "$ref": "#/$defs/setViewScale" },
+        { "$ref": "#/$defs/setSheetScale" },
+        { "$ref": "#/$defs/setSheetFormat" }
+      ]
+    },
+    "moveDimension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "object_id", "dimension_id", "target_position_sheet_m", "preserve_attachment"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "move_dimension" }, "sequence": { "type": "integer", "minimum": 0 },
+        "object_id": { "$ref": "#/$defs/id" }, "dimension_id": { "$ref": "#/$defs/id" },
+        "target_position_sheet_m": { "$ref": "#/$defs/point2" }, "preserve_attachment": { "const": true }
+      }
+    },
+    "moveAnnotation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "object_id", "target_position_sheet_m"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "move_annotation" }, "sequence": { "type": "integer", "minimum": 0 },
+        "object_id": { "$ref": "#/$defs/id" }, "target_position_sheet_m": { "$ref": "#/$defs/point2" }
+      }
+    },
+    "routeLeader": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "object_id", "points_sheet_m", "preserve_attachment"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "route_leader" }, "sequence": { "type": "integer", "minimum": 0 },
+        "object_id": { "$ref": "#/$defs/id" },
+        "points_sheet_m": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point2" } },
+        "preserve_attachment": { "const": true }
+      }
+    },
+    "moveView": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "view_name", "target_position_sheet_m", "preserve_alignment"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "move_view" }, "sequence": { "type": "integer", "minimum": 0 },
+        "view_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "target_position_sheet_m": { "$ref": "#/$defs/point2" }, "preserve_alignment": { "const": true }
+      }
+    },
+    "setDimensionHierarchy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "dimension_id", "tier", "stack_index"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "set_dimension_hierarchy" }, "sequence": { "type": "integer", "minimum": 0 },
+        "dimension_id": { "$ref": "#/$defs/id" }, "tier": { "enum": ["inner", "middle", "outer", "reference"] },
+        "stack_index": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "setViewScale": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "view_name", "numerator", "denominator"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "set_view_scale" }, "sequence": { "type": "integer", "minimum": 0 },
+        "view_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 1000 }, "denominator": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "setSheetScale": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "numerator", "denominator"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "set_sheet_scale" }, "sequence": { "type": "integer", "minimum": 0 },
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 1000 }, "denominator": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "setSheetFormat": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "kind", "sequence", "authorization_id", "format_id", "width_m", "height_m"],
+      "properties": {
+        "operation_id": { "$ref": "#/$defs/id" }, "kind": { "const": "set_sheet_format" }, "sequence": { "type": "integer", "minimum": 0 },
+        "authorization_id": { "$ref": "#/$defs/id" }, "format_id": { "$ref": "#/$defs/id" },
+        "width_m": { "type": "number", "exclusiveMinimum": 0 }, "height_m": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}

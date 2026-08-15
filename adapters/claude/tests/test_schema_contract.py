@@ -97,6 +97,30 @@ def _contract_tools():
                 "publication_directory",
             },
         ),
+        "publish_validated_part_drawing_layout_plan": (
+            {"request"},
+            {"request"},
+        ),
+        "validate_part_drawing_layout_plan": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
+        "qualify_final_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
+        "verify_qualified_final_part_drawing": (
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+            {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
+        "create_final_part_drawing": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
+        "verify_final_part_drawing": (
+            {"plan", "request", "output_path"},
+            {"plan", "request", "output_path"},
+        ),
         "publish_validated_part_drawing_dimension_plan": (
             {"plan", "request"},
             {"plan", "request"},
@@ -120,6 +144,25 @@ def _contract_tools():
         "verify_qualified_dimensioned_part_drawing": (
             {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
             {"plan", "request", "output_path", "matrix_request_path", "matrix_request_sha256", "case_id"},
+        ),
+        "initialize_part_drawing_layout_handoff": (
+            {
+                "dimension_plan_path",
+                "dimensioned_drawing_path",
+                "dimension_verification_sidecar_path",
+                "publication_directory",
+                "minimum_object_spacing_m",
+                "minimum_frame_spacing_m",
+                "minimum_text_geometry_spacing_m",
+                "dimension_request",
+            },
+            {
+                "dimension_plan_path",
+                "dimensioned_drawing_path",
+                "dimension_verification_sidecar_path",
+                "publication_directory",
+                "dimension_request",
+            },
         ),
     }
     for name in required_tools:
@@ -154,7 +197,7 @@ def test_schema_contract_in_sync():
     assert not errors, "semantic MCP contract drift:\n  - " + "\n  - ".join(errors)
 
 
-def test_default_surface_contains_only_repository_view_and_dimension_protocols():
+def test_default_surface_contains_only_repository_view_dimension_and_layout_protocols():
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
     legacy_names = {
@@ -165,7 +208,8 @@ def test_default_surface_contains_only_repository_view_and_dimension_protocols()
     assert not (names & legacy_names)
     assert all(not hasattr(server, name) for name in legacy_names)
     assert "ViewPlan 1.4 and DimensionPlan 1.0" in server.MCP_INSTRUCTIONS
-    assert server.mcp.version == "2.3.0"
+    assert "LayoutPlanningRequest" in server.MCP_INSTRUCTIONS
+    assert server.mcp.version == "2.6.0"
 
 
 def test_host_bootstrap_tools_are_semantic_and_do_not_expose_cli_escape_hatches():
@@ -247,6 +291,37 @@ def test_dimension_tools_publish_the_exact_structured_dimension_contract():
             "handoff_sha256",
             "publication_directory",
         }
+
+
+def test_layout_tools_publish_exact_plan_and_predecessor_bound_request_contracts():
+    tools = asyncio.run(server.mcp.list_tools())
+    by_name = {tool.name: tool for tool in tools}
+    request = by_name["publish_validated_part_drawing_layout_plan"].parameters[
+        "properties"
+    ]["request"]
+    assert request["properties"]["protocol_id"]["const"] == (
+        "solidworks-drawing-layout-planning-request"
+    )
+    assert "source_dimension_request" in request["required"]
+    assert request["properties"]["source_dimension_request"]["type"] == "object"
+
+    for name in (
+        "validate_part_drawing_layout_plan",
+        "qualify_final_part_drawing",
+        "verify_qualified_final_part_drawing",
+        "create_final_part_drawing",
+        "verify_final_part_drawing",
+    ):
+        plan = by_name[name].parameters["properties"]["plan"]
+        assert plan["type"] == "object"
+        assert plan["additionalProperties"] is False
+        assert plan["properties"]["protocol_id"]["const"] == (
+            "solidworks-drawing-layout-plan"
+        )
+        assert plan["properties"]["schema_version"]["const"] == "1.0"
+        assert plan["properties"]["operations"]["minItems"] == 1
+        layout_request = by_name[name].parameters["properties"]["request"]
+        assert "source_dimension_request" in layout_request["required"]
 
 
 def test_default_server_publishes_no_external_skill_invocation_prompts():

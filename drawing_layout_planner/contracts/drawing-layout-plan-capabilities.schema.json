@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/drawing-layout-plan-capabilities-1.0.schema.json",
+  "title": "DrawingLayoutPlan execution capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "registry_version", "executor",
+    "executor_version", "plan_protocol_id", "plan_schema_version",
+    "solidworks_target", "solidworks_revision", "promotion_policy",
+    "boundary_registry", "operations", "safety_elements"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-plan-capabilities" },
+    "schema_version": { "const": "1.0" },
+    "registry_version": { "$ref": "#/$defs/semver" },
+    "executor": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "executor_version": { "$ref": "#/$defs/semver" },
+    "plan_protocol_id": { "const": "solidworks-drawing-layout-plan" },
+    "plan_schema_version": { "const": "1.0" },
+    "solidworks_target": { "const": "2025 SP5" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "promotion_policy": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "boundary_registry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_id", "registry_version", "manifest_sha256"],
+      "properties": {
+        "protocol_id": { "const": "solidworks-drawing-layout-executor-capabilities" },
+        "registry_version": { "$ref": "#/$defs/semver" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "operations": { "$ref": "#/$defs/operationCatalog" },
+    "safety_elements": { "$ref": "#/$defs/safetyCatalog" }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "entry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "reason", "verification", "evidence_sha256"],
+      "properties": {
+        "status": { "enum": ["supported", "planned", "unsupported"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "verification": { "enum": ["none", "unit", "live"] },
+        "evidence_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "operationCatalog": {
+      "type": "object", "additionalProperties": false,
+      "required": ["move_dimension", "move_annotation", "route_leader", "move_view", "set_dimension_hierarchy", "set_view_scale", "set_sheet_scale", "set_sheet_format"],
+      "properties": {
+        "move_dimension": { "$ref": "#/$defs/entry" }, "move_annotation": { "$ref": "#/$defs/entry" },
+        "route_leader": { "$ref": "#/$defs/entry" }, "move_view": { "$ref": "#/$defs/entry" },
+        "set_dimension_hierarchy": { "$ref": "#/$defs/entry" }, "set_view_scale": { "$ref": "#/$defs/entry" },
+        "set_sheet_scale": { "$ref": "#/$defs/entry" }, "set_sheet_format": { "$ref": "#/$defs/entry" }
+      }
+    },
+    "safetyCatalog": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension_semantic_preservation", "view_semantic_preservation", "object_identity_preservation", "collision_readback", "save_reopen_layout_fingerprint", "authorized_sheet_change"],
+      "properties": {
+        "dimension_semantic_preservation": { "$ref": "#/$defs/entry" },
+        "view_semantic_preservation": { "$ref": "#/$defs/entry" },
+        "object_identity_preservation": { "$ref": "#/$defs/entry" },
+        "collision_readback": { "$ref": "#/$defs/entry" },
+        "save_reopen_layout_fingerprint": { "$ref": "#/$defs/entry" },
+        "authorized_sheet_change": { "$ref": "#/$defs/entry" }
+      }
+    }
+  }
+}

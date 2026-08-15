@@ -228,7 +228,8 @@ namespace SolidworksExecution.Contracts
                     if (!geometry.TryGetValue(attachment.EntityId, out entity) ||
                         entity.Value<string>("model_persistent_reference") !=
                             attachment.PersistentReference ||
-                        entity.Value<string>("persistent_reference_kind") != "entity")
+                        (!dimension.ImportModelDimension &&
+                         entity.Value<string>("persistent_reference_kind") != "entity"))
                         return Fail("DIMENSION_HANDOFF_BINDING_MISMATCH", "/dimensions",
                             "Attachment differs from target-view handoff geometry: " +
                             attachment.AttachmentId, out error);

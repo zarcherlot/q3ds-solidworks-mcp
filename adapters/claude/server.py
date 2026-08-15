@@ -56,10 +56,24 @@ from dimension_planner.f7_evidence import (
 from dimension_planner.planner_engine import DimensionPlannerEngine
 from dimension_planner.planning_models import DimensionPlanningRequest
 from dimension_planner.validators import RepositoryDimensionPlanValidator
+from drawing_layout_planner.handoff import (
+    build_layout_handoff_request,
+    file_sha256 as layout_file_sha256,
+    validate_drawing_layout_handoff,
+)
+from drawing_layout_planner.engine_models import LayoutPlanningRequest
+from drawing_layout_planner.capability_registry import (
+    current_registry as current_layout_registry,
+)
+from drawing_layout_planner.g7_evidence import (
+    validate_g7_matrix_request_for_evaluation,
+)
+from drawing_layout_planner.planner_engine import DrawingLayoutPlannerEngine
 from execution_client import (
     bootstrap_host,
     call_tool,
     create_dimension_planning_handoff,
+    create_layout_planning_handoff,
     ensure_ready,
     get_health,
     get_state,
@@ -71,6 +85,7 @@ from sampling_fallback import build_sampling_fallback_handler
 from semantic_models import (
     ApprovedDimensionInput,
     DimensionPlan,
+    DrawingLayoutPlan,
     ViewPlan,
     validate_drawing_template_path,
     validate_host_report_directory,
@@ -94,7 +109,13 @@ MCP_INSTRUCTIONS = (
     "default surface. Never convert between protocols, repair a frozen plan, or expose private COM "
     "operations. Dimension planning must start from the independently initialized immutable "
     "dimension handoff and retain one unchanged DimensionPlanningRequest through publish, "
-    "validate, create, and verify."
+    "validate, create, and verify. Final-layout initialization must consume the executed and "
+    "independently verified dimension drawing and may publish capability_blocked when an exact "
+    "collision boundary is unavailable. Final layout must retain the complete unchanged source "
+    "DimensionPlanningRequest inside one unchanged LayoutPlanningRequest through publish, "
+    "validate, create, and independent verify. G7 qualification tools are developer-only, "
+    "matrix-bound evidence entry points: they may admit planned operations but never bypass a "
+    "known-unsupported boundary, and they never mutate the production capability manifest."
 )
 
 _sampling_fallback_handler = build_sampling_fallback_handler(SAMPLING_FALLBACK)
@@ -102,7 +123,7 @@ _sampling_fallback_handler = build_sampling_fallback_handler(SAMPLING_FALLBACK)
 mcp = FastMCP(
     "Q3DS SolidWorks Engineering",
     instructions=MCP_INSTRUCTIONS,
-    version="2.3.0",
+    version="2.6.0",
     strict_input_validation=True,
     sampling_handler=_sampling_fallback_handler,
     sampling_handler_behavior="fallback",
@@ -1134,6 +1155,569 @@ def verify_dimensioned_part_drawing(
         mutating=False,
     )
     return _dimension_semantic_response_with_binding(response, normalized, request)
+
+
+def _layout_request_sha256(request: LayoutPlanningRequest) -> str:
+    return canonical_json_sha256(
+        request.model_dump(mode="json"), "layout planning request"
+    )
+
+
+def _layout_plan_binding(plan: dict, request: LayoutPlanningRequest) -> tuple[str, str]:
+    plan_path = Path(request.publication_directory).resolve() / "drawing_layout_plan.json"
+    if not plan_path.is_file():
+        raise ToolError(
+            "DRAWING_LAYOUT_PLAN_NOT_PUBLISHED: immutable drawing_layout_plan.json is missing"
+        )
+    try:
+        disk_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ToolError(f"DRAWING_LAYOUT_PLAN_PUBLICATION_INVALID: {exc}") from exc
+    if disk_plan != plan:
+        raise ToolError(
+            "DRAWING_LAYOUT_PLAN_PUBLICATION_MISMATCH: structured plan differs from drawing_layout_plan.json"
+        )
+    return str(plan_path), layout_file_sha256(plan_path)
+
+
+def _validate_layout_output_path(value: str, *, require_existing: bool) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("output_path must be a non-empty absolute .SLDDRW path")
+    if any(character in value for character in ("*", "?", "[", "]")):
+        raise ValueError("output_path must not contain wildcard characters")
+    path = Path(value)
+    if not path.is_absolute() or path.suffix.lower() != ".slddrw":
+        raise ValueError("output_path must be an absolute .SLDDRW path")
+    normalized = path.resolve()
+    if not normalized.parent.is_dir():
+        raise ValueError("output_path parent directory must already exist")
+    report = Path(str(normalized) + ".layout-verification.json")
+    if require_existing:
+        if not normalized.is_file() or not report.is_file():
+            raise ValueError(
+                "output_path and its layout verification sidecar must both exist"
+            )
+    elif normalized.exists() or report.exists():
+        raise ValueError(
+            "output_path and its layout verification sidecar must both be new"
+        )
+    return str(normalized)
+
+
+def _validate_layout_plan(
+    plan: DrawingLayoutPlan, request: LayoutPlanningRequest
+):
+    candidate = plan.root if isinstance(plan, DrawingLayoutPlan) else plan
+    normalized_candidate = json_object_copy(candidate, "drawing layout plan")
+    normalized, normalized_request, validation, assessment, audit = (
+        DrawingLayoutPlannerEngine().validate_plan(normalized_candidate, request)
+    )
+    return (
+        normalized.execution_dict(),
+        normalized_request,
+        validation,
+        assessment,
+        audit,
+    )
+
+
+def _require_executable_layout_plan(validation, assessment) -> None:
+    if not validation.passed:
+        details = "; ".join(
+            f"{issue.code}: {issue.message}" for issue in validation.issues
+        )
+        raise ToolError(
+            "DRAWING_LAYOUT_PLAN_DETERMINISTIC_VALIDATION_FAILED: "
+            + (details or "one or more repository validation gates failed")
+        )
+    if assessment is None or assessment.status != "supported":
+        blocked = ",".join(
+            assessment.unsupported_capabilities if assessment is not None else ()
+        )
+        raise ToolError(
+            "DRAWING_LAYOUT_PLAN_CAPABILITY_BLOCKED: "
+            + (blocked or "the current executor lacks live persisted evidence")
+        )
+
+
+def _require_qualification_layout_plan(plan: dict, validation) -> None:
+    if not validation.passed:
+        details = "; ".join(
+            f"{issue.code}: {issue.message}" for issue in validation.issues
+        )
+        raise ToolError(
+            "DRAWING_LAYOUT_PLAN_DETERMINISTIC_VALIDATION_FAILED: "
+            + (details or "one or more repository validation gates failed")
+        )
+    try:
+        current_layout_registry().require_qualification_eligible(plan)
+    except ValueError as exc:
+        raise ToolError(f"DRAWING_LAYOUT_G7_QUALIFICATION_BLOCKED: {exc}") from exc
+
+
+def _layout_g7_case_binding(
+    *,
+    matrix_request_path: str,
+    matrix_request_sha256: str,
+    case_id: str,
+    plan: dict,
+    request: LayoutPlanningRequest,
+    output_path: str,
+    require_existing_output: bool,
+) -> tuple[dict, str]:
+    path = Path(matrix_request_path)
+    if not path.is_absolute() or path.suffix.lower() != ".json" or not path.is_file():
+        raise ToolError(
+            "DRAWING_LAYOUT_G7_MATRIX_INVALID: matrix request must be an existing absolute JSON file"
+        )
+    path = path.resolve()
+    if layout_file_sha256(path) != matrix_request_sha256:
+        raise ToolError(
+            "DRAWING_LAYOUT_G7_MATRIX_HASH_MISMATCH: matrix request SHA-256 changed"
+        )
+    try:
+        matrix = validate_g7_matrix_request_for_evaluation(
+            json.loads(path.read_text(encoding="utf-8"))
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ToolError(f"DRAWING_LAYOUT_G7_MATRIX_INVALID: {exc}") from exc
+    matches = [
+        case for case in matrix["positive_cases"] if case["case_id"] == case_id
+    ]
+    if len(matches) != 1:
+        raise ToolError(
+            "DRAWING_LAYOUT_G7_CASE_MISSING: case_id is not unique in positive_cases"
+        )
+    case = matches[0]
+    output = _validate_layout_output_path(
+        output_path, require_existing=require_existing_output
+    )
+    plan_path, plan_file_sha256 = _layout_plan_binding(plan, request)
+    bindings_match = (
+        Path(case["plan_path"]).resolve() == Path(plan_path).resolve()
+        and case["plan_file_sha256"] == plan_file_sha256
+        and case["plan_canonical_sha256"]
+        == canonical_json_sha256(plan, "drawing layout plan")
+        and case["planning_request_sha256"] == _layout_request_sha256(request)
+        and case["source_dimension_request_sha256"]
+        == canonical_json_sha256(
+            request.source_dimension_request.model_dump(mode="json"),
+            "source dimension planning request",
+        )
+        and Path(case["output_path"]).resolve() == Path(output).resolve()
+    )
+    if not bindings_match:
+        raise ToolError(
+            "DRAWING_LAYOUT_G7_CASE_BINDING_MISMATCH: plan, requests, or output differs from the immutable matrix case"
+        )
+    return case, str(path)
+
+
+def _layout_semantic_response_with_binding(
+    response: dict, plan: dict, request: LayoutPlanningRequest
+) -> str:
+    payload = json.loads(_semantic_response(response))
+    payload["planning_request_sha256"] = _layout_request_sha256(request)
+    payload["source_dimension_request_sha256"] = canonical_json_sha256(
+        request.source_dimension_request.model_dump(mode="json"),
+        "source dimension planning request",
+    )
+    payload["plan_canonical_sha256"] = canonical_json_sha256(
+        plan, "drawing layout plan"
+    )
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Initialize the immutable final-layout handoff from one executed and independently "
+        "verified DimensionPlan 1.0 drawing. The repository binds the live-complete G0 "
+        "capability qualification, opens and rebuilds the drawing read-only, freezes actual "
+        "object bounds, dimension values/attachments, constraints, locked zones and minimum "
+        "spacing, then publishes drawing-layout-handoff.json last without saving upstream files."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def initialize_part_drawing_layout_handoff(
+    dimension_plan_path: str,
+    dimensioned_drawing_path: str,
+    dimension_verification_sidecar_path: str,
+    publication_directory: str,
+    dimension_request: DimensionPlanningRequest,
+    minimum_object_spacing_m: Annotated[
+        float, Field(ge=0.0001, le=0.02)
+    ] = 0.002,
+    minimum_frame_spacing_m: Annotated[
+        float, Field(ge=0.0001, le=0.02)
+    ] = 0.005,
+    minimum_text_geometry_spacing_m: Annotated[
+        float, Field(ge=0.0001, le=0.02)
+    ] = 0.001,
+) -> str:
+    try:
+        dimension_plan = json.loads(Path(dimension_plan_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ToolError(f"LAYOUT_SOURCE_DIMENSION_PLAN_INVALID: {exc}") from exc
+    normalized_dimension_plan, dimension_validation, _ = _validate_dimension_plan(
+        DimensionPlan(root=dimension_plan), dimension_request
+    )
+    if not dimension_validation.engineering_passed:
+        details = "; ".join(
+            f"{issue.code}: {issue.message}"
+            for issue in dimension_validation.issues
+            if issue.gate != "capability"
+        )
+        raise ToolError(
+            "LAYOUT_SOURCE_DIMENSION_REQUEST_REJECTED: "
+            + (details or "the source DimensionPlan does not match the immutable request")
+        )
+    bound_plan_path, _ = _dimension_plan_binding(
+        normalized_dimension_plan, dimension_request
+    )
+    if Path(bound_plan_path).resolve() != Path(dimension_plan_path).resolve():
+        raise ToolError(
+            "LAYOUT_SOURCE_DIMENSION_REQUEST_REJECTED: dimension_plan_path is not the plan published by dimension_request"
+        )
+    request = build_layout_handoff_request(
+        Path(dimension_plan_path),
+        Path(dimensioned_drawing_path),
+        Path(dimension_verification_sidecar_path),
+        Path(publication_directory),
+        minimum_spacing_m={
+            "object_to_object": minimum_object_spacing_m,
+            "object_to_frame": minimum_frame_spacing_m,
+            "text_to_geometry": minimum_text_geometry_spacing_m,
+        },
+    )
+    payload = dict(create_layout_planning_handoff(request))
+    payload["ok"] = payload.get("status") in {"ready", "capability_blocked"}
+    if not payload["ok"]:
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    handoff_path = payload.get("handoff_path")
+    handoff_hash = payload.get("handoff_sha256")
+    if not isinstance(handoff_path, str) or not isinstance(handoff_hash, str):
+        raise ToolError("LAYOUT_HANDOFF_RESULT_INVALID: path/hash is missing")
+    handoff = validate_drawing_layout_handoff(
+        json.loads(Path(handoff_path).read_text(encoding="utf-8"))
+    )
+    if layout_file_sha256(Path(handoff_path)) != handoff_hash:
+        raise ToolError("LAYOUT_HANDOFF_RESULT_INVALID: published hash mismatch")
+    payload["handoff_id"] = handoff["handoff_id"]
+    payload["handoff_integrity"] = "pass"
+    payload["execution_readiness"] = handoff["status"]
+    payload["source_dimension_request_sha256"] = canonical_json_sha256(
+        dimension_request.model_dump(mode="json"), "source dimension planning request"
+    )
+    payload["planning_request_context"] = {
+        "protocol_id": "solidworks-drawing-layout-planning-request",
+        "schema_version": "1.0",
+        "source_dimension_request": dimension_request.model_dump(mode="json"),
+        "handoff": {"path": handoff_path, "sha256": handoff_hash},
+        "publication_directory": str(Path(publication_directory).resolve()),
+    }
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Resolve, deterministically validate, capability-assess and atomically publish exactly "
+        "one DrawingLayoutPlan 1.0 from an immutable LayoutPlanningRequest. The request embeds "
+        "the unchanged source DimensionPlanningRequest and binds the independently verified "
+        "dimension drawing handoff. A capability_blocked plan remains valid but cannot execute."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def publish_validated_part_drawing_layout_plan(
+    request: LayoutPlanningRequest,
+) -> str:
+    try:
+        result = DrawingLayoutPlannerEngine().plan(request)
+    except FileExistsError as exc:
+        raise ToolError(f"DRAWING_LAYOUT_PLAN_ALREADY_EXISTS: {exc}") from exc
+    payload = result.model_dump(mode="json")
+    payload["ok"] = result.status == "published"
+    payload["planning_request_sha256"] = result.audit.request_sha256
+    payload["source_dimension_request_sha256"] = canonical_json_sha256(
+        request.source_dimension_request.model_dump(mode="json"),
+        "source dimension planning request",
+    )
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "Recompute one published immutable DrawingLayoutPlan 1.0 from its unchanged original "
+        "LayoutPlanningRequest, verify exact on-disk publication and output-path isolation, then "
+        "invoke the independent COM-free C# parser, recursive input preflight, compiler and live "
+        "capability gate without modifying the drawing."
+    ),
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def validate_part_drawing_layout_plan(
+    plan: DrawingLayoutPlan,
+    request: LayoutPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, normalized_request, validation, assessment, audit = _validate_layout_plan(
+        plan, request
+    )
+    payload = {
+        "ok": validation.passed,
+        "status": "VALID" if validation.passed else "REJECTED",
+        "planning_request_sha256": audit.request_sha256,
+        "source_dimension_request_sha256": canonical_json_sha256(
+            normalized_request.source_dimension_request.model_dump(mode="json"),
+            "source dimension planning request",
+        ),
+        "plan_canonical_sha256": canonical_json_sha256(
+            normalized, "drawing layout plan"
+        ),
+        "validation": validation.model_dump(mode="json"),
+        "execution_readiness": assessment.status if assessment else "not_assessed",
+        "unsupported_capabilities": list(
+            assessment.unsupported_capabilities if assessment else ()
+        ),
+    }
+    if validation.passed:
+        plan_path, plan_sha256 = _layout_plan_binding(normalized, normalized_request)
+        output = _validate_layout_output_path(output_path, require_existing=False)
+        executor = _execute(
+            "validate_frozen_part_drawing_layout_plan",
+            {
+                "plan": normalized,
+                "plan_path": plan_path,
+                "plan_sha256": plan_sha256,
+                "plan_canonical_sha256": canonical_json_sha256(
+                    normalized, "drawing layout plan"
+                ),
+                "output_path": output,
+            },
+            mutating=False,
+        )
+        payload["executor"] = json.loads(_semantic_response(executor))
+        payload["ok"] = bool(payload["executor"].get("ok"))
+        if not payload["ok"]:
+            payload["status"] = "EXECUTOR_REJECTED"
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+@mcp.tool(
+    description=(
+        "G7 qualification-only native creation for one immutable matrix-bound "
+        "DrawingLayoutPlan. Allows planned layout operations solely to collect live evidence, "
+        "but rejects every known-unsupported G0 boundary and never changes production "
+        "capability state. The matrix, plan, nested requests and new output are re-hashed."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def qualify_final_part_drawing(
+    plan: DrawingLayoutPlan,
+    request: LayoutPlanningRequest,
+    output_path: str,
+    matrix_request_path: str,
+    matrix_request_sha256: str,
+    case_id: str,
+) -> str:
+    normalized, normalized_request, validation, _, _ = _validate_layout_plan(
+        plan, request
+    )
+    _require_qualification_layout_plan(normalized, validation)
+    case, matrix_path = _layout_g7_case_binding(
+        matrix_request_path=matrix_request_path,
+        matrix_request_sha256=matrix_request_sha256,
+        case_id=case_id,
+        plan=normalized,
+        request=normalized_request,
+        output_path=output_path,
+        require_existing_output=False,
+    )
+    plan_path, plan_sha256 = _layout_plan_binding(normalized, normalized_request)
+    response = _execute(
+        "qualify_part_drawing_layout_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "plan_canonical_sha256": canonical_json_sha256(
+                normalized, "drawing layout plan"
+            ),
+            "output_path": case["output_path"],
+            "matrix_request_path": matrix_path,
+            "matrix_request_sha256": matrix_request_sha256,
+            "planning_request_sha256": case["planning_request_sha256"],
+            "source_dimension_request_sha256": case[
+                "source_dimension_request_sha256"
+            ],
+            "case_id": case_id,
+        },
+        mutating=True,
+    )
+    return _layout_semantic_response_with_binding(
+        response, normalized, normalized_request
+    )
+
+
+@mcp.tool(
+    description=(
+        "Independently read-only verify one G7 qualification drawing against its immutable "
+        "matrix-bound DrawingLayoutPlan. The verifier accepts planned operations only for "
+        "evidence collection, rejects known-unsupported boundaries, and cannot promote the "
+        "production manifest without the complete ten-scenario G7 summary."
+    ),
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def verify_qualified_final_part_drawing(
+    plan: DrawingLayoutPlan,
+    request: LayoutPlanningRequest,
+    output_path: str,
+    matrix_request_path: str,
+    matrix_request_sha256: str,
+    case_id: str,
+) -> str:
+    normalized, normalized_request, validation, _, _ = _validate_layout_plan(
+        plan, request
+    )
+    _require_qualification_layout_plan(normalized, validation)
+    case, matrix_path = _layout_g7_case_binding(
+        matrix_request_path=matrix_request_path,
+        matrix_request_sha256=matrix_request_sha256,
+        case_id=case_id,
+        plan=normalized,
+        request=normalized_request,
+        output_path=output_path,
+        require_existing_output=True,
+    )
+    plan_path, plan_sha256 = _layout_plan_binding(normalized, normalized_request)
+    response = _execute(
+        "verify_qualified_part_drawing_layout_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "plan_canonical_sha256": canonical_json_sha256(
+                normalized, "drawing layout plan"
+            ),
+            "output_path": case["output_path"],
+            "matrix_request_path": matrix_path,
+            "matrix_request_sha256": matrix_request_sha256,
+            "planning_request_sha256": case["planning_request_sha256"],
+            "source_dimension_request_sha256": case[
+                "source_dimension_request_sha256"
+            ],
+            "case_id": case_id,
+        },
+        mutating=False,
+    )
+    return _layout_semantic_response_with_binding(
+        response, normalized, normalized_request
+    )
+
+
+@mcp.tool(
+    description=(
+        "Transactionally create one new final .SLDDRW from a published immutable "
+        "DrawingLayoutPlan 1.0. Requires deterministic equality and live-supported capabilities, "
+        "re-hashes all recursive frozen inputs, copies the verified dimension drawing, applies "
+        "only authorized layout operations and atomically commits the drawing and sidecar."
+    ),
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def create_final_part_drawing(
+    plan: DrawingLayoutPlan,
+    request: LayoutPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, normalized_request, validation, assessment, _ = _validate_layout_plan(
+        plan, request
+    )
+    _require_executable_layout_plan(validation, assessment)
+    plan_path, plan_sha256 = _layout_plan_binding(normalized, normalized_request)
+    output = _validate_layout_output_path(output_path, require_existing=False)
+    response = _execute(
+        "execute_part_drawing_layout_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "plan_canonical_sha256": canonical_json_sha256(
+                normalized, "drawing layout plan"
+            ),
+            "output_path": output,
+        },
+        mutating=True,
+    )
+    return _layout_semantic_response_with_binding(response, normalized, normalized_request)
+
+
+@mcp.tool(
+    description=(
+        "Independently verify an existing final drawing against the same immutable "
+        "DrawingLayoutPlan and LayoutPlanningRequest. Recomputes the unique plan, validates all "
+        "published and recursive hashes, then opens read-only to recheck dimension/view semantics, "
+        "object identities, leader ownership, clearances and the persisted layout fingerprint."
+    ),
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def verify_final_part_drawing(
+    plan: DrawingLayoutPlan,
+    request: LayoutPlanningRequest,
+    output_path: str,
+) -> str:
+    normalized, normalized_request, validation, assessment, _ = _validate_layout_plan(
+        plan, request
+    )
+    _require_executable_layout_plan(validation, assessment)
+    plan_path, plan_sha256 = _layout_plan_binding(normalized, normalized_request)
+    output = _validate_layout_output_path(output_path, require_existing=True)
+    response = _execute(
+        "verify_committed_part_drawing_layout_plan",
+        {
+            "plan": normalized,
+            "plan_path": plan_path,
+            "plan_sha256": plan_sha256,
+            "plan_canonical_sha256": canonical_json_sha256(
+                normalized, "drawing layout plan"
+            ),
+            "output_path": output,
+        },
+        mutating=False,
+    )
+    return _layout_semantic_response_with_binding(response, normalized, normalized_request)
 
 
 if __name__ == "__main__":

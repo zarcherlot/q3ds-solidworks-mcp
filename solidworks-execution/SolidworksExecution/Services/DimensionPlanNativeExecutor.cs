@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using SolidWorks.Interop.sldworks;
@@ -41,7 +43,7 @@ namespace SolidworksExecution.Services
                         (int)swInsertAnnotation_e.swInsertTolerancedDims;
                     drawing.InsertModelAnnotations3(
                         (int)swImportModelItemsSource_e.swImportModelItemsFromEntireModel,
-                        types, true, true, false, true);
+                        types, true, false, false, true);
                     drawingModel.ForceRebuild3(false);
                     var aggregateIndexByView = new Dictionary<string, int>(
                         StringComparer.Ordinal);
@@ -116,12 +118,13 @@ namespace SolidworksExecution.Services
                         drawingModel.ClearSelection2(true);
                         foreach (DimensionPlanExecutionAttachment attachment in spec.Attachments)
                         {
-                            int state;
-                            object entity = sourceModel.Extension.GetObjectByPersistReference3(
-                                Convert.FromBase64String(attachment.PersistentReference), out state);
-                            if (entity == null || state != 0 || !view.SelectEntity(entity, true))
+                            string diagnostic;
+                            if (!TrySelectAttachment(view, sourceModel,
+                                spec.TargetViewId, attachment, out diagnostic))
                                 return Fail("DIMENSION_ATTACHMENT_RESOLUTION_FAILED", spec.DimensionId,
-                                    "Could not resolve and select attachment " + attachment.AttachmentId + ".",
+                                    "Could not resolve and select attachment " +
+                                    attachment.AttachmentId + "; " + diagnostic +
+                                    ", view=" + spec.TargetViewName + ".",
                                     out error);
                         }
                         object value;
@@ -381,7 +384,9 @@ namespace SolidworksExecution.Services
                 {
                     string count = Math.Round(spec.NominalSi).ToString(
                         CultureInfo.InvariantCulture);
-                    if (!Regex.IsMatch(record.AllText ?? "", @"(?<!\d)" +
+                    string renderedText = (record.Prefix ?? "") +
+                        (record.AllText ?? "") + (record.Suffix ?? "");
+                    if (!Regex.IsMatch(renderedText, @"(?<!\d)" +
                         Regex.Escape(count) + @"(?!\d)", RegexOptions.CultureInvariant))
                         return Fail("DIMENSION_QUANTITY_TEXT_MISMATCH", spec.DimensionId,
                             "Hole callout text does not contain the frozen quantity.", out error);
@@ -550,6 +555,72 @@ namespace SolidworksExecution.Services
 
         private static bool IsHoleCalloutKind(string kind) =>
             kind == "hole_diameter" || kind == "hole_depth" || kind == "hole_quantity";
+
+        private static bool TrySelectAttachment(IView view, IModelDoc2 sourceModel,
+            string targetViewId, DimensionPlanExecutionAttachment attachment,
+            out string diagnostic)
+        {
+            diagnostic = "source_reference_unresolved";
+            try
+            {
+                int state;
+                object entity = sourceModel.Extension.GetObjectByPersistReference3(
+                    Convert.FromBase64String(attachment.PersistentReference), out state);
+                if (entity != null && state == 0 && view.SelectEntity(entity, true))
+                    return true;
+                diagnostic = "state=" + state + ", resolved_type=" +
+                    (entity != null ? entity.GetType().FullName : "null");
+            }
+            catch (Exception ex)
+            {
+                diagnostic = "source_reference_error=" + ex.Message;
+            }
+            int ordinaryIndex = 0;
+            Array components = view.GetVisibleComponents() as Array;
+            if (components == null) return false;
+            foreach (object componentObject in components)
+            {
+                var component = componentObject as Component2;
+                Array entities = component != null
+                    ? view.GetVisibleEntities2(component,
+                        (int)swViewEntityType_e.swViewEntityType_Edge) as Array
+                    : null;
+                if (entities == null) continue;
+                foreach (object candidate in entities)
+                {
+                    byte[] bytes = null;
+                    try
+                    {
+                        bytes = ToBytes(sourceModel.Extension
+                            .GetPersistReference3(candidate));
+                    }
+                    catch { }
+                    if (bytes == null || bytes.Length == 0) continue;
+                    string persist = Convert.ToBase64String(bytes);
+                    string entityId = "GE-" + StableToken(targetViewId +
+                        "|entity|" + ordinaryIndex.ToString(
+                            CultureInfo.InvariantCulture) + "|" + persist);
+                    ordinaryIndex++;
+                    if (!String.Equals(entityId, attachment.EntityId,
+                        StringComparison.Ordinal) ||
+                        !String.Equals(persist, attachment.PersistentReference,
+                            StringComparison.Ordinal)) continue;
+                    if (view.SelectEntity(candidate, true)) return true;
+                    diagnostic = "drawing_context_entity_selection_failed";
+                    return false;
+                }
+            }
+            diagnostic += ", drawing_context_entity_not_found";
+            return false;
+        }
+
+        private static string StableToken(string value)
+        {
+            using (var sha = SHA256.Create())
+                return String.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(value ?? ""))
+                    .Take(8).Select(item => item.ToString("x2",
+                        CultureInfo.InvariantCulture)));
+        }
 
         private static void DeleteUnplannedImported(IModelDoc2 model, IDrawingDoc drawing,
             ISet<string> baselineNames, ISet<string> retainedNames)

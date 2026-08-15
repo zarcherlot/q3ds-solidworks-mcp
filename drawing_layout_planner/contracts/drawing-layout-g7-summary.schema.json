@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-drawing-layout-g7-summary-1.0.schema.json",
+  "title": "Drawing Layout G7 Live Matrix Summary 1.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "generated_at_utc", "solidworks_revision", "g0_qualification", "execution_service_sha256", "capability_manifest_sha256", "case_evidence", "scenario_coverage", "operation_coverage", "safety_coverage", "source_hashes_unchanged", "all_positive_cases_independently_verified", "all_negative_cases_rejected", "overall_status"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-g7-live-matrix-summary" }, "schema_version": { "const": "1.0" },
+    "generated_at_utc": { "type": "string", "format": "date-time" }, "solidworks_revision": { "const": "33.5.0" },
+    "g0_qualification": { "$ref": "#/$defs/artifact" },
+    "execution_service_sha256": { "$ref": "#/$defs/sha256" },
+    "capability_manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "case_evidence": { "type": "array", "minItems": 10, "maxItems": 10, "items": { "$ref": "#/$defs/caseBinding" } },
+    "scenario_coverage": { "$ref": "#/$defs/scenarioCoverage" }, "operation_coverage": { "$ref": "#/$defs/operationCoverage" }, "safety_coverage": { "$ref": "#/$defs/safetyCoverage" },
+    "source_hashes_unchanged": { "type": "boolean" }, "all_positive_cases_independently_verified": { "type": "boolean" }, "all_negative_cases_rejected": { "type": "boolean" },
+    "overall_status": { "enum": ["complete", "incomplete"] }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string", "minLength": 3 }, "sha256": { "$ref": "#/$defs/sha256" } } },
+    "caseBinding": { "type": "object", "additionalProperties": false, "required": ["case_id", "scenario", "evidence_kind", "path", "sha256"], "properties": { "case_id": { "type": "string", "minLength": 1 }, "scenario": { "type": "string", "minLength": 1 }, "evidence_kind": { "enum": ["positive", "negative"] }, "path": { "type": "string", "minLength": 3 }, "sha256": { "$ref": "#/$defs/sha256" } } },
+    "scenarioCoverage": { "type": "object", "additionalProperties": false, "required": ["sparse_dimensions", "multi_view", "section_view", "detail_view", "auxiliary_view", "hole_pattern", "high_density_dimensions", "scale_change", "authorized_sheet_format", "unauthorized_sheet_format"], "properties": { "sparse_dimensions": { "type": "integer", "minimum": 0 }, "multi_view": { "type": "integer", "minimum": 0 }, "section_view": { "type": "integer", "minimum": 0 }, "detail_view": { "type": "integer", "minimum": 0 }, "auxiliary_view": { "type": "integer", "minimum": 0 }, "hole_pattern": { "type": "integer", "minimum": 0 }, "high_density_dimensions": { "type": "integer", "minimum": 0 }, "scale_change": { "type": "integer", "minimum": 0 }, "authorized_sheet_format": { "type": "integer", "minimum": 0 }, "unauthorized_sheet_format": { "type": "integer", "minimum": 0 } } },
+    "operationCoverage": { "type": "object", "additionalProperties": false, "required": ["move_dimension", "move_annotation", "route_leader", "move_view", "set_dimension_hierarchy", "set_view_scale", "set_sheet_scale", "set_sheet_format"], "properties": { "move_dimension": { "type": "integer", "minimum": 0 }, "move_annotation": { "type": "integer", "minimum": 0 }, "route_leader": { "type": "integer", "minimum": 0 }, "move_view": { "type": "integer", "minimum": 0 }, "set_dimension_hierarchy": { "type": "integer", "minimum": 0 }, "set_view_scale": { "type": "integer", "minimum": 0 }, "set_sheet_scale": { "type": "integer", "minimum": 0 }, "set_sheet_format": { "type": "integer", "minimum": 0 } } },
+    "safetyCoverage": { "type": "object", "additionalProperties": false, "required": ["dimension_semantic_preservation", "view_semantic_preservation", "object_identity_preservation", "collision_readback", "save_reopen_layout_fingerprint", "authorized_sheet_change"], "properties": { "dimension_semantic_preservation": { "type": "integer", "minimum": 0 }, "view_semantic_preservation": { "type": "integer", "minimum": 0 }, "object_identity_preservation": { "type": "integer", "minimum": 0 }, "collision_readback": { "type": "integer", "minimum": 0 }, "save_reopen_layout_fingerprint": { "type": "integer", "minimum": 0 }, "authorized_sheet_change": { "type": "integer", "minimum": 0 } } }
+  }
+}

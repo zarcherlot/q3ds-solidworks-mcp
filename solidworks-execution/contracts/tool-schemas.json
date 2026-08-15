@@ -950,6 +950,91 @@
         },
         "output": "-> see execution-response.json; successful evidence includes the independent read-only snapshot, immutable qualification binding and capability_registry_promoted=false."
     },
+    "validate_frozen_part_drawing_layout_plan": {
+        "description": "INTERNAL COM-FREE EXECUTOR ENTRY: validate one frozen DrawingLayoutPlan 1.0 publication, its recursive immutable G1/DimensionPlan chain, and current operation/safety/G0-boundary readiness without contacting SolidWorks.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (ignored for read-only validation)",
+            "params": {
+                "plan": "object (required, exact DrawingLayoutPlan 1.0)",
+                "plan_path": "absolute path to immutable drawing_layout_plan.json",
+                "plan_sha256": "lowercase SHA-256 of plan_path",
+                "plan_canonical_sha256": "Python-canonical lowercase SHA-256 of plan",
+                "output_path": "new absolute .SLDDRW path"
+            }
+        },
+        "output": "-> see execution-response.json; reports contract/preflight validity and supported or capability_blocked without COM."
+    },
+    "execute_part_drawing_layout_plan": {
+        "description": "INTERNAL EXECUTOR ENTRY: apply one capability-supported DrawingLayoutPlan through a bounded native transaction, save/close/read-only reopen, then atomically commit a new drawing and layout verification sidecar without overwriting the dimension drawing.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact DrawingLayoutPlan 1.0)",
+                "plan_path": "absolute path to immutable drawing_layout_plan.json",
+                "plan_sha256": "lowercase SHA-256 of plan_path",
+                "plan_canonical_sha256": "Python-canonical lowercase SHA-256 of plan",
+                "output_path": "new absolute .SLDDRW path"
+            }
+        },
+        "output": "-> see execution-response.json; verified result contains bounded cycle, in-memory, save/reopen and immutable-input evidence."
+    },
+    "verify_committed_part_drawing_layout_plan": {
+        "description": "INTERNAL EXECUTOR ENTRY: independently reopen a committed G4 drawing read-only, revalidate its strict sidecar and every frozen input, then verify DimensionPlan semantics, persistent attachments, view semantics, complete object identity, bounds, collisions and the normalized three-stage layout fingerprint without saving.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required, must match current execution state)",
+            "params": {
+                "plan": "object (required, exact DrawingLayoutPlan 1.0)",
+                "plan_path": "absolute path to immutable drawing_layout_plan.json",
+                "plan_sha256": "lowercase SHA-256 of plan_path",
+                "plan_canonical_sha256": "Python-canonical lowercase SHA-256 of plan",
+                "output_path": "existing committed final .SLDDRW path"
+            }
+        },
+        "output": "-> see execution-response.json; returns independent dimension/layout evidence and unchanged artifact hash without incrementing state."
+    },
+    "qualify_part_drawing_layout_plan": {
+        "description": "INTERNAL G7 QUALIFICATION ENTRY: execute one immutable matrix-bound DrawingLayoutPlan using planned capabilities only for live evidence; known-unsupported G0 boundaries remain blocked and production state is unchanged.",
+        "input": {
+            "operation_id": "string (required, unique idempotency key)",
+            "state_version": "integer (required)",
+            "params": {
+                "plan": "object (required, exact DrawingLayoutPlan 1.0)",
+                "plan_path": "absolute immutable drawing_layout_plan.json",
+                "plan_sha256": "lowercase SHA-256 of plan_path",
+                "plan_canonical_sha256": "Python-canonical lowercase SHA-256 of plan",
+                "output_path": "new absolute .SLDDRW path",
+                "matrix_request_path": "absolute immutable G7 JSON request",
+                "matrix_request_sha256": "lowercase SHA-256 of matrix request",
+                "planning_request_sha256": "unchanged LayoutPlanningRequest hash",
+                "source_dimension_request_sha256": "unchanged DimensionPlanningRequest hash",
+                "case_id": "positive G7 case ID"
+            }
+        },
+        "output": "-> see execution-response.json; qualification-only result never promotes production capabilities."
+    },
+    "verify_qualified_part_drawing_layout_plan": {
+        "description": "INTERNAL G7 QUALIFICATION ENTRY: independently verify one matrix-bound final layout drawing read-only while allowing planned operation/safety capabilities and rejecting known-unsupported boundaries.",
+        "input": {
+            "operation_id": "string (required)",
+            "state_version": "integer (required)",
+            "params": {
+                "plan": "object (required, exact DrawingLayoutPlan 1.0)",
+                "plan_path": "absolute immutable drawing_layout_plan.json",
+                "plan_sha256": "lowercase SHA-256 of plan_path",
+                "plan_canonical_sha256": "Python-canonical lowercase SHA-256 of plan",
+                "output_path": "existing qualified .SLDDRW path",
+                "matrix_request_path": "absolute immutable G7 JSON request",
+                "matrix_request_sha256": "lowercase SHA-256 of matrix request",
+                "planning_request_sha256": "unchanged LayoutPlanningRequest hash",
+                "source_dimension_request_sha256": "unchanged DimensionPlanningRequest hash",
+                "case_id": "positive G7 case ID"
+            }
+        },
+        "output": "-> see execution-response.json; returns independent read-only qualification evidence without promotion."
+    },
     "execute_drawing_plan": {
         "description": "INTERNAL EXECUTOR ENTRY: validate and transactionally execute one frozen schema-1.0 part drawing plan. Creates views through private atomic COM operations, rebuilds, saves to a same-directory transaction file, closes, reopens read-only, verifies, then atomically commits the .SLDDRW plus a verification sidecar.",
         "input": {

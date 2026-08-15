@@ -1,0 +1,4 @@
+interface:
+  display_name: "SolidWorks Finalize Drawing Layout"
+  short_description: "Plan, create, and independently verify final drawing layout"
+  default_prompt: "Use $solidworks-finalize-drawing-layout to create one evidence-bound final drawing layout through the immutable semantic tool chain."

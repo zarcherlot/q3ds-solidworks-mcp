@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/layout-boundary-probe.schema.json",
+  "title": "SolidWorks Final Layout Boundary Probe Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "source",
+    "publication_directory",
+    "required_solidworks_revision",
+    "error_budget_m",
+    "capability_ids"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-layout-boundary-probe" },
+    "schema_version": { "const": "1.0" },
+    "source": { "$ref": "#/$defs/source" },
+    "publication_directory": { "type": "string", "minLength": 3 },
+    "required_solidworks_revision": { "const": "33.5.0" },
+    "error_budget_m": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.005 },
+    "capability_ids": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capabilityId" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "dimension_plan", "dimensioned_drawing", "dimension_verification_sidecar"],
+          "properties": {
+            "kind": { "const": "verified_dimension_drawing" },
+            "dimension_plan": { "$ref": "#/$defs/artifact" },
+            "dimensioned_drawing": { "$ref": "#/$defs/artifact" },
+            "dimension_verification_sidecar": { "$ref": "#/$defs/artifact" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "view_plan", "view_drawing", "view_verification_sidecar"],
+          "properties": {
+            "kind": { "const": "verified_view_plan_drawing" },
+            "view_plan": { "$ref": "#/$defs/artifact" },
+            "view_drawing": { "$ref": "#/$defs/artifact" },
+            "view_verification_sidecar": { "$ref": "#/$defs/artifact" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "layout_fixture_manifest", "fixture_drawing", "source_verification_sidecar"],
+          "properties": {
+            "kind": { "const": "verified_layout_fixture" },
+            "layout_fixture_manifest": { "$ref": "#/$defs/artifact" },
+            "fixture_drawing": { "$ref": "#/$defs/artifact" },
+            "source_verification_sidecar": { "$ref": "#/$defs/artifact" }
+          }
+        }
+      ]
+    },
+    "capabilityId": {
+      "enum": [
+        "view_outline_bounds",
+        "dimension_display_bounds",
+        "note_text_bounds",
+        "leader_bounds",
+        "view_label_bounds",
+        "section_symbol_bounds",
+        "center_element_bounds",
+        "sheet_border_bounds",
+        "title_block_bounds",
+        "rebuild_drift",
+        "save_reopen_drift"
+      ]
+    }
+  }
+}

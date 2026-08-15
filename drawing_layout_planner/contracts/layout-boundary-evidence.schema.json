@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/layout-boundary-evidence.schema.json",
+  "title": "SolidWorks Final Layout Boundary Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "schema_version",
+    "probe_id",
+    "created_at",
+    "execution_mode",
+    "source_kind",
+    "solidworks",
+    "source_request_sha256",
+    "error_budget_m",
+    "upstream_immutability",
+    "snapshots",
+    "capabilities"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-layout-boundary-evidence" },
+    "schema_version": { "const": "1.0" },
+    "probe_id": { "type": "string", "pattern": "^LBE-[A-Za-z0-9._-]+$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "execution_mode": { "enum": ["offline", "live"] },
+    "source_kind": { "enum": ["verified_dimension_drawing", "verified_view_plan_drawing", "verified_layout_fixture"] },
+    "solidworks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major_version", "service_pack", "revision"],
+      "properties": {
+        "major_version": { "type": "integer", "minimum": 2025 },
+        "service_pack": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source_request_sha256": { "$ref": "#/$defs/sha256" },
+    "error_budget_m": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.005 },
+    "upstream_immutability": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/immutability" }
+    },
+    "snapshots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before_rebuild_sha256", "after_rebuild_sha256", "readonly_reopen_sha256"],
+      "properties": {
+        "before_rebuild_sha256": { "$ref": "#/$defs/sha256" },
+        "after_rebuild_sha256": { "$ref": "#/$defs/sha256" },
+        "readonly_reopen_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": { "$ref": "#/$defs/capability" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "capabilityId": {
+      "enum": [
+        "view_outline_bounds",
+        "dimension_display_bounds",
+        "note_text_bounds",
+        "leader_bounds",
+        "view_label_bounds",
+        "section_symbol_bounds",
+        "center_element_bounds",
+        "sheet_border_bounds",
+        "title_block_bounds",
+        "rebuild_drift",
+        "save_reopen_drift"
+      ]
+    },
+    "immutability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256_before", "sha256_after"],
+      "properties": {
+        "role": {
+          "enum": [
+            "dimension_plan", "dimensioned_drawing", "dimension_verification_sidecar",
+            "view_plan", "view_drawing", "view_verification_sidecar",
+            "layout_fixture_manifest", "fixture_drawing", "source_verification_sidecar"
+          ]
+        },
+        "path": { "type": "string", "minLength": 3 },
+        "sha256_before": { "$ref": "#/$defs/sha256" },
+        "sha256_after": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "native_api_invoked",
+        "objects_observed",
+        "bounds_structured",
+        "rebuild_compared",
+        "save_reopen_compared",
+        "within_error_budget"
+      ],
+      "properties": {
+        "native_api_invoked": { "type": "boolean" },
+        "objects_observed": { "type": "boolean" },
+        "bounds_structured": { "type": "boolean" },
+        "rebuild_compared": { "type": "boolean" },
+        "save_reopen_compared": { "type": "boolean" },
+        "within_error_budget": { "type": "boolean" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "checks", "max_drift_m", "evidence", "limitations"],
+      "properties": {
+        "id": { "$ref": "#/$defs/capabilityId" },
+        "status": { "enum": ["supported", "planned", "unsupported"] },
+        "checks": { "$ref": "#/$defs/checks" },
+        "max_drift_m": { "type": ["number", "null"], "minimum": 0 },
+        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

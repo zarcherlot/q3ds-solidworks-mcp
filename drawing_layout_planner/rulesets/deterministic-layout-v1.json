@@ -1,0 +1,30 @@
+{
+  "protocol_id": "solidworks-drawing-layout-ruleset",
+  "schema_version": "1.0",
+  "ruleset_id": "deterministic-layout-v1",
+  "producer_name": "repository-layout-planner",
+  "producer_version": "0.1.0",
+  "coordinate_precision_digits": 9,
+  "grid_m": 0.001,
+  "max_search_rings": 40,
+  "minimum_text_height_m": 0.0018,
+  "minimum_arrow_size_m": 0.001,
+  "phase_order": [
+    "dimension_text_and_hierarchy",
+    "leaders_and_labels",
+    "movable_views",
+    "local_scale",
+    "sheet_scale",
+    "authorized_sheet_format"
+  ],
+  "operation_phase": {
+    "set_dimension_hierarchy": 0,
+    "move_dimension": 0,
+    "move_annotation": 1,
+    "route_leader": 1,
+    "move_view": 2,
+    "set_view_scale": 3,
+    "set_sheet_scale": 4,
+    "set_sheet_format": 5
+  }
+}

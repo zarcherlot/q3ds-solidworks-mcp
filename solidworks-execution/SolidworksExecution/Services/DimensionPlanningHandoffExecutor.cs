@@ -91,16 +91,17 @@ namespace SolidworksExecution.Services
                 JObject drawingContext;
                 JArray measurements;
                 JArray views = ReadViews(drawing, sourceModel,
-                    request.ViewPlanValue, out drawingContext, out measurements);
+                    request.ViewPlanValue, request.VerificationSidecarValue,
+                    out drawingContext, out measurements);
                 drawingContext["path"] = request.VerifiedDrawing.Path;
                 JArray modelDimensions = ReadModelDimensions(sourceModel);
                 JArray pmi = ReadModelAnnotations(sourceModel);
-                JArray features = ReadManufacturingFeatures(sourceModel, modelDimensions);
 
                 EnsureClean(sourceModel, "source model after readback");
                 EnsureClean(drawingModel, "verified drawing after readback");
                 AddModelDimensionImportCandidates(drawingModel, drawing, sourceModel,
                     views, modelDimensions);
+                JArray features = ReadManufacturingFeatures(sourceModel, modelDimensions);
 
                 Close(drawingModel);
                 drawingModel = null;
@@ -180,7 +181,8 @@ namespace SolidworksExecution.Services
         }
 
         private JArray ReadViews(IDrawingDoc drawing, IModelDoc2 sourceModel,
-            JObject plan, out JObject drawingContext, out JArray measurements)
+            JObject plan, JObject verificationSidecar, out JObject drawingContext,
+            out JArray measurements)
         {
             measurements = new JArray();
             var sheet = drawing.GetCurrentSheet() as ISheet;
@@ -213,6 +215,18 @@ namespace SolidworksExecution.Services
             if (guard >= 2000) throw new InvalidOperationException(
                 "DIMENSION_HANDOFF_VIEW_ITERATION_LIMIT");
 
+            var verifiedNames = new Dictionary<string, string>(StringComparer.Ordinal);
+            var verifiedRows = verificationSidecar != null
+                ? verificationSidecar.SelectToken("verification.views") as JArray : null;
+            if (verifiedRows != null)
+                foreach (JObject row in verifiedRows.OfType<JObject>())
+                {
+                    string id = row.Value<string>("id");
+                    string name = row.Value<string>("name");
+                    if (!String.IsNullOrWhiteSpace(id) &&
+                        !String.IsNullOrWhiteSpace(name)) verifiedNames[id] = name;
+                }
+
             var result = new JArray();
             var plannedViews = plan["views"] as JArray;
             if (plannedViews == null || plannedViews.Count == 0)
@@ -220,9 +234,14 @@ namespace SolidworksExecution.Services
             foreach (JObject planned in plannedViews.OfType<JObject>())
             {
                 string viewId = planned.Value<string>("id");
-                IView view;
-                if (String.IsNullOrWhiteSpace(viewId) ||
-                    !live.TryGetValue(ViewNamePrefix + viewId, out view))
+                IView view = null;
+                string verifiedName;
+                bool found = !String.IsNullOrWhiteSpace(viewId) &&
+                    live.TryGetValue(ViewNamePrefix + viewId, out view);
+                if (!found && !String.IsNullOrWhiteSpace(viewId) &&
+                    verifiedNames.TryGetValue(viewId, out verifiedName))
+                    found = live.TryGetValue(verifiedName, out view);
+                if (!found)
                     throw new InvalidOperationException(
                         "DIMENSION_HANDOFF_PLANNED_VIEW_MISSING: " + viewId);
                 JArray geometry = ReadProjectedGeometry(view, sourceModel, viewId,
@@ -268,11 +287,6 @@ namespace SolidworksExecution.Services
                     if (String.IsNullOrEmpty(persist))
                         throw new InvalidOperationException(
                             "DIMENSION_HANDOFF_PERSIST_REFERENCE_MISSING: " + viewId);
-                    // SolidWorks can return the same model-context persistent reference for
-                    // several distinct drawing-view edges.  The previous reference-only key
-                    // collapsed a rectangle to one edge, making every two-attachment dimension
-                    // impossible to plan.  Preserve deterministic traversal order in the frozen
-                    // ID while retaining the exact persistent reference used for execution.
                     string entityId = "GE-" + StableToken(viewId + "|entity|" +
                         ordinaryEntityIndex.ToString(CultureInfo.InvariantCulture) + "|" +
                         persist);
@@ -586,7 +600,7 @@ namespace SolidworksExecution.Services
                 (int)swInsertAnnotation_e.swInsertTolerancedDims;
             drawing.InsertModelAnnotations3(
                 (int)swImportModelItemsSource_e.swImportModelItemsFromEntireModel,
-                types, true, true, false, true);
+                types, true, false, false, true);
             drawingModel.ForceRebuild3(false);
 
             var importedAnnotations = new List<IAnnotation>();
@@ -679,6 +693,14 @@ namespace SolidworksExecution.Services
                 drawingModel.EditDelete();
             }
             drawingModel.ClearSelection2(true);
+            foreach (JObject dimension in modelDimensions.OfType<JObject>())
+            {
+                var candidates = dimension["import_candidates"] as JArray;
+                dimension["manufacturing_requirement"] =
+                    dimension.Value<bool>("marked_for_drawing") &&
+                    !dimension.Value<bool>("reference_dimension") &&
+                    candidates != null && candidates.Count > 0;
+            }
         }
 
         private static IView FindView(IDrawingDoc drawing, string name)
@@ -778,27 +800,6 @@ namespace SolidworksExecution.Services
             }
             if (guard >= 100000) throw new InvalidOperationException(
                 "DIMENSION_HANDOFF_FEATURE_ITERATION_LIMIT");
-            foreach (JObject dimension in modelDimensions.OfType<JObject>())
-            {
-                string featureId = dimension.Value<string>("owner_feature_id");
-                string name = dimension.Value<string>("owner_feature_name");
-                string type = dimension.Value<string>("owner_feature_type");
-                string persist = dimension.Value<string>(
-                    "owner_feature_persistent_reference");
-                if (String.IsNullOrWhiteSpace(featureId) ||
-                    String.IsNullOrWhiteSpace(name) ||
-                    String.IsNullOrWhiteSpace(type) ||
-                    String.IsNullOrWhiteSpace(persist) || !seen.Add(featureId)) continue;
-                result.Add(new JObject
-                {
-                    ["feature_id"] = featureId,
-                    ["name"] = name,
-                    ["type_name"] = type,
-                    ["classification"] = "model_feature",
-                    ["persistent_reference"] = persist,
-                    ["source_tier"] = "model_or_pmi"
-                });
-            }
             return result;
         }
 

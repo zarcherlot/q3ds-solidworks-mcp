@@ -1,7 +1,7 @@
 # 仓库原生 SolidWorks 单零件工程图开发计划
 
-状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3、F6 已完成；F4-F5 原生执行候选已实现、待 F7 实机证据晋级；G-H 待开发
-最后更新：2026-08-13
+状态：E0-E4 当前三 Skill 生产链发布候选已完成；F0-F3、F6 已完成；F4-F5 原生执行候选已实现、待 F7 完整能力矩阵晋级；G0-G7 已完成，最终布局八项操作与六项安全能力已由 SolidWorks 2025 SP5 完整矩阵晋级
+最后更新：2026-08-15
 目标协议：`solidworks-view-plan` schema 1.4；后续 `solidworks-dimension-plan` 1.0；后续
 `solidworks-drawing-layout-plan` 1.0
 
@@ -64,11 +64,20 @@ User / Codex
 | `initialize_part_drawing_dimension_handoff` | 冻结已核验视图图纸、尺寸/PMI/特征/持久引用及批准输入 | 否 |
 | `publish_validated_part_drawing_dimension_plan` | 重校验并原子发布唯一完整 DimensionPlan 候选 | 否 |
 | `validate_part_drawing_dimension_plan` | 绑定已发布计划/请求并运行 Python 与 C# COM-free 门禁 | 否 |
+| `qualify_dimensioned_part_drawing` | F7 实机矩阵专用创建，不晋级生产能力 | 是 |
+| `verify_qualified_dimensioned_part_drawing` | F7 实机矩阵专用独立核验 | 否 |
 | `create_dimensioned_part_drawing` | 能力受支持时事务创建新的尺寸图纸和侧车 | 是 |
 | `verify_dimensioned_part_drawing` | 对尺寸图纸进行独立只读重开核验 | 否 |
+| `initialize_part_drawing_layout_handoff` | 绑定尺寸请求、计划、已核验图纸/侧车与 G0 实证，冻结精确布局边界 | 否 |
+| `publish_validated_part_drawing_layout_plan` | 从唯一不可变 LayoutPlanningRequest 确定性求解并原子发布布局计划 | 否 |
+| `validate_part_drawing_layout_plan` | 重算唯一计划并运行 Python 与 C# COM-free 布局门禁 | 否 |
+| `qualify_final_part_drawing` | G7 矩阵绑定的资格创建；允许 planned 操作但不绕过 unsupported G0 边界 | 是 |
+| `verify_qualified_final_part_drawing` | G7 矩阵绑定的独立资格核验，不晋级生产目录 | 否 |
+| `create_final_part_drawing` | 能力受支持时事务创建新的最终图纸和布局侧车 | 是 |
+| `verify_final_part_drawing` | 对最终图纸进行独立只读重开和布局指纹核验 | 否 |
 
-默认 MCP 当前共十五项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
-`semantic-tools.schema.json` 必须保持精确一致；四个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
+默认 MCP 当前共二十四项工程语义工具、零 prompts。`.codex/config.toml`、FastMCP 实际发现结果和
+`semantic-tools.schema.json` 必须保持精确一致；五个仓库自有 Skill 只能调用各自 allow-list 内的上述工具。
 `plan_part_drawing_views` 与显式 Skill + `publish_validated_part_drawing_view_plan` 是互斥规划分支；当前
 Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP Sampling 时才使用 PlannerEngine 分支。
 
@@ -84,7 +93,7 @@ Codex 生产流程默认使用显式 Skill 分支，只有用户明确要求 MCP
 - `create_dimensioned_part_drawing`
 - `verify_dimensioned_part_drawing`
 
-最终排版阶段拟新增：
+最终排版阶段已在 G6 新增：
 
 - `initialize_part_drawing_layout_handoff`
 - `publish_validated_part_drawing_layout_plan`
@@ -450,30 +459,115 @@ G 必须在 F 的真实尺寸执行后运行。最终排版依据 SolidWorks 重
 G 只负责已有视图、尺寸和注释的最终空间整理；标题栏内容填写、技术要求编制、形位公差/基准/粗糙度
 创建以及 PDF/DWG/DXF 导出不在本阶段范围内。
 
-- [ ] G0：验证真实注释边界和重建漂移。
-  - [ ] 实测视图轮廓、尺寸文字/线/箭头、孔标注/引线、标签、剖切符号、中心元素、图框和标题栏边界。
-  - [ ] 记录重建前后及保存重开漂移；原生 API 无可靠边界时建立有实机误差证据的确定性近似并 fail-closed。
-- [ ] G1：实现不可变布局 handoff。
-  - [ ] 冻结上游 DimensionPlan、尺寸图纸和侧车哈希，以及全部实际对象边界、约束、锁定区和最小间距。
-  - [ ] 发布 `drawing-layout-handoff.json` last；不得改变上游尺寸数量、数值、附着关系或图纸文件。
-- [ ] G2：加入 DrawingLayoutPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
-  - [ ] 计划可移动尺寸/注释/允许的视图，调整尺寸层级、引线、局部比例、主比例及经授权的图幅。
-  - [ ] 计划不得删除必要内容、改变制造语义、配置/显示状态/投影法、剖切定义、模型关联或冻结几何。
-- [ ] G3：实现仓库确定性排版引擎和门禁。
-  - [ ] 使用规则加约束求解；Skill/模型表达优先级和布局意图，合法最终坐标由仓库引擎求解。
-  - [ ] 固定调整顺序：尺寸文字/层级 → 引线/标签 → 可移动视图 → 局部比例 → 主比例 → 授权图幅。
-  - [ ] 校验安全区、标题栏/保留区、对象碰撞、尺寸穿越、投影对齐、最小间距、字体和箭头可读性。
-- [ ] G4：实现 C# 最终排版事务。
-  - [ ] 原生移动尺寸、注释、引线和视图，保持投影关系，并执行计划允许的比例/图幅调整。
-  - [ ] 采用有界“应用 → 重建 → 真实边界回读 → 碰撞检查 → 有限调整”流程；超限稳定失败。
-  - [ ] 保存、关闭、只读重开后提交新的最终图纸和验证侧车，不覆盖尺寸阶段图纸。
-- [ ] G5：实现最终布局独立核验器。
-  - [ ] 核对尺寸值/数量/附着实体和视图语义不变，无悬空对象、越界、正面积碰撞或保留区侵占。
-  - [ ] 规范化布局指纹在内存、事务重开和独立验证之间一致；截图/PDF 仅作附加视觉 QA。
-- [ ] G6：新增 `solidworks-finalize-drawing-layout` Skill 和五项布局语义工具。
-  - [ ] Skill 必须绑定尺寸阶段返回的不可变 request，不能跳回视图基线或绕过尺寸核验。
-- [ ] G7：完成布局离线、合同和真实 SolidWorks 矩阵。
-  - [ ] 覆盖少尺寸、多视图、剖视、详图、辅助视图、孔阵列、高密度尺寸、缩放和授权/未授权换图幅。
+- [x] G0：验证真实注释边界和重建漂移。
+  - [x] 实测视图轮廓、尺寸文字/线/箭头、孔标注/引线、标签、剖切符号、中心元素、图框和标题栏边界。
+  - [x] 记录重建前后及保存重开漂移；原生 API 无可靠精确文字边界时以实机稳定性证据显式标记 `unsupported`，不把确定性近似冒充 exact-supported。
+
+G0 已建立第一批仓库原生开发基础：新增严格的 `layout-boundary-probe` / `layout-boundary-evidence`
+Draft 2020-12 合同、固定十一项能力目录、COM-free 确定性证据评估器和独立 C# 合同套件。Execution Service
+新增不进入默认 semantic MCP 的私有只读研究入口；它接收哈希绑定的已核验尺寸图、已核验 ViewPlan 图和
+隔离标题栏夹具，在不保存图纸的前提下发布重建前、重建后及完全关闭后只读重开的三份对象边界快照，并最后发布
+证据。原生读回当前覆盖视图轮廓、尺寸显示图元、note extent、引线点、仓库管理辅助标签、原生详图标签、
+剖切 line/arrow/text info、中心元素、图框和标题栏；任何文字宽度近似均明确保持 `planned`。完整范围和后续
+门禁见 `docs/G0_LAYOUT_BOUNDARY_SCOPE.md`。
+
+2026-08-14 已完成第一轮固定六类 G0 实机矩阵。请求从 F7 `matrix-live-r14` 的 plate、bracket、threaded、
+shaft_sleeve、flange、slot_cavity 六类已独立核验尺寸图纸生成，并新增不可变矩阵请求/汇总合同、一次性发布器、
+六类聚合门禁和磁盘证据一致性复核。六类视图轮廓、图框以及重建/只读重开漂移均已覆盖；threaded、
+shaft_sleeve、flange 还覆盖普通 note 和引线。三条 note 经原生身份字段确认均为带引线的 `M8/M16 螺纹孔`
+孔标注，不是视图标签。尺寸显示六类均可观测且零漂移，但文字宽度仍需确定性近似，因此只记为 `partial`。
+矩阵没有 detail/section/auxiliary 标签、剖切符号、中心元素或原生标题栏正向对象，所以这些能力保持 missing，
+不得推断为 unsupported。
+
+实机复测还纠正了两项原生数组解析：`INote.GetExtent` 按两个 XYZ 角点解释，`IDisplayData.GetLineAtIndex3`
+跳过四项样式元数据后读取两个 XYZ 端点；箭头按 tip/direction/width/height 解释，剖切 line/arrow/text 分别按
+二维点对、XYZ 点组和文字原点处理。修正后所有边界均回到 A3 图纸尺度，第三轮矩阵总体仍为 `incomplete`、
+无 blocker，汇总文件 SHA-256 为 `41027d079f992fb26a044fe670a39fef6bb865145ceda64b667a4f349e587d32`。
+2026-08-14 已完成 G0 最终资格。新增哈希绑定的已核验 ViewPlan 来源和隔离的标题栏研究夹具来源；生产
+ViewPlan 事务创建并独立只读核验了辅助视图显式标签、中心标记、水平/垂直中心线和全剖切割符号，隔离 C#
+夹具通过 `ISheet.InsertTitleBlock` 创建标题栏并以 `ITitleBlock.GetExtents` 在保存重开前后精确读回。最终资格
+报告 SHA-256 为 `292825190b481261bb37f9e6b6154d01be2917e7887a2745ddc1aae7e42f79a4`，十一项均已资格化：九项
+`supported`，尺寸显示和剖切符号因 SolidWorks 未暴露精确文字 glyph extent 明确为 `unsupported`；能力目录
+已晋级到 `1.0.0` / `live_complete`。G0 完成，下一阶段从 G1 不可变布局 handoff 开始。
+- [x] G1：实现不可变布局 handoff。
+  - [x] 冻结上游 DimensionPlan、尺寸图纸和侧车哈希，以及全部实际对象边界、约束、锁定区和最小间距。
+  - [x] 发布 `drawing-layout-handoff.json` last；不得改变上游尺寸数量、数值、附着关系或图纸文件。
+2026-08-15 已完成 G1。新增严格 request/handoff Draft 2020-12 Schema、Python 哈希与语义连续性门禁、私有 C#
+只读事务和 `initialize_part_drawing_layout_handoff` 工程语义入口。事务对真实 F7 尺寸图执行关闭、只读打开、
+重建、关闭、只读重开，冻结尺寸 ID/数值/模型持久引用、全部实际边界、视图位置锁、投影父子约束、图框/标题栏
+锁定区和三类最小间距，并在五项上游哈希复核后最后发布唯一 handoff。真实 plate 候选包含 5 个边界对象和 1 个
+尺寸，三次对象快照哈希一致，上游哈希全部不变；因 `dimension_display_bounds` 的精确 glyph extent 已在 G0
+资格中明确为 unsupported，handoff 如实发布为 `capability_blocked`，该状态不影响 G1 交接完成但会阻止后续不安全
+执行。候选 SHA-256 为 `8f3d6d0346ad8ad1d48b63a847e0dd7c4cc630d0750e6cf3e0f849b4085ad672`。
+- [x] G2：加入 DrawingLayoutPlan 1.0 Schema、领域模型、能力清单和原子 PlanStore。
+  - [x] 计划可移动尺寸/注释/允许的视图，调整尺寸层级、引线、局部比例、主比例及经授权的图幅。
+  - [x] 计划不得删除必要内容、改变制造语义、配置/显示状态/投影法、剖切定义、模型关联或冻结几何。
+2026-08-15 已完成 G2。新增独立、严格、深度不可变的 `DrawingLayoutPlan 1.0` Draft 2020-12
+Schema 和 Pydantic 领域模型，只允许八类排版操作：移动尺寸、移动注释、路由引线、移动经授权视图、设置尺寸
+层级、设置经授权局部比例、设置经授权主比例及设置与审批记录精确一致的图幅。计划冻结 G1 handoff、
+DimensionPlan、尺寸图、验证侧车、配置、尺寸语义快照、对象清单、锁定对象和必需 G0 边界能力；删除对象、新增
+制造注释、源模型写入、上游图纸覆盖、部分提交以及弱化尺寸/视图/模型关联不变量在协议层无合法表达。
+新增独立 `plan-current.json` 能力清单并按协议、版本和文件 SHA-256 绑定 G0 `current.json`，同时区分八项原生
+操作能力、六项安全回读能力和计划要求的边界能力。G4/G5 实证前全部执行能力保持 `planned`，G0 已知不支持的
+精确尺寸文字边界继续产生 `boundary.dimension_display_bounds` 阻断。原子 PlanStore 只向已存在且非
+`validation/` 的目录一次性发布 `drawing_layout_plan.json`，同目录落盘、禁止覆盖和并发抢占；详细合同见
+`docs/G2_DRAWING_LAYOUT_PLAN.md`。
+- [x] G3：实现仓库确定性排版引擎和门禁。
+  - [x] 使用规则加约束求解；Skill/模型表达优先级和布局意图，合法最终坐标由仓库引擎求解。
+  - [x] 固定调整顺序：尺寸文字/层级 → 引线/标签 → 可移动视图 → 局部比例 → 主比例 → 授权图幅。
+  - [x] 校验安全区、标题栏/保留区、对象碰撞、尺寸穿越、投影对齐、最小间距、字体和箭头可读性。
+2026-08-15 已完成 G3。新增严格的 `drawing-layout-planning-request` 合同和不可变意图/结果模型，调用层只可
+表达对象优先级、偏好位置、比例候选和已批准图幅候选；核心网格、搜索上限、可读性阈值、六阶段顺序及操作阶段
+映射冻结在仓库 `deterministic-layout-v1` 规则集中，并按文件 SHA-256 写入计划 provenance。确定性求解器按
+优先级和稳定 ID 排序，在 1 mm 网格上执行有界邻域搜索、正交引线路由、投影轴约束、局部/主比例候选选择和授权
+图幅匹配，只生成 G2 八类合法操作。引擎在求解前复核 G1 handoff 及五项上游文件哈希、G0 清单版本和字节哈希；
+`capability_blocked`、不精确边界、尺寸对象缺少明确 dimension ID/附着点均提前失败。最终状态独立通过阶段顺序、
+安全区、图框/标题栏、正面积碰撞、跨无关视图尺寸线、投影父子/对齐、三类最小间距和文字/箭头可读性门禁后，
+才交给 G2 原子 PlanStore。相同 handoff 和意图产生字节一致的操作序列；工程合法计划仍由独立能力清单决定
+`supported` 或 `capability_blocked`。详细边界见 `docs/G3_DETERMINISTIC_LAYOUT_ENGINE.md`。
+- [x] G4：实现 C# 最终排版事务。
+  - [x] 原生移动尺寸、注释、引线和视图，保持投影关系，并执行计划允许的比例/图幅调整。
+  - [x] 采用有界“应用 → 重建 → 真实边界回读 → 碰撞检查 → 有限调整”流程；超限稳定失败。
+  - [x] 保存、关闭、只读重开后提交新的最终图纸和验证侧车，不覆盖尺寸阶段图纸。
+G4 已加入 SHA-256 锁定的独立 C# DrawingLayoutPlan 合同、八操作编译器、递归上游制品预检和
+私有 validate/execute 入口；不会进入默认 semantic MCP。能力门禁同时要求计划使用的原生操作、
+六项安全回读和全部必需 G0 边界具有绑定的 live 支持证据，`capability_blocked` handoff 仍可通过
+工程完整性检查，但生产创建在 COM 前稳定拒绝。原生候选按冻结六阶段顺序移动尺寸、注释、单一
+原生引线和授权视图，并执行授权局部比例、主比例与精确审批图幅；尺寸层级由同阶段冻结尺寸位置
+实现。每次只允许最多三轮“应用 → 重建 → 真实边界/语义回读 → 安全区/标题栏/碰撞/投影复核 →
+重放同一冻结目标”，不生成计划外坐标，超限稳定失败。事务从干净会话用 `CopyDocument` 创建随机
+临时副本，重算 DrawingLayoutPlan、G1、DimensionPlan、尺寸图/侧车及 DimensionPlan 五项嵌套上游
+制品哈希；内存核验后保存、关闭、只读重开并要求规范化布局指纹一致，最后双文件原子提交新图纸和
+严格验证侧车，失败清理临时/部分输出且不覆盖尺寸阶段图纸。G7 已完成全部实机验收并晋级生产能力，
+详细合同见 `docs/G4_DRAWING_LAYOUT_TRANSACTION.md`。
+- [x] G5：实现最终布局独立核验器。
+  - [x] 核对尺寸值/数量/附着实体和视图语义不变，无悬空对象、越界、新增正面积碰撞或保留区侵占。
+  - [x] 规范化布局指纹在保存后内存、事务重开和独立验证之间一致；截图/PDF 仅作附加视觉 QA。
+G5 已加入严格、SHA-256 锁定的 G4 验证侧车预检和私有
+`verify_committed_part_drawing_layout_plan`。预检不信任事务成功标记：它重新校验最终图纸/侧车的
+计划、源图、输出和递归冻结输入绑定，要求 1–3 轮证据连续且末轮通过，并要求 G4 内存/只读重开
+阶段的尺寸语义、视图语义和布局指纹完全一致。独立核验器从磁盘重新解析、编译并预检 DimensionPlan，
+只把明确授权的 `move_dimension` 位置叠加到期望中，再用原尺寸侧车 stable handle 回读尺寸数量、类型、
+目标视图、值、文字、孔变量、公差和模型持久引用。第二条只读链重新捕获真实边界，核验视图配置/
+显示状态/父子关系/剖切定义、投影轴、比例/图幅、完整 G1 对象与视图身份、leader owner、安全区、
+标题栏和正面积碰撞；独立布局指纹必须等于 G4 两阶段指纹。核验不调用保存、不递增状态，关闭后重算
+输出哈希并重跑全部 COM-free 预检以拒绝竞态。详细合同见
+`docs/G5_INDEPENDENT_LAYOUT_VERIFICATION.md`。G7 九个正向案例均完成独立只读核验，截图/PDF 不替代
+结构化证据。
+- [x] G6：新增 `solidworks-finalize-drawing-layout` Skill 和五项布局语义工具。
+  - [x] Skill 必须绑定尺寸阶段返回的不可变 request，不能跳回视图基线或绕过尺寸核验。
+G6 把完整且 unchanged 的 `DimensionPlanningRequest` 嵌入 `LayoutPlanningRequest`；初始化阶段先重校验
+该请求与发布的 `dimension_plan.json`，G3/G6 每次再核对尺寸 handoff 哈希和计划发布目录。第五 Skill
+只允许调用状态与五项布局语义工具，不能调用 G4/G5 私有执行动词。发布、校验、创建和独立核验复用
+同一请求与同一 `drawing_layout_plan.json`，详细合同见 `docs/G6_FINAL_LAYOUT_SEMANTIC_CHAIN.md`。
+- [x] G7：完成布局离线、合同和真实 SolidWorks 矩阵。
+  - [x] 覆盖少尺寸、多视图、剖视、详图、辅助视图、孔阵列、高密度尺寸、缩放和授权/未授权换图幅。
+G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩阵绑定资格语义工具、C# 私有资格创建/
+独立核验路由、COM-free 聚合/晋级候选和实机运行器均已实现并通过。最终矩阵在 revision `33.5.0`
+覆盖八类操作和六类安全读回；九个正向场景全部保存重开并独立核验，一个未授权换图幅反例稳定拒绝。
+汇总 SHA-256 为 `91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc`；生产
+`plan-current.json` 已与晋级候选逐字节核对并升级为 `1.0.0`，详见
+`docs/G7_DRAWING_LAYOUT_LIVE_MATRIX.md`。
 
 ### H. 五 Skill 完整生产链发布候选
 

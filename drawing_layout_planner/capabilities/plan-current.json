@@ -1,0 +1,105 @@
+{
+  "protocol_id": "solidworks-drawing-layout-plan-capabilities",
+  "schema_version": "1.0",
+  "registry_version": "1.0.0",
+  "executor": "repository-csharp-layout-transaction",
+  "executor_version": "1.0.0",
+  "plan_protocol_id": "solidworks-drawing-layout-plan",
+  "plan_schema_version": "1.0",
+  "solidworks_target": "2025 SP5",
+  "solidworks_revision": "33.5.0",
+  "promotion_policy": "An operation or safety element remains planned until G4/G5 repository C# contract and live save/reopen evidence prove native execution without changing frozen manufacturing semantics. A G0 boundary marked unsupported can never be inferred as supported by this registry.",
+  "boundary_registry": {
+    "protocol_id": "solidworks-drawing-layout-executor-capabilities",
+    "registry_version": "1.1.0",
+    "manifest_sha256": "3afee02a2969619144fe7506aa636772e178ce1205afb06f511f79035475512f"
+  },
+  "operations": {
+    "move_dimension": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "move_annotation": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "route_leader": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "move_view": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "set_dimension_hierarchy": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "set_view_scale": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "set_sheet_scale": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "set_sheet_format": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    }
+  },
+  "safety_elements": {
+    "dimension_semantic_preservation": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "view_semantic_preservation": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "object_identity_preservation": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "collision_readback": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "save_reopen_layout_fingerprint": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    },
+    "authorized_sheet_change": {
+      "status": "supported",
+      "reason": "G7 full scenario matrix passed native create, save/close/reopen and independent verification.",
+      "verification": "live",
+      "evidence_sha256": "91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc"
+    }
+  }
+}

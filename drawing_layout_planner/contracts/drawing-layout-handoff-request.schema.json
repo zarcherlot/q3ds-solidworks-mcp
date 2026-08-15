@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/drawing-layout-handoff-request.schema.json",
+  "title": "Immutable Drawing Layout Handoff Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "source", "boundary_capabilities", "publication_directory", "minimum_spacing_m"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-handoff-request" },
+    "schema_version": { "const": "1.0" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension_plan", "dimensioned_drawing", "dimension_verification_sidecar"],
+      "properties": {
+        "dimension_plan": { "$ref": "#/$defs/artifact" },
+        "dimensioned_drawing": { "$ref": "#/$defs/artifact" },
+        "dimension_verification_sidecar": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "boundary_capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "qualification"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/artifact" },
+        "qualification": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "publication_directory": { "type": "string", "minLength": 3 },
+    "minimum_spacing_m": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_to_object", "object_to_frame", "text_to_geometry"],
+      "properties": {
+        "object_to_object": { "type": "number", "minimum": 0.0001, "maximum": 0.02 },
+        "object_to_frame": { "type": "number", "minimum": 0.0001, "maximum": 0.02 },
+        "text_to_geometry": { "type": "number", "minimum": 0.0001, "maximum": 0.02 }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

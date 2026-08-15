@@ -37,6 +37,15 @@ _DIMENSION_PLAN_SCHEMA_PATH = (
 _DIMENSION_PLAN_SCHEMA = json.loads(
     _DIMENSION_PLAN_SCHEMA_PATH.read_text(encoding="utf-8")
 )
+_DRAWING_LAYOUT_PLAN_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "drawing_layout_planner"
+    / "contracts"
+    / "drawing-layout-plan.schema.json"
+)
+_DRAWING_LAYOUT_PLAN_SCHEMA = json.loads(
+    _DRAWING_LAYOUT_PLAN_SCHEMA_PATH.read_text(encoding="utf-8")
+)
 
 
 def _qualify_view_plan_refs(value: Any, schema_id: str) -> None:
@@ -53,6 +62,9 @@ def _qualify_view_plan_refs(value: Any, schema_id: str) -> None:
 
 _qualify_view_plan_refs(_VIEW_PLAN_SCHEMA, _VIEW_PLAN_SCHEMA["$id"])
 _qualify_view_plan_refs(_DIMENSION_PLAN_SCHEMA, _DIMENSION_PLAN_SCHEMA["$id"])
+_qualify_view_plan_refs(
+    _DRAWING_LAYOUT_PLAN_SCHEMA, _DRAWING_LAYOUT_PLAN_SCHEMA["$id"]
+)
 
 
 class ViewPlan(RootModel[dict[str, Any]]):
@@ -69,6 +81,14 @@ class DimensionPlan(RootModel[dict[str, Any]]):
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema, handler):
         return copy.deepcopy(_DIMENSION_PLAN_SCHEMA)
+
+
+class DrawingLayoutPlan(RootModel[dict[str, Any]]):
+    """Exact repository DrawingLayoutPlan 1.0 contract for the semantic boundary."""
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        return copy.deepcopy(_DRAWING_LAYOUT_PLAN_SCHEMA)
 
 
 ViewId = Annotated[

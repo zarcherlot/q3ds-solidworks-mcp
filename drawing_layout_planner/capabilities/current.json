@@ -1,0 +1,26 @@
+{
+  "protocol_id": "solidworks-drawing-layout-executor-capabilities",
+  "schema_version": "1.0",
+  "registry_version": "1.1.0",
+  "solidworks_revision": "33.5.0",
+  "verification": "live_complete",
+  "capabilities": [
+    { "id": "view_outline_bounds", "status": "supported" },
+    { "id": "dimension_display_bounds", "status": "supported" },
+    { "id": "note_text_bounds", "status": "supported" },
+    { "id": "leader_bounds", "status": "supported" },
+    { "id": "view_label_bounds", "status": "supported" },
+    { "id": "section_symbol_bounds", "status": "supported" },
+    { "id": "center_element_bounds", "status": "supported" },
+    { "id": "sheet_border_bounds", "status": "supported" },
+    { "id": "title_block_bounds", "status": "supported" },
+    { "id": "rebuild_drift", "status": "supported" },
+    { "id": "save_reopen_drift", "status": "supported" }
+  ],
+  "live_evidence": {
+    "qualification_path": "C:\\Users\\admin\\Downloads\\solidworks-mcp-test-g7-20260815\\g0-qualification-r5\\layout-g0-qualification.json",
+    "qualification_sha256": "caa397f008c71391c70fb5c87c200a21e00721b59beb005b890a03acb5437961",
+    "qualification_id": "G0-EXACT-COMPLETE-20260815",
+    "solidworks_revision": "33.5.0"
+  }
+}

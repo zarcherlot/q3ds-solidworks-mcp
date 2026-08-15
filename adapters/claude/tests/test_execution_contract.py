@@ -94,6 +94,11 @@ def test_semantic_executor_operations_are_not_agent_tools():
         "validate_frozen_part_drawing_dimension_plan",
         "execute_part_drawing_dimension_plan",
         "verify_committed_part_drawing_dimension_plan",
+        "validate_frozen_part_drawing_layout_plan",
+        "execute_part_drawing_layout_plan",
+        "verify_committed_part_drawing_layout_plan",
+        "qualify_part_drawing_layout_plan",
+        "verify_qualified_part_drawing_layout_plan",
     }
     from test_schema_contract import _adapter_tools
 
@@ -245,6 +250,8 @@ def test_semantic_transactions_own_solidworks_start_and_exit_in_execution_servic
         "verify_committed_part_drawing_dimension_plan",
         "qualify_part_drawing_dimension_plan",
         "verify_qualified_part_drawing_dimension_plan",
+        "execute_part_drawing_layout_plan",
+        "verify_committed_part_drawing_layout_plan",
     ):
         assert f'case "{operation}": return ManagedSemanticTask' in controller
     assert "RunManagedSemanticTask" in service

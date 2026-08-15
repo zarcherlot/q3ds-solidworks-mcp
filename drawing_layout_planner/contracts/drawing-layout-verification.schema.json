@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-drawing-layout-verification-1.0.schema.json",
+  "title": "SolidWorks Drawing Layout Verification Sidecar 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "operation_id", "generated_at_utc",
+    "plan_id", "plan_file_path", "plan_file_sha256", "plan_canonical_sha256",
+    "source_drawing_path", "source_drawing_sha256", "output_path",
+    "artifact_sha256", "verified", "bounded_cycles", "in_memory_verification",
+    "reopen_verification", "frozen_inputs"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-verification" },
+    "schema_version": { "const": "1.0" },
+    "operation_id": { "$ref": "#/$defs/id" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "plan_file_path": { "type": "string", "minLength": 1 },
+    "plan_file_sha256": { "$ref": "#/$defs/sha256" },
+    "plan_canonical_sha256": { "$ref": "#/$defs/sha256" },
+    "source_drawing_path": { "type": "string", "minLength": 1 },
+    "source_drawing_sha256": { "$ref": "#/$defs/sha256" },
+    "output_path": { "type": "string", "minLength": 1 },
+    "artifact_sha256": { "$ref": "#/$defs/sha256" },
+    "verified": { "const": true },
+    "bounded_cycles": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "object" } },
+    "in_memory_verification": { "$ref": "#/$defs/verification" },
+    "reopen_verification": { "$ref": "#/$defs/verification" },
+    "frozen_inputs": {
+      "type": "object", "additionalProperties": { "$ref": "#/$defs/sha256" },
+      "required": ["drawing_layout_plan", "handoff", "dimension_plan", "source_drawing", "dimension_verification_sidecar"],
+      "properties": {
+        "drawing_layout_plan": { "$ref": "#/$defs/sha256" },
+        "handoff": { "$ref": "#/$defs/sha256" },
+        "dimension_plan": { "$ref": "#/$defs/sha256" },
+        "source_drawing": { "$ref": "#/$defs/sha256" },
+        "dimension_verification_sidecar": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "verification": {
+      "type": "object", "additionalProperties": true,
+      "required": ["verified", "dimension_semantics", "view_semantics", "layout_fingerprint_sha256", "snapshot"],
+      "properties": {
+        "verified": { "const": true },
+        "dimension_semantics": { "type": "object" },
+        "view_semantics": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+        "layout_fingerprint_sha256": { "$ref": "#/$defs/sha256" },
+        "snapshot": { "type": "object" }
+      }
+    }
+  }
+}
