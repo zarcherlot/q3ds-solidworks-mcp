@@ -54,15 +54,16 @@ def _allowed_tools(text: str) -> list[str]:
     return tools
 
 
-def test_four_skill_order_front_matter_allow_lists_and_metadata_are_frozen():
+def test_five_skill_order_front_matter_allow_lists_and_metadata_are_frozen():
     contract = _contract()
     stages = contract["stages"]
-    assert [stage["order"] for stage in stages] == [1, 2, 3, 4]
+    assert [stage["order"] for stage in stages] == [1, 2, 3, 4, 5]
     assert [stage["skill"] for stage in stages] == [
         "bootstrap-solidworks-host",
         "solidworks-initialize-drawing-handoff",
         "solidworks-create-drawing-views",
         "solidworks-dimension-drawing",
+        "solidworks-finalize-drawing-layout",
     ]
 
     for stage in stages:
@@ -100,7 +101,7 @@ def test_skill_references_are_local_present_and_have_no_executable_escape_hatche
 def test_contract_locks_default_tools_zero_prompts_and_codex_allow_list():
     contract = _contract()["default_mcp"]
     expected = contract["tools"]
-    assert len(expected) == contract["tool_count"] == 17
+    assert len(expected) == contract["tool_count"] == 24
     assert len(expected) == len(set(expected))
     assert contract["prompt_count"] == 0
 
@@ -165,6 +166,32 @@ def test_contract_freezes_branch_and_request_continuity_rules():
         "operations": [
             "qualify_dimensioned_part_drawing",
             "verify_qualified_dimensioned_part_drawing",
+        ],
+    }
+    assert contract["layout_request_continuity"] == {
+        "source": "initialize_part_drawing_layout_handoff.result.planning_request_context",
+        "predecessor_request_source": "initialize_part_drawing_dimension_handoff.result.planning_request",
+        "predecessor_request_field": "source_dimension_request",
+        "canonical_sha256_field": "planning_request_sha256",
+        "predecessor_sha256_field": "source_dimension_request_sha256",
+        "must_be_unchanged": True,
+        "operations": [
+            "publish_validated_part_drawing_layout_plan",
+            "validate_part_drawing_layout_plan",
+            "create_final_part_drawing",
+            "verify_final_part_drawing",
+        ],
+    }
+    assert contract["layout_qualification"] == {
+        "scope": "g7_live_evidence_only",
+        "matrix_bound": True,
+        "allows_planned_capabilities": True,
+        "allows_unsupported_capabilities": False,
+        "requires_supported_g0_boundaries": True,
+        "mutates_capability_manifest": False,
+        "operations": [
+            "qualify_final_part_drawing",
+            "verify_qualified_final_part_drawing",
         ],
     }
     assert set(contract["forbidden_agent_boundaries"]) == {

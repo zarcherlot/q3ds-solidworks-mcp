@@ -12,6 +12,7 @@ from config import (
     RELEASE_OWNED_SESSION_ENDPOINT,
     HOST_BOOTSTRAP_ENDPOINT,
     DIMENSION_HANDOFF_ENDPOINT,
+    LAYOUT_HANDOFF_ENDPOINT,
     DIMENSION_PROBE_CLEANUP_ENDPOINT,
     HTTP_TIMEOUT,
     SIMULATION_TIMEOUT,
@@ -248,6 +249,10 @@ def call_tool(tool_name: str, operation_id: str, state_version: int, params: dic
         "verify_committed_part_drawing_dimension_plan",
         "qualify_part_drawing_dimension_plan",
         "verify_qualified_part_drawing_dimension_plan",
+        "execute_part_drawing_layout_plan",
+        "verify_committed_part_drawing_layout_plan",
+        "qualify_part_drawing_layout_plan",
+        "verify_qualified_part_drawing_layout_plan",
     }:
         request_timeout = VIEW_PLAN_TIMEOUT
     else:
@@ -474,4 +479,40 @@ def create_dimension_planning_handoff(payload: dict) -> dict:
     raise ExecutionLayerError(
         "Unexpected HTTP "
         f"{response.status_code} from /api/dimension-planning/handoff: {response.text}"
+    )
+
+
+def create_layout_planning_handoff(payload: dict) -> dict:
+    """Call the private G1 handoff endpoint through the repository client."""
+    _ensure_server_up()
+    _log("-> layout-planning/handoff")
+
+    def _do():
+        return _client.post(
+            LAYOUT_HANDOFF_ENDPOINT,
+            json=payload,
+            timeout=VIEW_PLAN_TIMEOUT,
+        )
+
+    try:
+        response = _request_with_autostart(_do, "layout-planning/handoff")
+    except httpx.TimeoutException as exc:
+        raise ExecutionLayerError(
+            f"Layout planning handoff timed out after {VIEW_PLAN_TIMEOUT}s."
+        ) from exc
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ExecutionLayerError(
+            "Layout planning handoff returned a non-JSON response."
+        ) from exc
+    if response.status_code == 200:
+        _log(f"<- layout-planning/handoff {body.get('status')}")
+        return body
+    if response.status_code in {400, 409, 500} and body.get("status") == "blocked":
+        _log(f"<- layout-planning/handoff BLOCKED HTTP_{response.status_code}")
+        return body
+    raise ExecutionLayerError(
+        "Unexpected HTTP "
+        f"{response.status_code} from /api/layout-planning/handoff: {response.text}"
     )

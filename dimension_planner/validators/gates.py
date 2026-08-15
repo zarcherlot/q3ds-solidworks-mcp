@@ -361,7 +361,17 @@ class DimensionSemanticsValidator:
             base = pointer("dimensions", index)
             entity_ids = {row["entity_id"] for row in dimension["attachments"]}
             roles = {row["role"] for row in dimension["attachments"]}
-            if dimension["kind"] in _TWO_ATTACHMENT_KINDS and len(entity_ids) < 2:
+            source = dimension["source"]
+            native_model_import = (
+                source["source_tier"] == "model_or_pmi"
+                and source.get("handoff_collection") == "model_driven_dimensions"
+                and dimension["kind"] != "hole_quantity"
+            )
+            if (
+                dimension["kind"] in _TWO_ATTACHMENT_KINDS
+                and not native_model_import
+                and len(entity_ids) < 2
+            ):
                 issues.append(
                     issue(
                         "DP-SEMANTICS-ATTACHMENT-ARITY",
@@ -370,10 +380,11 @@ class DimensionSemanticsValidator:
                         base + "/attachments",
                     )
                 )
-            if dimension["kind"] in _TWO_ATTACHMENT_KINDS and not {
-                "first",
-                "second",
-            }.issubset(roles):
+            if (
+                dimension["kind"] in _TWO_ATTACHMENT_KINDS
+                and not native_model_import
+                and not {"first", "second"}.issubset(roles)
+            ):
                 issues.append(
                     issue(
                         "DP-SEMANTICS-ATTACHMENT-ROLES",
@@ -503,6 +514,11 @@ class DimensionRedundancyValidator:
                 dimension["target_view_id"],
                 entities,
                 tuple(sorted(dimension["feature_ids"])),
+                dimension["source"]["source_tier"],
+                dimension["source"].get("handoff_collection"),
+                tuple(sorted(dimension["source"].get("source_ids", []))),
+                tuple(sorted(dimension["source"].get("approved_input_ids", []))),
+                tuple(sorted(dimension["source"].get("measurement_ids", []))),
             )
             previous = signatures.get(signature)
             if previous is not None:

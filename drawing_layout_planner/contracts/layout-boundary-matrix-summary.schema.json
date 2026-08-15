@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/layout-boundary-matrix-summary.schema.json",
+  "title": "SolidWorks G0 Layout Boundary Matrix Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "matrix_id", "generated_at",
+    "matrix_request_sha256", "case_results", "coverage", "overall_status", "blockers"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-layout-g0-matrix-summary" },
+    "schema_version": { "const": "1.0" },
+    "matrix_id": { "$ref": "#/$defs/id" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "matrix_request_sha256": { "$ref": "#/$defs/sha256" },
+    "case_results": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": { "$ref": "#/$defs/caseResult" }
+    },
+    "coverage": {
+      "type": "array", "minItems": 11, "maxItems": 11,
+      "items": { "$ref": "#/$defs/coverage" }
+    },
+    "overall_status": { "enum": ["complete", "incomplete", "capability_blocked"] },
+    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "category": {
+      "enum": ["plate", "bracket", "threaded", "shaft_sleeve", "flange", "slot_cavity"]
+    },
+    "capabilityId": {
+      "enum": [
+        "view_outline_bounds", "dimension_display_bounds", "note_text_bounds",
+        "leader_bounds", "view_label_bounds", "section_symbol_bounds",
+        "center_element_bounds", "sheet_border_bounds", "title_block_bounds",
+        "rebuild_drift", "save_reopen_drift"
+      ]
+    },
+    "caseResult": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "case_id", "category", "source_request_sha256", "evidence_path",
+        "evidence_file_sha256", "evidence_canonical_sha256", "overall_status"
+      ],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "category": { "$ref": "#/$defs/category" },
+        "source_request_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_path": { "type": "string", "minLength": 3 },
+        "evidence_file_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_canonical_sha256": { "$ref": "#/$defs/sha256" },
+        "overall_status": { "enum": ["complete", "incomplete", "capability_blocked"] }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "id", "status", "observed_case_ids", "supported_case_ids", "max_drift_m"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/capabilityId" },
+        "status": { "enum": ["covered", "partial", "missing"] },
+        "observed_case_ids": {
+          "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" }
+        },
+        "supported_case_ids": {
+          "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" }
+        },
+        "max_drift_m": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

@@ -12,6 +12,19 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Get-FileSha256 {
+    param([string]$Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $algorithm = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString(
+                $algorithm.ComputeHash($stream))).Replace('-', '').ToUpperInvariant()
+        }
+        finally { $algorithm.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
 $repo = [System.IO.Path]::GetFullPath($RepositoryRoot)
 $output = [System.IO.Path]::GetFullPath($OutputDirectory)
 $interop = [System.IO.Path]::GetFullPath($SolidWorksInteropDirectory)
@@ -108,5 +121,15 @@ Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-p
 Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-plan.schema.json') -Destination $contracts
 Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\contracts\dimension-drawing-verification.schema.json') -Destination $contracts
 Copy-Item -LiteralPath (Join-Path $repo 'dimension_planner\capabilities\current.json') -Destination (Join-Path $contracts 'dimension-executor-capabilities.json')
-Get-FileHash -LiteralPath $executable -Algorithm SHA256 | Select-Object Path, Hash
-Get-FileHash -LiteralPath $hostBootstrapExecutable -Algorithm SHA256 | Select-Object Path, Hash
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\layout-boundary-probe.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\layout-boundary-evidence.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\layout-boundary-matrix-request.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\layout-boundary-matrix-summary.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\drawing-layout-handoff-request.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\drawing-layout-handoff.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\capabilities\current.json') -Destination (Join-Path $contracts 'drawing-layout-executor-capabilities.json')
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\drawing-layout-plan.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\contracts\drawing-layout-verification.schema.json') -Destination $contracts
+Copy-Item -LiteralPath (Join-Path $repo 'drawing_layout_planner\capabilities\plan-current.json') -Destination (Join-Path $contracts 'drawing-layout-plan-capabilities.json')
+[pscustomobject]@{ Path = $executable; Hash = Get-FileSha256 $executable }
+[pscustomobject]@{ Path = $hostBootstrapExecutable; Hash = Get-FileSha256 $hostBootstrapExecutable }

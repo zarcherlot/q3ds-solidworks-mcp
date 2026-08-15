@@ -29,6 +29,13 @@ _EXPECTED_TOOLS = {
     "verify_dimensioned_part_drawing",
     "qualify_dimensioned_part_drawing",
     "verify_qualified_dimensioned_part_drawing",
+    "initialize_part_drawing_layout_handoff",
+    "publish_validated_part_drawing_layout_plan",
+    "validate_part_drawing_layout_plan",
+    "qualify_final_part_drawing",
+    "verify_qualified_final_part_drawing",
+    "create_final_part_drawing",
+    "verify_final_part_drawing",
 }
 
 

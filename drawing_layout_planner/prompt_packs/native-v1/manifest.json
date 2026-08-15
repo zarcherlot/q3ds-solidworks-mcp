@@ -1,0 +1,14 @@
+{
+  "pack_id": "drawing-layout-native-v1",
+  "pack_version": "1.0.0",
+  "protocol_id": "solidworks-drawing-layout-planning-request",
+  "schema_version": "1.0",
+  "producer": {
+    "name": "q3ds-drawing-layout-skill",
+    "version": "1.0.0",
+    "ruleset_id": "drawing-layout-native-v1",
+    "ruleset_sha256": "1742dbedaa786fea212aecf926deed88d33ec914eb12f1b1303ec2811308979b"
+  },
+  "ruleset_hash_algorithm": "sha256(system.md bytes + LF---LF + task.md bytes)",
+  "files": ["system.md", "task.md"]
+}

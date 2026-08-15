@@ -75,6 +75,7 @@ ENSURE_ENDPOINT = f"{EXECUTION_BASE_URL}/ensure_ready"
 RELEASE_OWNED_SESSION_ENDPOINT = f"{EXECUTION_BASE_URL}/release_owned_session"
 HOST_BOOTSTRAP_ENDPOINT = f"{EXECUTION_BASE_URL}/host/bootstrap"
 DIMENSION_HANDOFF_ENDPOINT = f"{EXECUTION_BASE_URL}/api/dimension-planning/handoff"
+LAYOUT_HANDOFF_ENDPOINT = f"{EXECUTION_BASE_URL}/api/layout-planning/handoff"
 DIMENSION_PROBE_CLEANUP_ENDPOINT = (
     f"{EXECUTION_BASE_URL}/api/research/dimension-probe/cleanup-session"
 )

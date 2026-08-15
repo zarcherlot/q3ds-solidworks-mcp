@@ -2,6 +2,84 @@
 
 ## Unreleased
 
+- Completed G7 final-layout qualification and production capability promotion on SolidWorks 2025
+  SP5 (`33.5.0`). The immutable nine-positive/one-negative matrix passed all create, save/close,
+  read-only reopen and independent verification stages, covering all eight layout operations and
+  six safety elements; the unauthorized sheet-format case was rejected before publication. The
+  promoted `plan-current.json` is byte-identical to the matrix-generated candidate and binds summary
+  SHA-256 `91e95b5c34ad92ac422839d6eb5585983336117bae7dbfc113f8e68be1122ecc`.
+  Corrected native leader direction, preserved its exact attached endpoint while bounding native
+  save normalization, canonicalized authorized note/leader persisted fingerprints only after real
+  geometry checks, retained frozen upstream geometry issues without permitting new violations, and
+  added explicit cross-language plan canonical-hash binding.
+- Completed the G5 independent final-layout verifier candidate. Added a strict SHA-256-locked G4
+  sidecar preflight that recursively revalidates every frozen layout and DimensionPlan input,
+  requires contiguous bounded-cycle evidence, and proves the in-memory/reopen semantic snapshots
+  and layout fingerprints agree. The private verifier recompiles DimensionPlan, overlays only the
+  authorized G4 dimension positions, then independently checks native dimension identities,
+  values, text, tolerances and model persistent references alongside view semantics, projection,
+  exact G1 object/view inventories, dangling leaders, bounds and collisions. It opens the committed
+  drawing read-only, never saves or increments state, closes and rehashes it, then reruns preflight
+  to catch races. The route remains outside semantic MCP and capabilities remain unpromoted.
+- Completed the G4 native final-layout transaction candidate. Added a SHA-256-locked C#
+  DrawingLayoutPlan parser/compiler, recursive G1/DimensionPlan/upstream-artifact preflight,
+  separate operation/safety/G0-boundary capability gate, and private validate/execute routes that
+  remain outside the semantic MCP surface. The native executor applies the exact eight-operation
+  union in the frozen six-stage order and permits at most three complete apply/rebuild/real-boundary
+  readback/collision cycles. Its no-overwrite transaction copies the dimension drawing, compares
+  dimension and view semantics, saves, closes, read-only reopens, requires the same normalized
+  layout fingerprint, and atomically commits a new drawing plus a strict verification sidecar with
+  rollback on every failure. Production capabilities remain `planned` pending G5 and live proof.
+- Completed G3 deterministic final-layout planning. Added a strict immutable planning-request
+  contract for priority/preferences and authorization-bound candidates, a SHA-256-bound repository
+  ruleset, a bounded grid/orthogonal-routing rule-plus-constraint solver, and a publication engine
+  that rechecks the G1 handoff, all five upstream files and the exact G0 registry binding. The
+  solver emits only the G2 eight-operation union in the frozen six-phase order and fails closed on
+  unsafe area, frame/title-block intrusion, positive-area collision, unrelated-view dimension
+  crossing, projection drift/cycles, minimum-spacing violations, unreadable text/arrows, missing
+  dimension attachment metadata, or unauthorized movement/scale/format intent. Identical inputs
+  produce byte-identical operations; native execution readiness remains independently governed by
+  the G2 capability registry.
+- Completed G2 DrawingLayoutPlan 1.0 publication contracts. Added strict Draft 2020-12
+  plan/capability Schemas, deeply immutable domain models, an exact eight-operation layout-only
+  union, explicit view/scale/sheet-format authorizations, frozen upstream semantic inventories,
+  and constant policies that make deletion or manufacturing-semantic edits unrepresentable. Added
+  a no-overwrite atomic `drawing_layout_plan.json` store and a separate fail-closed capability
+  registry bound to the qualified G0 boundary manifest by protocol, version and SHA-256. Native
+  operations and safety readbacks truthfully remain `planned` until G4/G5 live evidence, while
+  required known-unsupported G0 bounds continue to block execution.
+- Completed G1 immutable final-layout handoff. Added strict request/output Schemas, Python
+  DimensionPlan/drawing/sidecar/G0-evidence binding and publication validation, a private C#
+  read-only close/rebuild/reopen transaction, and the additive
+  `initialize_part_drawing_layout_handoff` semantic tool. The handoff freezes actual boundaries,
+  verified dimension values and persistent attachments, view locks/relationships, locked zones and
+  minimum spacing, publishes last without saving upstream files, and truthfully retains
+  `capability_blocked` when an observed boundary lacks G0-qualified exact extents. A SolidWorks 2025
+  SP5 plate candidate passed with five boundary objects, one dimension, identical three-phase object
+  hashes, and unchanged five-artifact ledger.
+- Completed the initial G0 final-layout boundary qualification. Added verified ViewPlan and isolated layout-
+  fixture source contracts, production-transaction special-view samples for auxiliary labels,
+  section symbols and center elements, a C# title-block fixture with exact save/reopen
+  `ITitleBlock.GetExtents` evidence, and a fail-closed final qualification/promotion report. The
+  initial 11-item registry was `1.0.0` / `live_complete`; the later exact supplemental qualification
+  promoted the current `1.1.0` registry with all eleven capabilities supported and live-evidence
+  bound.
+- Started G0 final-layout boundary qualification. Added isolated Draft 2020-12 request/evidence
+  contracts, an ordered 11-item fail-closed capability catalog, deterministic Python evidence
+  gates, an additive C# contract suite, and a research-only read-only Execution Service probe that
+  compares actual object bounds before rebuild, after rebuild, and after close/read-only reopen.
+  The first SolidWorks 2025 SP5 bracket candidate proved zero drift for three view outlines, the
+  sheet border, and the aggregate rebuild/reopen fingerprint; annotation classes requiring native
+  approximation or absent from the case remain `planned`, and the production capability manifest
+  was not promoted.
+- Extended G0 with immutable six-category matrix request/summary contracts, F7 evidence ingestion,
+  one-time publication and persisted-evidence aggregation gates. A SolidWorks 2025 SP5 run covered
+  view outlines, sheet borders and rebuild/read-only-reopen drift in all six categories, plus exact
+  note/leader bounds in three; dimension display bounds remain partial and special-view labels,
+  section symbols, center elements and title blocks still need positive cases. Corrected native
+  `INote.GetExtent`, `IDisplayData.GetLineAtIndex3`, arrow-head and section-array parsing, added
+  stable annotation identity metadata, and made the loopback-only live runner bypass ambient HTTP
+  proxies without changing the production capability manifest.
 - Completed F6 dimension-drawing semantic orchestration. Added the repository-owned
   `solidworks-dimension-drawing` Skill, immutable `native-v1` prompt pack, five exact-schema public
   dimension tools, a 15-tool/four-Skill surface contract, and unchanged DimensionPlan/request SHA

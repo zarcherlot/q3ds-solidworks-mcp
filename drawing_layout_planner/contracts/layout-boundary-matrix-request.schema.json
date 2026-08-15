@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/layout-boundary-matrix-request.schema.json",
+  "title": "SolidWorks G0 Layout Boundary Matrix Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "matrix_id", "created_at",
+    "required_solidworks_revision", "cases"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-layout-g0-matrix-request" },
+    "schema_version": { "const": "1.0" },
+    "matrix_id": { "$ref": "#/$defs/id" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "required_solidworks_revision": { "const": "33.5.0" },
+    "cases": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "kind", "dimension_plan", "dimensioned_drawing",
+        "dimension_verification_sidecar"
+      ],
+      "properties": {
+        "kind": { "const": "verified_dimension_drawing" },
+        "dimension_plan": { "$ref": "#/$defs/artifact" },
+        "dimensioned_drawing": { "$ref": "#/$defs/artifact" },
+        "dimension_verification_sidecar": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "category": {
+      "enum": ["plate", "bracket", "threaded", "shaft_sleeve", "flange", "slot_cavity"]
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "category", "source", "publication_directory", "error_budget_m"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "category": { "$ref": "#/$defs/category" },
+        "source": { "$ref": "#/$defs/source" },
+        "publication_directory": { "type": "string", "minLength": 3 },
+        "error_budget_m": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.005 }
+      }
+    }
+  }
+}

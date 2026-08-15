@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/drawing-layout-planning-result-1.0.schema.json",
+  "title": "Deterministic Drawing Layout Planning Result 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "execution_readiness", "validation", "plan", "audit", "unsupported_capabilities"],
+  "properties": {
+    "status": { "enum": ["published", "rejected"] },
+    "execution_readiness": { "enum": ["supported", "capability_blocked", "not_assessed"] },
+    "validation": { "$ref": "#/$defs/validation" },
+    "plan": { "oneOf": [{ "$ref": "#/$defs/publishedPlan" }, { "type": "null" }] },
+    "audit": { "$ref": "#/$defs/audit" },
+    "unsupported_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "published" } } },
+      "then": {
+        "properties": {
+          "plan": { "$ref": "#/$defs/publishedPlan" },
+          "execution_readiness": { "enum": ["supported", "capability_blocked"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "rejected" } } },
+      "then": {
+        "properties": {
+          "plan": { "type": "null" },
+          "execution_readiness": { "const": "not_assessed" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gateStatus": { "enum": ["pass", "fail", "not_run"] },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate", "code", "message", "references"],
+      "properties": {
+        "gate": {
+          "enum": [
+            "integrity", "phase_order", "safe_area", "locked_zones",
+            "collisions", "dimension_crossing", "projection_alignment",
+            "minimum_spacing", "readability", "solver"
+          ]
+        },
+        "code": { "$ref": "#/$defs/id" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "references": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integrity", "phase_order", "safe_area", "locked_zones", "collisions",
+        "dimension_crossing", "projection_alignment", "minimum_spacing",
+        "readability", "solver", "issues"
+      ],
+      "properties": {
+        "integrity": { "$ref": "#/$defs/gateStatus" },
+        "phase_order": { "$ref": "#/$defs/gateStatus" },
+        "safe_area": { "$ref": "#/$defs/gateStatus" },
+        "locked_zones": { "$ref": "#/$defs/gateStatus" },
+        "collisions": { "$ref": "#/$defs/gateStatus" },
+        "dimension_crossing": { "$ref": "#/$defs/gateStatus" },
+        "projection_alignment": { "$ref": "#/$defs/gateStatus" },
+        "minimum_spacing": { "$ref": "#/$defs/gateStatus" },
+        "readability": { "$ref": "#/$defs/gateStatus" },
+        "solver": { "$ref": "#/$defs/gateStatus" },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/issue" } }
+      }
+    },
+    "publishedPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_id", "path", "sha256"],
+      "properties": {
+        "plan_id": { "$ref": "#/$defs/id" },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_sha256", "handoff_sha256", "ruleset_sha256", "candidate_sha256", "capability_manifest_version"],
+      "properties": {
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "handoff_sha256": { "$ref": "#/$defs/sha256" },
+        "ruleset_sha256": { "$ref": "#/$defs/sha256" },
+        "candidate_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "capability_manifest_version": { "oneOf": [{ "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }, { "type": "null" }] }
+      }
+    }
+  }
+}

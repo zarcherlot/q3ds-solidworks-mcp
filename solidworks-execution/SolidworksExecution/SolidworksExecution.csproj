@@ -98,6 +98,8 @@
     <Compile Include="Controllers\DimensionApiProbeController.cs" />
     <Compile Include="Controllers\DimensionPlanningHandoffController.cs" />
     <Compile Include="Controllers\HostBootstrapController.cs" />
+      <Compile Include="Controllers\LayoutBoundaryProbeController.cs" />
+      <Compile Include="Controllers\LayoutPlanningHandoffController.cs" />
     <Compile Include="Controllers\ToolController.cs" />
     <Compile Include="Contracts\DimensionApiProbeContract.cs" />
     <Compile Include="Contracts\DimensionPlanningHandoffContract.cs" />
@@ -107,6 +109,14 @@
     <Compile Include="Contracts\DimensionPlanExecutionCompiler.cs" />
     <Compile Include="Contracts\DimensionPlanTransactionPreflight.cs" />
     <Compile Include="Contracts\DimensionPlanVerificationPreflight.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanCapabilityPreflight.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanContractValidator.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanExecutionCompiler.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanQualificationPreflight.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanTransactionPreflight.cs" />
+    <Compile Include="Contracts\DrawingLayoutPlanVerificationPreflight.cs" />
+      <Compile Include="Contracts\LayoutBoundaryProbeContract.cs" />
+      <Compile Include="Contracts\LayoutPlanningHandoffContract.cs" />
     <Compile Include="Contracts\ViewPlanBasicExecutionCompiler.cs" />
     <Compile Include="Contracts\ViewPlanBasicTransactionPreflight.cs" />
     <Compile Include="Contracts\ViewPlanBasicVerificationPreflight.cs" />
@@ -127,6 +137,9 @@
     <Compile Include="Services\SolidWorksService.DimensionApiProbe.cs" />
     <Compile Include="Services\SolidWorksService.DimensionPlanningHandoff.cs" />
     <Compile Include="Services\SolidWorksService.DimensionPlanExecution.cs" />
+    <Compile Include="Services\SolidWorksService.DrawingLayoutPlanExecution.cs" />
+      <Compile Include="Services\SolidWorksService.LayoutBoundaryProbe.cs" />
+      <Compile Include="Services\SolidWorksService.LayoutPlanningHandoff.cs" />
     <Compile Include="Services\SolidWorksService.DrawingInitializer.cs" />
     <Compile Include="Services\SolidWorksService.DrawingPlan.cs" />
     <Compile Include="Services\SolidWorksService.ViewPlan.cs" />
@@ -135,9 +148,15 @@
     <Compile Include="Services\HostBootstrapRunner.cs" />
     <Compile Include="Services\DimensionApiProbeExecutor.cs" />
     <Compile Include="Services\DimensionPlanningHandoffExecutor.cs" />
+      <Compile Include="Services\LayoutBoundaryProbeExecutor.cs" />
+      <Compile Include="Services\LayoutDisplayGeometry.cs" />
+      <Compile Include="Services\LayoutPlanningHandoffExecutor.cs" />
     <Compile Include="Services\DimensionPlanDrawingTransaction.cs" />
     <Compile Include="Services\DimensionPlanDrawingVerifier.cs" />
     <Compile Include="Services\DimensionPlanNativeExecutor.cs" />
+    <Compile Include="Services\DrawingLayoutPlanDrawingTransaction.cs" />
+    <Compile Include="Services\DrawingLayoutPlanDrawingVerifier.cs" />
+    <Compile Include="Services\DrawingLayoutPlanNativeExecutor.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />
     <Compile Include="Services\ViewPlanBasicViewExecutor.cs" />
@@ -168,6 +187,38 @@
     </Content>
     <Content Include="..\..\dimension_planner\capabilities\current.json">
       <Link>contracts\dimension-executor-capabilities.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\layout-boundary-probe.schema.json">
+      <Link>contracts\layout-boundary-probe.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\layout-boundary-evidence.schema.json">
+      <Link>contracts\layout-boundary-evidence.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\layout-boundary-matrix-request.schema.json">
+      <Link>contracts\layout-boundary-matrix-request.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\layout-boundary-matrix-summary.schema.json">
+      <Link>contracts\layout-boundary-matrix-summary.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\capabilities\current.json">
+      <Link>contracts\drawing-layout-executor-capabilities.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\drawing-layout-plan.schema.json">
+      <Link>contracts\drawing-layout-plan.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\contracts\drawing-layout-verification.schema.json">
+      <Link>contracts\drawing-layout-verification.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\drawing_layout_planner\capabilities\plan-current.json">
+      <Link>contracts\drawing-layout-plan-capabilities.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

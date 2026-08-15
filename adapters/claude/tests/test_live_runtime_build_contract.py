@@ -12,7 +12,7 @@ def test_live_runtime_build_deploys_repository_host_bootstrap_helper():
     assert "HostBootstrap" in script
     assert "SolidWorksHostBootstrap.exe" in script
     assert "/platform:x64" in script
-    assert "Get-FileHash -LiteralPath $hostBootstrapExecutable" in script
+    assert "Get-FileSha256 $hostBootstrapExecutable" in script
 
 
 def test_initializer_freezes_sheet_scale_as_schema_integers():

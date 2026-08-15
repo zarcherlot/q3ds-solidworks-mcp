@@ -20,7 +20,14 @@
     "qualify_dimensioned_part_drawing",
     "verify_qualified_dimensioned_part_drawing",
     "create_dimensioned_part_drawing",
-    "verify_dimensioned_part_drawing"
+    "verify_dimensioned_part_drawing",
+    "initialize_part_drawing_layout_handoff",
+    "publish_validated_part_drawing_layout_plan",
+    "validate_part_drawing_layout_plan",
+    "qualify_final_part_drawing",
+    "verify_qualified_final_part_drawing",
+    "create_final_part_drawing",
+    "verify_final_part_drawing"
   ],
   "properties": {
     "solidworks_status": {
@@ -182,6 +189,50 @@
     },
     "verify_dimensioned_part_drawing": {
       "$ref": "#/$defs/dimensionPlanOutputTool"
+    },
+    "initialize_part_drawing_layout_handoff": {
+      "$ref": "#/$defs/tool",
+      "properties": {
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dimension_plan_path",
+            "dimensioned_drawing_path",
+            "dimension_verification_sidecar_path",
+            "publication_directory",
+            "dimension_request"
+          ],
+          "properties": {
+            "dimension_plan_path": { "type": "string", "minLength": 1 },
+            "dimensioned_drawing_path": { "type": "string", "minLength": 1 },
+            "dimension_verification_sidecar_path": { "type": "string", "minLength": 1 },
+            "publication_directory": { "type": "string", "minLength": 1 },
+            "dimension_request": { "$ref": "https://q3ds.local/contracts/dimension-planning-request.schema.json" },
+            "minimum_object_spacing_m": { "type": "number", "minimum": 0.0001, "maximum": 0.02, "default": 0.002 },
+            "minimum_frame_spacing_m": { "type": "number", "minimum": 0.0001, "maximum": 0.02, "default": 0.005 },
+            "minimum_text_geometry_spacing_m": { "type": "number", "minimum": 0.0001, "maximum": 0.02, "default": 0.001 }
+          }
+        }
+      }
+    },
+    "publish_validated_part_drawing_layout_plan": {
+      "$ref": "#/$defs/layoutPlanningRequestTool"
+    },
+    "validate_part_drawing_layout_plan": {
+      "$ref": "#/$defs/layoutPlanOutputTool"
+    },
+    "qualify_final_part_drawing": {
+      "$ref": "#/$defs/layoutQualificationTool"
+    },
+    "verify_qualified_final_part_drawing": {
+      "$ref": "#/$defs/layoutQualificationTool"
+    },
+    "create_final_part_drawing": {
+      "$ref": "#/$defs/layoutPlanOutputTool"
+    },
+    "verify_final_part_drawing": {
+      "$ref": "#/$defs/layoutPlanOutputTool"
     }
   },
   "$defs": {
@@ -283,6 +334,67 @@
               "properties": {
                 "plan": { "$ref": "https://q3ds.local/contracts/solidworks-dimension-plan-1.0.schema.json" },
                 "request": { "$ref": "https://q3ds.local/contracts/dimension-planning-request.schema.json" },
+                "output_path": { "type": "string", "minLength": 1 },
+                "matrix_request_path": { "type": "string", "minLength": 1 },
+                "matrix_request_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "case_id": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "layoutPlanningRequestTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["request"],
+              "properties": {
+                "request": { "$ref": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "layoutPlanOutputTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["plan", "request", "output_path"],
+              "properties": {
+                "plan": { "$ref": "https://q3ds.local/contracts/solidworks-drawing-layout-plan-1.0.schema.json" },
+                "request": { "$ref": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json" },
+                "output_path": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "layoutQualificationTool": {
+      "allOf": [
+        { "$ref": "#/$defs/tool" },
+        {
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "plan", "request", "output_path", "matrix_request_path",
+                "matrix_request_sha256", "case_id"
+              ],
+              "properties": {
+                "plan": { "$ref": "https://q3ds.local/contracts/solidworks-drawing-layout-plan-1.0.schema.json" },
+                "request": { "$ref": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json" },
                 "output_path": { "type": "string", "minLength": 1 },
                 "matrix_request_path": { "type": "string", "minLength": 1 },
                 "matrix_request_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },

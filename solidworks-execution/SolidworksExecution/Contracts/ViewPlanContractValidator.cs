@@ -97,7 +97,7 @@ namespace SolidworksExecution.Contracts
                 ViewTypes = views.Select(item => item.Value<string>("type")).ToArray(),
                 CanonicalPlan = canonical,
                 CanonicalSha256 = ComputeSha256(
-                    Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None)))
+                    Encoding.UTF8.GetBytes(PythonCompatibleCanonicalJson(canonical)))
             };
             return true;
         }
@@ -489,6 +489,38 @@ namespace SolidworksExecution.Contracts
             if (array != null)
                 return new JArray(array.Select(Canonicalize));
             return token.DeepClone();
+        }
+
+        private static string PythonCompatibleCanonicalJson(JToken token)
+        {
+            string json = token.ToString(Formatting.None);
+            var result = new StringBuilder(json.Length);
+            bool inString = false;
+            bool escaped = false;
+            for (int index = 0; index < json.Length; index++)
+            {
+                char current = json[index];
+                if (inString)
+                {
+                    result.Append(current);
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == '"') inString = false;
+                    continue;
+                }
+                if (current == '"')
+                {
+                    inString = true;
+                    result.Append(current);
+                    continue;
+                }
+                if (current == 'E' && index > 0 && index + 2 < json.Length &&
+                    Char.IsDigit(json[index - 1]) &&
+                    (json[index + 1] == '+' || json[index + 1] == '-') &&
+                    Char.IsDigit(json[index + 2])) current = 'e';
+                result.Append(current);
+            }
+            return result.ToString();
         }
 
         private static string AppendPointer(string pointer, string segment)

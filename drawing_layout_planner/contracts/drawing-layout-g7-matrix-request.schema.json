@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-drawing-layout-g7-matrix-request-1.0.schema.json",
+  "title": "Drawing Layout G7 Live Matrix Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "solidworks_revision", "g0_qualification", "positive_cases", "negative_cases"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-drawing-layout-g7-matrix-request" },
+    "schema_version": { "const": "1.0" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "g0_qualification": { "$ref": "#/$defs/artifact" },
+    "positive_cases": { "type": "array", "minItems": 9, "maxItems": 9, "items": { "$ref": "#/$defs/positiveCase" } },
+    "negative_cases": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/negativeCase" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": { "path": { "type": "string", "minLength": 3 }, "sha256": { "$ref": "#/$defs/sha256" } }
+    },
+    "scenario": {
+      "enum": ["sparse_dimensions", "multi_view", "section_view", "detail_view", "auxiliary_view", "hole_pattern", "high_density_dimensions", "scale_change", "authorized_sheet_format"]
+    },
+    "positiveCase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "scenario", "plan_path", "plan_file_sha256", "plan_canonical_sha256", "planning_request", "planning_request_sha256", "source_dimension_request_sha256", "output_path", "evidence_path"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "scenario": { "$ref": "#/$defs/scenario" },
+        "plan_path": { "type": "string", "minLength": 3 },
+        "plan_file_sha256": { "$ref": "#/$defs/sha256" },
+        "plan_canonical_sha256": { "$ref": "#/$defs/sha256" },
+        "planning_request": { "$ref": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json" },
+        "planning_request_sha256": { "$ref": "#/$defs/sha256" },
+        "source_dimension_request_sha256": { "$ref": "#/$defs/sha256" },
+        "output_path": { "type": "string", "minLength": 3 },
+        "evidence_path": { "type": "string", "minLength": 3 }
+      }
+    },
+    "negativeCase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "scenario", "planning_request", "planning_request_sha256", "expected_issue_code", "evidence_path"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "scenario": { "const": "unauthorized_sheet_format" },
+        "planning_request": { "$ref": "https://q3ds.local/contracts/drawing-layout-planning-request-1.0.schema.json" },
+        "planning_request_sha256": { "$ref": "#/$defs/sha256" },
+        "expected_issue_code": { "const": "sheet-format-unauthorized" },
+        "evidence_path": { "type": "string", "minLength": 3 }
+      }
+    }
+  }
+}

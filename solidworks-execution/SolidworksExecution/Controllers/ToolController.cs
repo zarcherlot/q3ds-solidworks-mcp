@@ -220,6 +220,15 @@ namespace SolidworksExecution.Controllers
                     () => _service.QualifyPartDrawingDimensionPlan(request));
                 case "verify_qualified_part_drawing_dimension_plan": return ManagedSemanticTask(request,
                     () => _service.VerifyQualifiedPartDrawingDimensionPlan(request));
+                case "validate_frozen_part_drawing_layout_plan": return _service.ValidatePartDrawingLayoutPlan(request);
+                case "execute_part_drawing_layout_plan": return ManagedSemanticTask(request,
+                    () => _service.ExecutePartDrawingLayoutPlan(request));
+                case "verify_committed_part_drawing_layout_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyCommittedPartDrawingLayoutPlan(request));
+                case "qualify_part_drawing_layout_plan": return ManagedSemanticTask(request,
+                    () => _service.QualifyPartDrawingLayoutPlan(request));
+                case "verify_qualified_part_drawing_layout_plan": return ManagedSemanticTask(request,
+                    () => _service.VerifyQualifiedPartDrawingLayoutPlan(request));
                 case "execute_drawing_plan": return ManagedSemanticTask(request,
                     () => _service.ExecuteDrawingPlan(request));
                 case "verify_drawing_plan": return ManagedSemanticTask(request,
