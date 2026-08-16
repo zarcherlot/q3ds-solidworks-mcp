@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-five-skill-release-candidate-1.0.schema.json",
+  "title": "Five-Skill Final Release Candidate 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "generated_at_utc", "status",
+    "solidworks_revision", "git_commit", "request", "gates", "frozen_artifacts",
+    "blockers"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-release-candidate" },
+    "schema_version": { "const": "1.0" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "status": { "const": "complete" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["h3_session_manifest", "h1_chain_evidence"],
+      "properties": {
+        "h3_session_manifest": { "$ref": "#/$defs/artifact" },
+        "h1_chain_evidence": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "gates": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "frozen_artifacts": {
+      "type": "array", "minItems": 40,
+      "items": { "$ref": "#/$defs/frozenArtifact" }
+    },
+    "blockers": { "type": "array", "maxItems": 0 }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "gate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "status", "checks"],
+      "properties": {
+        "id": { "enum": ["H5", "H6", "H7", "H8", "H9"] },
+        "name": { "type": "string", "minLength": 3 },
+        "status": { "const": "passed" },
+        "checks": {
+          "type": "array", "minItems": 2,
+          "items": { "type": "string", "minLength": 3 }
+        }
+      }
+    },
+    "frozenArtifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["category", "role", "path", "size_bytes", "sha256"],
+      "properties": {
+        "category": {
+          "enum": [
+            "release_evidence", "skill", "semantic_contract", "plan_schema",
+            "plan", "capability_manifest", "execution_runtime", "contract_source",
+            "source_input", "handoff", "drawing", "verification_sidecar",
+            "stage_artifact", "semantic_response", "semantic_call_claim"
+          ]
+        },
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,127}$" },
+        "path": { "type": "string", "minLength": 3 },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

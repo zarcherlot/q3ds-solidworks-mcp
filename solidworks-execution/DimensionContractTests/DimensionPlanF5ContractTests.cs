@@ -32,10 +32,15 @@ namespace DimensionContractTests
                 Assert(new DimensionPlanExecutionCompiler().TryCompile(document, out compiled,
                     out error), kind + ": " + Format(error));
                 Assert(compiled.Dimensions[0].Kind == kind, "kind was not preserved: " + kind);
+                Assert(new DimensionPlanCapabilityPreflight().TryValidateQualification(compiled,
+                    Path.GetFullPath(registryPath), out error),
+                    kind + " qualification: " + Format(error));
             }
-            Console.WriteLine("ok - F5 complete 18-kind native compiler union");
+            Console.WriteLine("ok - F5/F7 complete 18-kind compiler and qualification union");
 
             JObject tolerancePlan = BuildPlan("linear", true);
+            tolerancePlan["dimensions"][0]["display_format"]["prefix"] = "TYP ";
+            tolerancePlan["dimensions"][0]["display_format"]["suffix"] = " F7";
             DimensionPlanDocument toleranceDocument; DimensionPlanContractError toleranceError;
             Assert(validator.TryParse(tolerancePlan, out toleranceDocument, out toleranceError),
                 Format(toleranceError));
@@ -44,9 +49,15 @@ namespace DimensionContractTests
                 out toleranceCompiled, out toleranceError), Format(toleranceError));
             Assert(toleranceCompiled.Dimensions[0].Tolerance.Kind == "bilateral" &&
                 toleranceCompiled.Dimensions[0].Tolerance.LowerSi == -0.0001 &&
-                toleranceCompiled.Dimensions[0].Tolerance.UpperSi == 0.0002,
+                toleranceCompiled.Dimensions[0].Tolerance.UpperSi == 0.0002 &&
+                toleranceCompiled.Dimensions[0].Prefix == "TYP " &&
+                toleranceCompiled.Dimensions[0].Suffix == " F7",
                 "trusted numeric tolerance was not preserved");
             Console.WriteLine("ok - F5 trusted numeric tolerance compiler");
+            Assert(new DimensionPlanCapabilityPreflight().TryValidateQualification(
+                toleranceCompiled, Path.GetFullPath(registryPath), out toleranceError),
+                Format(toleranceError));
+            Console.WriteLine("ok - F7 six execution elements qualification preflight");
 
             JObject fitPlan = BuildPlan("diameter", true);
             fitPlan["dimensions"][0]["tolerance"] = new JObject
@@ -112,7 +123,7 @@ namespace DimensionContractTests
             Console.WriteLine("ok - F5 advanced execution remains live-evidence gated");
 
             RunTrustedPreflight(validator);
-            return 9;
+            return 10;
         }
 
         internal static JObject BuildPlan(string kind, bool approvedTolerance)

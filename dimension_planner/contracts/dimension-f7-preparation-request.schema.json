@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-dimension-f7-preparation-request-1.0.schema.json",
+  "title": "Dimension F7 Matrix Preparation Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "solidworks_revision", "f0_evidence",
+    "matrix_request_output", "cases"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-dimension-f7-preparation-request" },
+    "schema_version": { "const": "1.0" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "f0_evidence": { "$ref": "#/$defs/artifact" },
+    "matrix_request_output": { "type": "string", "minLength": 3 },
+    "cases": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "case_id", "category", "handoff", "recipe", "output_path", "evidence_path"
+      ],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "category": {
+          "enum": ["plate", "shaft_sleeve", "bracket", "flange", "slot_cavity", "threaded"]
+        },
+        "handoff": { "$ref": "#/$defs/artifact" },
+        "recipe": { "$ref": "#/$defs/artifact" },
+        "output_path": { "type": "string", "minLength": 3 },
+        "evidence_path": { "type": "string", "minLength": 3 }
+      }
+    }
+  }
+}

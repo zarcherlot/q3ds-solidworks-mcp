@@ -423,6 +423,18 @@ F7 已完成离线证据门禁及首次资格事务候选：新增不可变矩�
 `qualify_dimensioned_part_drawing` / `verify_qualified_dimensioned_part_drawing` 工程语义工具；它们要求计划、
 原始请求、输出路径和矩阵案例逐项哈希绑定，只允许 `planned` 能力取证，已知 `unsupported` 仍在 COM 前
 拒绝，并且绝不修改能力清单。生产 `create/verify` 的 `supported + live + evidence_sha256` 门禁保持不变。
+
+F7 完整正向矩阵准备链现已补齐。新增高级 evidence-bound recipe `1.1`，可从不可变 handoff 精确表达
+`model_or_pmi`、`user_confirmed_input` 和非制造 `reference_geometry_measurement` 三类来源，以及用户批准的
+数值/配合公差和精确前后缀；所有值仍须通过仓库来源、附件、语义、覆盖、冗余和布局门禁。新增
+`dimension-f7-preparation-request` 合同、`dimension_planner/f7_preparation.py` 和
+`scripts/prepare_dimension_f7_live_matrix.py`：在 COM 前要求六个独立 handoff、至少五个不同源模型、18 类尺寸
+恰好各一次及六项执行元素全部有正向计划覆盖，先完成全部候选门禁，再每 handoff 发布一个不可变计划，最后发布
+矩阵请求。F7 live runner 同步到当前 24 工具/零 prompt 默认面；矩阵请求若缺类型/能力、复用代理 handoff、
+请求/计划不连续或源制品哈希漂移，会在连接 SolidWorks 前拒绝。C# 合同现逐项编译并资格预检 18 类联合，并用
+受信容差/前后缀计划覆盖六项通用执行能力。完整设计和运行命令见
+`docs/F7_COMPLETE_DIMENSION_MATRIX.md`。上述代码完成不代表实机晋级；仍需用六类真实 handoff 生成并跑完新的
+18 类保存重开/独立核验矩阵后，才能评审能力候选并勾选 F7。
 矩阵运行器对每个案例执行 `validate(capability_blocked) → qualify → independent qualification verify`，逐阶段
 核对 canonical/request 哈希，并在 C# 事务侧车已通过内存回读、保存关闭、只读重开及独立核验后才原子
 发布案例证据。汇总器重新
@@ -572,11 +584,78 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
 ### H. 五 Skill 完整生产链发布候选
 
 - [ ] H0：完成用户入口到 COM 再独立回读的五 Skill 发布候选。
-  - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
-  - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
-  - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
-  - [ ] 最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
-  - [ ] 冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希，并同步文档。
+  - [x] 建立 H0 COM-free 发布就绪门禁：锁定五 Skill 顺序/allow-list、24 工具/零 prompt 实际发现、
+    三份计划 Schema、四份能力清单、G0/G7 哈希绑定和干净 Git commit，并发布严格的一次性就绪报告。
+  - [x] 建立 H1 COM-free 完整链证据账本：固定五阶段及全局调用顺序，锁定生产 publish/validate/create/
+    verify 工具，拒绝 F7/G7 qualification 替代，并核对请求、计划、handoff、空白图纸与三代后继图纸、侧车、runtime、
+    源模型及模板的文件/规范 SHA-256 连续性和一次性证据发布。
+  - [x] 建立 H2 COM-free 生产会话预检：冻结 H0、commit、runtime、源模型、模板和唯一新 session root，生成
+    固定 16 步生产语义调度及全部 handoff/计划/图纸/侧车/响应/阶段证据路径；blocked 时只发布诊断报告，
+    不创建 session root、不启动 SolidWorks。
+  - [x] 建立 H3 追加式会话捕获：仅从 ready H2 创建一次性 session manifest，严格按 16 步顺序保存原始
+    语义响应；失败响应永久终止该 session，前一阶段未冻结不得进入下一阶段；五阶段完成后重哈希全部制品、
+    通过独立 H1 验证并一次性发布 H1 candidate。H3 自身不调用 MCP、HTTP、COM 或 UI 自动化。
+  - [x] 建立 H4 单步生产语义代理：每次只接受一个哈希绑定请求，在启动 MCP 前重验 H3 当前唯一下一步，
+    仅经 `adapters/codex/server.py` 调用一个公开生产工具并立即追加捕获；锁定 24 工具/零 prompt，禁止
+    qualification、私有 executor、HTTP 和直接 COM。调用后超时或非 JSON 等不确定结果永久停止 session，
+    防止重放可能已生效的图纸修改。
+  - [x] 建立 H5 全链追踪门禁：重验 H3/H1、五 Skill/16 步、跨阶段路径/哈希、三个唯一计划和四代唯一后继图纸。
+  - [x] 建立 H6 三计划原生合同门禁：独立运行三份 Draft 2020-12 Schema，重验四份 H0 能力绑定，并冻结
+    View/Dimension/Layout 三组 C# validator/compiler/preflight/transaction/verifier 源文件和 runtime。
+  - [x] 建立 H7 工程语义边界门禁：重新发现 24 工具/零 prompt，对照 contract/config/Schema/Skill allow-list，
+    要求 16 份排他 H4 声明及可重算的完整调用参数哈希，拒绝 qualification/repair/private executor 调度。
+  - [x] 建立 H8 最终事务完整性门禁：验证三代保存重开/独立只读回读、尺寸与布局严格侧车、布局指纹、
+    递归冻结输入及源模型/模板/全部上游制品哈希不变。
+  - [x] 建立 H9 最终冻结发布器：只接受精确干净 commit，一次性冻结 Skill、语义合同、三个 Schema/计划、
+    四份能力、runtime、C# 合同、源输入、handoff、四代图纸、三份侧车、16 响应和 16 调用声明。
+  - [ ] 实机验收：五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
+  - [ ] 实机验收：ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
+  - [ ] 实机验收：全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
+  - [ ] 实机验收：最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
+  - [ ] 实机验收：冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希并发布报告。
+
+H0 就绪门禁已实现于 `release_candidate/h0_readiness.py`，报告合同为
+`release_candidate/contracts/h0-readiness.schema.json`，命令入口为
+`scripts/check_h0_release_readiness.py`。门禁不启动 SolidWorks，也不接受 F7/G7 资格事务替代生产事务。
+当前报告按预期返回 `blocked`：尺寸能力清单仍为 `0.3.0`，18 类 DimensionPlan 和 F7 六项生产执行元素
+仍为 `planned`；因此生产 `create_dimensioned_part_drawing` 必须继续失败关闭。完成 F7 全覆盖实证并正式
+晋级 `dimension_planner/capabilities/current.json` 后，方可运行 H0 五 Skill 实机链和冻结 M6 证据。详细
+边界与复现方式见 `docs/H0_FIVE_SKILL_RELEASE_CANDIDATE.md`。
+
+H1 证据合同为 `release_candidate/contracts/h1-chain-evidence.schema.json`，验证器与一次性发布器位于
+`release_candidate/h1_chain_evidence.py`，命令入口为 `scripts/validate_h1_five_skill_chain.py`。它只验收
+真实生产调用保存的响应和制品，不启动 SolidWorks；当前 H0 `blocked` 报告无法作为 H1 输入，因此不会把
+尚不存在的 F7/H 实机证据包装为完成状态。完整字段与连续性规则见
+`docs/H1_FIVE_SKILL_CHAIN_EVIDENCE.md`。
+
+H2 请求/报告合同、确定性路径表和一次性预检发布器位于
+`release_candidate/contracts/h2-session-request.schema.json`、
+`release_candidate/contracts/h2-session-preflight.schema.json` 和
+`release_candidate/h2_session_preflight.py`，命令入口为
+`scripts/prepare_h2_five_skill_session.py`。H2 不接受已有目录或 `validation/` 路径，并再次核对当前 commit/
+worktree 与 H0 报告；当前 F7 未晋级状态只能生成 `blocked` 报告。详见
+`docs/H2_FIVE_SKILL_SESSION_PREFLIGHT.md`。
+
+H3 会话/阶段合同和追加式捕获器位于
+`release_candidate/contracts/h3-session-manifest.schema.json`、
+`release_candidate/contracts/h3-stage-capture.schema.json` 与
+`release_candidate/h3_session_capture.py`，统一命令入口为
+`scripts/h3_five_skill_session.py`。它重新计算 H2 的 16 步调度和确定性输出命名空间，拒绝被修改的 ready
+报告；完整使用方式见 `docs/H3_FIVE_SKILL_SESSION_CAPTURE.md`。
+
+H4 单步请求/排他调用声明合同、H3 只读状态检查和 stdio 语义代理位于
+`release_candidate/contracts/h4-semantic-step-request.schema.json`、
+`release_candidate/contracts/h4-semantic-call-claim.schema.json`、
+`release_candidate/h3_session_capture.py` 与 `release_candidate/h4_semantic_step.py`，命令入口为
+`scripts/run_h4_five_skill_step.py`。H4 不替 Skill 生成任何计划；Skill/用户必须提供当前步骤的完整参数，
+并在阶段边界调用 H3 冻结制品。完整边界见 `docs/H4_FIVE_SKILL_SEMANTIC_STEP.md`。
+
+H5-H9 最终请求/发布候选合同和统一收口器位于
+`release_candidate/contracts/h5-h9-release-request.schema.json`、
+`release_candidate/contracts/h5-h9-release-candidate.schema.json` 与
+`release_candidate/h5_h9_release_closure.py`，命令入口为
+`scripts/finalize_h5_h9_release_candidate.py`。实现已完成；五条最终实机验收保持未勾选，直到 F7 合法晋级且
+真实五 Skill 链产生完整 H3/H4/H1 证据。详见 `docs/H5_H9_FIVE_SKILL_RELEASE_CLOSURE.md`。
 
 ### 开发顺序、关键路径和里程碑
 

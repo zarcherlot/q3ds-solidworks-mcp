@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+- Added the H5-H9 final five-Skill release closure. The strict hash-bound request ties one completed
+  H3/H4 session to its H1 candidate; five independent gates recheck cross-stage traceability, all
+  three plan Schemas and C# contract families, live 24-tool/zero-prompt semantic confinement,
+  save/close/read-only-reopen sidecars and recursive frozen-input integrity. The final no-overwrite
+  report freezes the exact clean commit, Skills, semantic contracts, capabilities, runtime, C#
+  sources, plans, handoffs, drawings, sidecars, 16 responses and 16 full-argument H4 call claims.
+  Missing real F7/H evidence remains a hard prerequisite and cannot produce a complete report.
+- Added the H4 one-step production semantic broker and strict hash-bound request contract. It
+  revalidates H3 and its frozen inputs before process launch, requires the exact next sequence/tool,
+  locks the live 24-tool/zero-prompt surface, starts only the repository Codex stdio MCP and
+  immediately append-captures one response. Qualification/private executor/HTTP/direct-COM paths
+  are excluded; ambiguous post-invocation failures are captured as non-retryable session blockers
+  to prevent unsafe mutation replay.
+- Added the H3 append-only five-Skill session layer. A ready H2 report can create exactly one
+  immutable session manifest; raw semantic responses are accepted only in the frozen 16-step order,
+  failed responses permanently stop the session, and each stage freezes exact artifact roles,
+  paths and hashes before the next stage. Finalization re-hashes all inputs, assembles an H1
+  candidate and runs the independent H1 validator without H3 invoking MCP, HTTP, COM or UI
+  automation. H0 reports are now revalidated against their strict Schema downstream, and H2/H3
+  output roots must remain outside the Git repository.
+- Added the H2 five-Skill production-session request and preflight contracts, deterministic
+  16-operation production-only schedule, exact future output namespace and immutable report
+  publisher. H2 rechecks H0 readiness, Git commit/worktree, runtime/model/template hashes and new
+  path isolation without creating the session root or contacting SolidWorks; blocked prerequisites
+  produce a schema-valid diagnostic report instead of partial live artifacts.
+- Added the H1 five-Skill production-chain evidence contract, COM-free validator and immutable
+  publisher. The ledger enforces the exact five-stage/global semantic-call order, production-only
+  publish/validate/create/verify operations, canonical request/plan continuity, one distinct blank
+  drawing plus each successor, recursive handoff/drawing/sidecar SHA-256 links, unchanged source inputs and a
+  final independently verified layout sidecar. F7/G7 qualification calls and blocked H0 reports
+  are explicitly rejected, so this implementation cannot manufacture missing live evidence.
+- Added the complete positive F7 matrix preparation chain. Advanced evidence-bound recipes now
+  support model/PMI, approved-user and non-manufacturing reference-measurement sources, including
+  trusted tolerances/fits and exact prefix/suffix evidence. A new strict preparation contract and
+  COM-free publisher require six distinct handoffs, at least five real source models, all 18
+  DimensionPlan kinds exactly once and all six execution elements before publishing one plan per
+  handoff and the matrix request last. The F7 runner now discovers the current 24-tool surface and
+  rejects incomplete coverage, proxy handoff reuse and request/artifact drift before COM. C#
+  contracts now compile and qualification-preflight all 18 kinds plus a six-element trusted plan.
+  Production capabilities remain unpromoted until the new live matrix passes.
+- Added the H0 five-Skill release-readiness gate and strict report contract. The COM-free audit
+  inventories the five Skill files, actual 24-tool/zero-prompt semantic surface, three plan
+  Schemas, four capability manifests, G0/G7 binding and Git commit, then publishes once and fails
+  closed on any drift. The current expected result is `blocked`: F7 has not promoted all 18
+  DimensionPlan kinds and six production execution elements, so qualification evidence cannot be
+  substituted for the production `create_dimensioned_part_drawing` transaction.
 - Completed G7 final-layout qualification and production capability promotion on SolidWorks 2025
   SP5 (`33.5.0`). The immutable nine-positive/one-negative matrix passed all create, save/close,
   read-only reopen and independent verification stages, covering all eight layout operations and

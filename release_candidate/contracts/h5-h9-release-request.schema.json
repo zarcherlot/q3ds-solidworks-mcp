@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-five-skill-release-closure-request-1.0.schema.json",
+  "title": "Five-Skill Release Closure Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "h3_session_manifest", "h1_chain_evidence"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-release-closure-request" },
+    "schema_version": { "const": "1.0" },
+    "h3_session_manifest": { "$ref": "#/$defs/artifact" },
+    "h1_chain_evidence": { "$ref": "#/$defs/artifact" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

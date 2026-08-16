@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-five-skill-live-session-1.0.schema.json",
+  "title": "Five-Skill Append-Only Session 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "created_at_utc", "solidworks_revision",
+    "git_commit", "repository_root", "preflight", "h0_readiness", "execution_service",
+    "source_model", "drawing_template", "session_root", "planned_outputs",
+    "schedule", "append_only"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-live-session" },
+    "schema_version": { "const": "1.0" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "repository_root": { "type": "string", "minLength": 3 },
+    "preflight": { "$ref": "#/$defs/artifact" },
+    "h0_readiness": { "$ref": "#/$defs/artifact" },
+    "execution_service": { "$ref": "#/$defs/artifact" },
+    "source_model": { "$ref": "#/$defs/artifact" },
+    "drawing_template": { "$ref": "#/$defs/artifact" },
+    "session_root": { "type": "string", "minLength": 3 },
+    "planned_outputs": { "type": "object", "minProperties": 19 },
+    "schedule": {
+      "type": "array", "minItems": 16, "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sequence", "stage_order", "skill", "tool", "mutating"],
+        "properties": {
+          "sequence": { "type": "integer", "minimum": 1, "maximum": 16 },
+          "stage_order": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "skill": { "type": "string", "minLength": 3 },
+          "tool": { "type": "string", "minLength": 3 },
+          "mutating": { "type": "boolean" }
+        }
+      }
+    },
+    "append_only": { "const": true }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
