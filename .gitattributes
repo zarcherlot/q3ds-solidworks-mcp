@@ -11,6 +11,7 @@
 /dimension_planner/prompt_packs/** text eol=lf
 /drawing_layout_planner/capabilities/*.json text eol=lf
 /drawing_layout_planner/contracts/*.json text eol=lf
+/drawing_layout_planner/prompt_packs/** text eol=lf
 /drawing_layout_planner/rulesets/*.json text eol=lf
 /solidworks-execution/**/*.cs text eol=lf
 /solidworks-execution/**/*.csproj text eol=lf
