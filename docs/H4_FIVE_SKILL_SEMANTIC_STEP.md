@@ -59,7 +59,10 @@ ambiguous: H4 captures a synthetic `h4-ambiguous-semantic-call` failure with `re
 This deliberately forbids replay of an operation that may already have mutated a drawing.
 
 Before process startup H4 atomically publishes a hash-bound call claim under
-`responses/.h4-claims/`. Concurrent brokers therefore cannot invoke the same sequence twice. Only a
+`responses/.h4-claims/`. The claim freezes the complete strict-JSON arguments plus their canonical
+SHA-256, and also binds the H4 broker, Codex stdio entry, semantic contract and execution-service
+binary hashes, so the final release audit can independently reproduce the exact call boundary. Concurrent
+brokers therefore cannot invoke the same sequence twice. Only a
 typed startup, discovery or argument-Schema failure proven to occur before `call_tool` releases the
 claim; every post-invocation outcome retains it.
 

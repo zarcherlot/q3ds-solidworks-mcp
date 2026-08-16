@@ -21,6 +21,13 @@ from .h4_semantic_step import (
     run_h4_semantic_step,
     validate_h4_step_request,
 )
+from .h5_h9_release_closure import (
+    build_and_publish_h5_h9_release_candidate,
+    build_h5_h9_release_candidate,
+    load_h5_h9_release_request,
+    validate_h5_h9_release_candidate,
+    validate_h5_h9_release_request,
+)
 
 __all__ = [
     "audit_h0_readiness",
@@ -37,4 +44,9 @@ __all__ = [
     "load_h4_step_request",
     "run_h4_semantic_step",
     "validate_h4_step_request",
+    "build_and_publish_h5_h9_release_candidate",
+    "build_h5_h9_release_candidate",
+    "load_h5_h9_release_request",
+    "validate_h5_h9_release_candidate",
+    "validate_h5_h9_release_request",
 ]

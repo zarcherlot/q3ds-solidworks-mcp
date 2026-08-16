@@ -599,11 +599,20 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
     仅经 `adapters/codex/server.py` 调用一个公开生产工具并立即追加捕获；锁定 24 工具/零 prompt，禁止
     qualification、私有 executor、HTTP 和直接 COM。调用后超时或非 JSON 等不确定结果永久停止 session，
     防止重放可能已生效的图纸修改。
-  - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
-  - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
-  - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
-  - [ ] 最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
-  - [ ] 冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希，并同步文档。
+  - [x] 建立 H5 全链追踪门禁：重验 H3/H1、五 Skill/16 步、跨阶段路径/哈希、三个唯一计划和四代唯一后继图纸。
+  - [x] 建立 H6 三计划原生合同门禁：独立运行三份 Draft 2020-12 Schema，重验四份 H0 能力绑定，并冻结
+    View/Dimension/Layout 三组 C# validator/compiler/preflight/transaction/verifier 源文件和 runtime。
+  - [x] 建立 H7 工程语义边界门禁：重新发现 24 工具/零 prompt，对照 contract/config/Schema/Skill allow-list，
+    要求 16 份排他 H4 声明及可重算的完整调用参数哈希，拒绝 qualification/repair/private executor 调度。
+  - [x] 建立 H8 最终事务完整性门禁：验证三代保存重开/独立只读回读、尺寸与布局严格侧车、布局指纹、
+    递归冻结输入及源模型/模板/全部上游制品哈希不变。
+  - [x] 建立 H9 最终冻结发布器：只接受精确干净 commit，一次性冻结 Skill、语义合同、三个 Schema/计划、
+    四份能力、runtime、C# 合同、源输入、handoff、四代图纸、三份侧车、16 响应和 16 调用声明。
+  - [ ] 实机验收：五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
+  - [ ] 实机验收：ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
+  - [ ] 实机验收：全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
+  - [ ] 实机验收：最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
+  - [ ] 实机验收：冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希并发布报告。
 
 H0 就绪门禁已实现于 `release_candidate/h0_readiness.py`，报告合同为
 `release_candidate/contracts/h0-readiness.schema.json`，命令入口为
@@ -640,6 +649,13 @@ H4 单步请求/排他调用声明合同、H3 只读状态检查和 stdio 语义
 `release_candidate/h3_session_capture.py` 与 `release_candidate/h4_semantic_step.py`，命令入口为
 `scripts/run_h4_five_skill_step.py`。H4 不替 Skill 生成任何计划；Skill/用户必须提供当前步骤的完整参数，
 并在阶段边界调用 H3 冻结制品。完整边界见 `docs/H4_FIVE_SKILL_SEMANTIC_STEP.md`。
+
+H5-H9 最终请求/发布候选合同和统一收口器位于
+`release_candidate/contracts/h5-h9-release-request.schema.json`、
+`release_candidate/contracts/h5-h9-release-candidate.schema.json` 与
+`release_candidate/h5_h9_release_closure.py`，命令入口为
+`scripts/finalize_h5_h9_release_candidate.py`。实现已完成；五条最终实机验收保持未勾选，直到 F7 合法晋级且
+真实五 Skill 链产生完整 H3/H4/H1 证据。详见 `docs/H5_H9_FIVE_SKILL_RELEASE_CLOSURE.md`。
 
 ### 开发顺序、关键路径和里程碑
 

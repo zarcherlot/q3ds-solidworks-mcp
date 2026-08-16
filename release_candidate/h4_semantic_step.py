@@ -288,6 +288,7 @@ def _validate_production_tool(tool: str) -> None:
 def _acquire_call_claim(
     request: Mapping[str, Any], manifest: Mapping[str, Any]
 ) -> dict[str, str]:
+    repository_root = PACKAGE_ROOT.parent
     try:
         response_directory = Path(manifest["planned_outputs"]["response_directory"])
     except (KeyError, TypeError) as exc:
@@ -303,6 +304,7 @@ def _acquire_call_claim(
         "session_manifest_sha256": request["session_manifest"]["sha256"],
         "sequence": request["sequence"],
         "tool": request["tool"],
+        "arguments": request["arguments"],
         "arguments_sha256": hashlib.sha256(
             json.dumps(
                 request["arguments"],
@@ -311,6 +313,15 @@ def _acquire_call_claim(
                 separators=(",", ":"),
             ).encode("utf-8")
         ).hexdigest(),
+        "broker_sha256": _sha256(Path(__file__).resolve(strict=True)),
+        "server_entry_sha256": _sha256(
+            repository_root / "adapters" / "codex" / "server.py"
+        ),
+        "semantic_contract_sha256": _sha256(
+            repository_root
+            / "adapters" / "claude" / "contracts" / "skill-chain.contract.json"
+        ),
+        "execution_service_sha256": manifest["execution_service"]["sha256"],
     }
     _validate(CLAIM_SCHEMA_PATH, claim_value, "H4 semantic call claim")
     try:

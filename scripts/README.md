@@ -266,6 +266,22 @@ only, captures the JSON response immediately, and permanently blocks the session
 failure or ambiguous post-invocation transport failure. It never calls qualification, private
 executor, HTTP or direct COM interfaces.
 
+After all 16 H4 calls, five H3 stage captures and H3 finalization succeed, run the final COM-free
+H5-H9 release closure:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\finalize_h5_h9_release_candidate.py `
+  --request C:\path\to\h5-h9-release-request.json `
+  --request-sha256 <sha256> `
+  --output C:\path\to\five-skill-release-candidate.json `
+  --repository-root D:\solidworks-mcp
+```
+
+The auditor independently rechecks traceability, all three plan/C# contract chains, the public
+semantic boundary, save/close/read-only-reopen evidence and every final frozen hash. It publishes
+only a complete candidate to a new path outside the repository; no partial or simulated release
+report is accepted.
+
 ## Legacy examples
 
 These scripts record the SolidWorks 2026 development and verification flow used

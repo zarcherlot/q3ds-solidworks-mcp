@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added the H5-H9 final five-Skill release closure. The strict hash-bound request ties one completed
+  H3/H4 session to its H1 candidate; five independent gates recheck cross-stage traceability, all
+  three plan Schemas and C# contract families, live 24-tool/zero-prompt semantic confinement,
+  save/close/read-only-reopen sidecars and recursive frozen-input integrity. The final no-overwrite
+  report freezes the exact clean commit, Skills, semantic contracts, capabilities, runtime, C#
+  sources, plans, handoffs, drawings, sidecars, 16 responses and 16 full-argument H4 call claims.
+  Missing real F7/H evidence remains a hard prerequisite and cannot produce a complete report.
 - Added the H4 one-step production semantic broker and strict hash-bound request contract. It
   revalidates H3 and its frozen inputs before process launch, requires the exact next sequence/tool,
   locks the live 24-tool/zero-prompt surface, starts only the repository Codex stdio MCP and
