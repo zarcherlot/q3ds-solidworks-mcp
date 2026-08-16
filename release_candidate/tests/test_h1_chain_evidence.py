@@ -14,6 +14,7 @@ from release_candidate.h1_chain_evidence import (
     validate_and_publish_h1_chain_evidence,
     validate_h1_chain_evidence,
 )
+from release_candidate.tests.h0_fixture import ready_h0_report
 
 
 COMMIT = "a" * 40
@@ -74,12 +75,7 @@ def _response(
 def _fixture(tmp_path: Path) -> dict:
     h0 = _write(
         tmp_path / "h0.json",
-        {
-            "protocol_id": "solidworks-five-skill-release-readiness",
-            "schema_version": "1.0",
-            "status": "ready",
-            "git": {"commit": COMMIT, "clean": True},
-        },
+        ready_h0_report(COMMIT),
     )
     runtime = _write(tmp_path / "SolidworksExecution.exe", b"runtime")
     model = _write(tmp_path / "part.SLDPRT", b"part")
@@ -358,6 +354,9 @@ def test_h1_rejects_blocked_readiness_and_request_drift(tmp_path: Path) -> None:
     h0_path = Path(candidate["h0_readiness"]["path"])
     h0 = json.loads(h0_path.read_text(encoding="utf-8"))
     h0["status"] = "blocked"
+    h0["blockers"] = [
+        {"code": "fixture-blocker", "message": "blocked", "references": []}
+    ]
     _write(h0_path, h0)
     candidate["h0_readiness"]["sha256"] = _sha(h0_path)
     with pytest.raises(H1ChainEvidenceError, match="ready, clean H0"):

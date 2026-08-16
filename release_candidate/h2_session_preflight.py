@@ -13,6 +13,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from .h0_readiness import validate_h0_readiness_report
+
 
 PROTOCOL_ID = "solidworks-five-skill-session-preflight"
 SCHEMA_VERSION = "1.0"
@@ -20,7 +22,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 REQUEST_SCHEMA_PATH = PACKAGE_ROOT / "contracts" / "h2-session-request.schema.json"
 REPORT_SCHEMA_PATH = PACKAGE_ROOT / "contracts" / "h2-session-preflight.schema.json"
 
-_SCHEDULE = (
+PRODUCTION_SCHEDULE = (
     (1, "bootstrap-solidworks-host", "inspect_solidworks_host", False),
     (2, "solidworks-initialize-drawing-handoff", "initialize_part_drawing_handoff", True),
     (3, "solidworks-create-drawing-views", "publish_validated_part_drawing_view_plan", True),
@@ -100,8 +102,15 @@ def build_h2_session_preflight(
             "H2 live outputs must not be written under validation/",
             str(resolved_session),
         )
+    if resolved_session == root or root in resolved_session.parents:
+        _block(
+            blockers,
+            "session-root-under-repository",
+            "H2 live session roots must remain outside the Git repository",
+            str(resolved_session),
+        )
 
-    planned = _planned_outputs(resolved_session)
+    planned = planned_session_outputs(resolved_session)
     schedule = [
         {
             "sequence": index,
@@ -110,7 +119,7 @@ def build_h2_session_preflight(
             "tool": tool,
             "mutating": mutating,
         }
-        for index, (stage, skill, tool, mutating) in enumerate(_SCHEDULE, 1)
+        for index, (stage, skill, tool, mutating) in enumerate(PRODUCTION_SCHEDULE, 1)
     ]
     report = {
         "protocol_id": PROTOCOL_ID,
@@ -153,7 +162,11 @@ def _validate_h0(
     path = Path(binding["path"])
     try:
         value = _load_json(path)
+        validate_h0_readiness_report(PACKAGE_ROOT.parent, value)
     except H2SessionPreflightError as exc:
+        _block(blockers, "h0-readiness-invalid", str(exc), str(path))
+        return
+    except Exception as exc:
         _block(blockers, "h0-readiness-invalid", str(exc), str(path))
         return
     if (
@@ -215,7 +228,7 @@ def _binding(
     return result
 
 
-def _planned_outputs(root: Path) -> dict[str, str]:
+def planned_session_outputs(root: Path) -> dict[str, str]:
     initializer = root / "01-initializer"
     view_drawing = root / "02-views" / "view-drawing.SLDDRW"
     dimensions = root / "03-dimensions"
@@ -322,16 +335,19 @@ def _publish_once(
     value: Mapping[str, Any], output_path: Path, repository_root: Path
 ) -> tuple[str, str]:
     output = output_path.resolve()
-    validation = (repository_root.resolve() / "validation").resolve()
+    repository = repository_root.resolve()
+    validation = (repository / "validation").resolve()
     if (
         output.exists()
         or not output.parent.is_dir()
         or output.suffix.lower() != ".json"
         or output == validation
         or validation in output.parents
+        or output == repository
+        or repository in output.parents
     ):
         raise H2SessionPreflightError(
-            "H2 preflight output must be a new JSON file outside validation/"
+            "H2 preflight output must be a new JSON file outside the repository"
         )
     payload = json.dumps(
         value, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False

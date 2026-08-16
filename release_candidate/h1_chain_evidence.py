@@ -19,6 +19,8 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from drawing_planner.planning_models import canonical_json_sha256
 
+from .h0_readiness import validate_h0_readiness_report
+
 PROTOCOL_ID = "solidworks-five-skill-chain-evidence"
 SCHEMA_VERSION = "1.0"
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -155,6 +157,10 @@ def validate_and_publish_h1_chain_evidence(
 def _validate_h0_binding(evidence: Mapping[str, Any]) -> None:
     path = _verify_artifact(evidence["h0_readiness"], "h0_readiness")
     readiness = _load_json(path)
+    try:
+        validate_h0_readiness_report(PACKAGE_ROOT.parent, readiness)
+    except Exception as exc:
+        raise H1ChainEvidenceError(f"H0 readiness contract is invalid: {exc}") from exc
     if (
         readiness.get("protocol_id") != "solidworks-five-skill-release-readiness"
         or readiness.get("schema_version") != "1.0"

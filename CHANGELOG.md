@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added the H3 append-only five-Skill session layer. A ready H2 report can create exactly one
+  immutable session manifest; raw semantic responses are accepted only in the frozen 16-step order,
+  failed responses permanently stop the session, and each stage freezes exact artifact roles,
+  paths and hashes before the next stage. Finalization re-hashes all inputs, assembles an H1
+  candidate and runs the independent H1 validator without H3 invoking MCP, HTTP, COM or UI
+  automation. H0 reports are now revalidated against their strict Schema downstream, and H2/H3
+  output roots must remain outside the Git repository.
 - Added the H2 five-Skill production-session request and preflight contracts, deterministic
   16-operation production-only schedule, exact future output namespace and immutable report
   publisher. H2 rechecks H0 readiness, Git commit/worktree, runtime/model/template hashes and new

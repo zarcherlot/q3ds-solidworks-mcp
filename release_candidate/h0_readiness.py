@@ -160,6 +160,14 @@ def audit_h0_readiness(repository_root: Path) -> dict[str, Any]:
     return report
 
 
+def validate_h0_readiness_report(
+    repository_root: Path, report: Mapping[str, Any]
+) -> None:
+    """Validate a captured H0 report against the repository-owned strict contract."""
+
+    _validate_report(repository_root.resolve(strict=True), report)
+
+
 def _audit_skills(
     root: Path, contract: Mapping[str, Any], blockers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:

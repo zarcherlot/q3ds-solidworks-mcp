@@ -25,11 +25,12 @@ or drawing creation are marked mutating; validators and independent verifiers ar
 
 ## Frozen output namespace
 
-The session root deterministically assigns paths for the initializer handoff, blank drawing,
+The session root must be outside the Git repository and deterministically assigns paths for the initializer handoff, blank drawing,
 ViewPlan, view drawing and sidecar, dimension handoff/plan/drawing/sidecar, layout
 handoff/plan/final drawing/sidecar, semantic response captures, stage manifests and the H1 evidence
-candidate. The root must be new, its parent must already exist, and it cannot be under
-`validation/`.
+candidate. The root must be new and its parent must already exist. The preflight report must
+likewise be published outside the repository so creating H2/H3 evidence cannot dirty the frozen
+commit.
 
 The request and report contracts are:
 

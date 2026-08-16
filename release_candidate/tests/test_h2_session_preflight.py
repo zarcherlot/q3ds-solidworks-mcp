@@ -7,6 +7,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from release_candidate import h2_session_preflight as h2
+from release_candidate.tests.h0_fixture import ready_h0_report
 
 
 COMMIT = "a" * 40
@@ -27,15 +28,13 @@ def _write(path: Path, value: object) -> dict[str, str]:
 
 
 def _request(tmp_path: Path, *, h0_status: str = "ready") -> dict:
-    h0 = _write(
-        tmp_path / "h0-readiness.json",
-        {
-            "protocol_id": "solidworks-five-skill-release-readiness",
-            "schema_version": "1.0",
-            "status": h0_status,
-            "git": {"commit": COMMIT, "clean": True},
-        },
-    )
+    h0_value = ready_h0_report(COMMIT)
+    if h0_status == "blocked":
+        h0_value["status"] = "blocked"
+        h0_value["blockers"] = [
+            {"code": "fixture-blocker", "message": "blocked", "references": []}
+        ]
+    h0 = _write(tmp_path / "h0-readiness.json", h0_value)
     return {
         "protocol_id": "solidworks-five-skill-session-request",
         "schema_version": "1.0",
@@ -59,6 +58,12 @@ def _clean_git(monkeypatch) -> None:
     )
 
 
+def _repository(tmp_path: Path) -> Path:
+    root = tmp_path / "repository"
+    root.mkdir()
+    return root
+
+
 def test_h2_contracts_are_valid_draft_2020_12() -> None:
     for path in (h2.REQUEST_SCHEMA_PATH, h2.REPORT_SCHEMA_PATH):
         Draft202012Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))
@@ -68,7 +73,7 @@ def test_h2_ready_preflight_freezes_exact_production_schedule(
     tmp_path: Path, monkeypatch
 ) -> None:
     _clean_git(monkeypatch)
-    report = h2.build_h2_session_preflight(_request(tmp_path), tmp_path)
+    report = h2.build_h2_session_preflight(_request(tmp_path), _repository(tmp_path))
     assert report["status"] == "ready"
     assert report["solidworks_contacted"] is False
     assert len(report["schedule"]) == 16
@@ -88,7 +93,7 @@ def test_h2_blocked_h0_publishes_report_without_creating_session(
     request = _request(tmp_path, h0_status="blocked")
     output = tmp_path / "h2-preflight.json"
     result = h2.build_and_publish_h2_session_preflight(
-        request, tmp_path, output
+        request, _repository(tmp_path), output
     )
     assert result["status"] == "blocked"
     assert result["solidworks_contacted"] is False
@@ -114,7 +119,7 @@ def test_h2_rejects_dirty_commit_hash_drift_and_existing_root(
             "changed_paths": ["user-change.txt"],
         },
     )
-    report = h2.build_h2_session_preflight(request, tmp_path)
+    report = h2.build_h2_session_preflight(request, _repository(tmp_path))
     codes = {row["code"] for row in report["blockers"]}
     assert report["status"] == "blocked"
     assert {
@@ -137,7 +142,7 @@ def test_h2_detects_runtime_hash_and_artifact_extension_drift(
         "path": str(wrong_model.resolve()),
         "sha256": hashlib.sha256(wrong_model.read_bytes()).hexdigest(),
     }
-    report = h2.build_h2_session_preflight(request, tmp_path)
+    report = h2.build_h2_session_preflight(request, _repository(tmp_path))
     codes = [row["code"] for row in report["blockers"]]
     assert report["status"] == "blocked"
     assert "artifact-hash-mismatch" in codes

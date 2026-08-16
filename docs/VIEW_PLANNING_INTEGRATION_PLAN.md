@@ -592,6 +592,9 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
   - [x] 建立 H2 COM-free 生产会话预检：冻结 H0、commit、runtime、源模型、模板和唯一新 session root，生成
     固定 16 步生产语义调度及全部 handoff/计划/图纸/侧车/响应/阶段证据路径；blocked 时只发布诊断报告，
     不创建 session root、不启动 SolidWorks。
+  - [x] 建立 H3 追加式会话捕获：仅从 ready H2 创建一次性 session manifest，严格按 16 步顺序保存原始
+    语义响应；失败响应永久终止该 session，前一阶段未冻结不得进入下一阶段；五阶段完成后重哈希全部制品、
+    通过独立 H1 验证并一次性发布 H1 candidate。H3 自身不调用 MCP、HTTP、COM 或 UI 自动化。
   - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
   - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
   - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
@@ -619,6 +622,13 @@ H2 请求/报告合同、确定性路径表和一次性预检发布器位于
 `scripts/prepare_h2_five_skill_session.py`。H2 不接受已有目录或 `validation/` 路径，并再次核对当前 commit/
 worktree 与 H0 报告；当前 F7 未晋级状态只能生成 `blocked` 报告。详见
 `docs/H2_FIVE_SKILL_SESSION_PREFLIGHT.md`。
+
+H3 会话/阶段合同和追加式捕获器位于
+`release_candidate/contracts/h3-session-manifest.schema.json`、
+`release_candidate/contracts/h3-stage-capture.schema.json` 与
+`release_candidate/h3_session_capture.py`，统一命令入口为
+`scripts/h3_five_skill_session.py`。它重新计算 H2 的 16 步调度和确定性输出命名空间，拒绝被修改的 ready
+报告；完整使用方式见 `docs/H3_FIVE_SKILL_SESSION_CAPTURE.md`。
 
 ### 开发顺序、关键路径和里程碑
 

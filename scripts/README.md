@@ -237,6 +237,20 @@ H2 is COM-free and does not create the session root. Exit code `2` publishes a v
 when H0, Git state, hashes, extensions or output-path isolation are not ready. Only exit code `0`
 may be consumed by the later live-session creator.
 
+Create and populate the append-only H3 session only from a ready H2 report:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\h3_five_skill_session.py create `
+  --preflight C:\evidence\h2-session-preflight.json `
+  --preflight-sha256 <sha256> `
+  --repository-root .
+```
+
+The same command provides `capture-operation`, `capture-stage`, and `finalize` subcommands. Each
+semantic response and stage manifest is published once in strict sequence. A failed response stops
+the session permanently; finalization independently validates the assembled H1 candidate. H3 only
+captures calls made by the five Skills and never invokes MCP or SolidWorks itself.
+
 ## Legacy examples
 
 These scripts record the SolidWorks 2026 development and verification flow used
