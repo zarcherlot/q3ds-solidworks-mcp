@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-five-skill-chain-evidence-1.0.schema.json",
+  "title": "Five-Skill Production Chain Evidence 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "solidworks_revision", "generated_at_utc",
+    "git_commit", "h0_readiness", "execution_service", "immutable_inputs",
+    "stages", "final_artifacts"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-chain-evidence" },
+    "schema_version": { "const": "1.0" },
+    "solidworks_revision": { "const": "33.5.0" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "h0_readiness": { "$ref": "#/$defs/artifact" },
+    "execution_service": { "$ref": "#/$defs/artifact" },
+    "immutable_inputs": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["role", "path", "sha256_before", "sha256_after"],
+        "properties": {
+          "role": { "enum": ["source_model", "drawing_template"] },
+          "path": { "type": "string", "minLength": 3 },
+          "sha256_before": { "$ref": "#/$defs/sha256" },
+          "sha256_after": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "stages": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": { "$ref": "#/$defs/stage" }
+    },
+    "final_artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["drawing", "verification_sidecar"],
+      "properties": {
+        "drawing": { "$ref": "#/$defs/artifact" },
+        "verification_sidecar": { "$ref": "#/$defs/artifact" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "namedArtifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sequence", "tool", "response"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,95}$" },
+        "response": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["order", "skill", "inputs", "outputs", "operations"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "skill": { "type": "string", "minLength": 3 },
+        "inputs": {
+          "type": "array", "items": { "$ref": "#/$defs/namedArtifact" }
+        },
+        "outputs": {
+          "type": "array", "items": { "$ref": "#/$defs/namedArtifact" }
+        },
+        "operations": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/operation" }
+        }
+      }
+    }
+  }
+}

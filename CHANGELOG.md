@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added the H1 five-Skill production-chain evidence contract, COM-free validator and immutable
+  publisher. The ledger enforces the exact five-stage/global semantic-call order, production-only
+  publish/validate/create/verify operations, canonical request/plan continuity, one distinct blank
+  drawing plus each successor, recursive handoff/drawing/sidecar SHA-256 links, unchanged source inputs and a
+  final independently verified layout sidecar. F7/G7 qualification calls and blocked H0 reports
+  are explicitly rejected, so this implementation cannot manufacture missing live evidence.
 - Added the complete positive F7 matrix preparation chain. Advanced evidence-bound recipes now
   support model/PMI, approved-user and non-manufacturing reference-measurement sources, including
   trusted tolerances/fits and exact prefix/suffix evidence. A new strict preparation contract and

@@ -586,6 +586,9 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
 - [ ] H0：完成用户入口到 COM 再独立回读的五 Skill 发布候选。
   - [x] 建立 H0 COM-free 发布就绪门禁：锁定五 Skill 顺序/allow-list、24 工具/零 prompt 实际发现、
     三份计划 Schema、四份能力清单、G0/G7 哈希绑定和干净 Git commit，并发布严格的一次性就绪报告。
+  - [x] 建立 H1 COM-free 完整链证据账本：固定五阶段及全局调用顺序，锁定生产 publish/validate/create/
+    verify 工具，拒绝 F7/G7 qualification 替代，并核对请求、计划、handoff、空白图纸与三代后继图纸、侧车、runtime、
+    源模型及模板的文件/规范 SHA-256 连续性和一次性证据发布。
   - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
   - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
   - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
@@ -599,6 +602,12 @@ H0 就绪门禁已实现于 `release_candidate/h0_readiness.py`，报告合同�
 仍为 `planned`；因此生产 `create_dimensioned_part_drawing` 必须继续失败关闭。完成 F7 全覆盖实证并正式
 晋级 `dimension_planner/capabilities/current.json` 后，方可运行 H0 五 Skill 实机链和冻结 M6 证据。详细
 边界与复现方式见 `docs/H0_FIVE_SKILL_RELEASE_CANDIDATE.md`。
+
+H1 证据合同为 `release_candidate/contracts/h1-chain-evidence.schema.json`，验证器与一次性发布器位于
+`release_candidate/h1_chain_evidence.py`，命令入口为 `scripts/validate_h1_five_skill_chain.py`。它只验收
+真实生产调用保存的响应和制品，不启动 SolidWorks；当前 H0 `blocked` 报告无法作为 H1 输入，因此不会把
+尚不存在的 F7/H 实机证据包装为完成状态。完整字段与连续性规则见
+`docs/H1_FIVE_SKILL_CHAIN_EVIDENCE.md`。
 
 ### 开发顺序、关键路径和里程碑
 

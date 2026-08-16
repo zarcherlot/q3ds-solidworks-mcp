@@ -210,6 +210,19 @@ clean Git commit required for frozen evidence. Exit code `2` is an expected, sch
 result. At present it identifies the unpromoted F7 dimension registry, so the H0 production live
 chain must not run yet.
 
+After a future production run captures every semantic response and artifact, validate and publish
+the final H1 chain ledger once:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\validate_h1_five_skill_chain.py `
+  --candidate C:\path\to\h1-chain-evidence.candidate.json `
+  --output C:\path\to\h1-chain-evidence.json
+```
+
+The validator rejects qualification-tool substitution, request/plan hash drift, repeated successor
+drawing paths, changed source inputs, missing production operations and final sidecar mismatch. A
+blocked H0 report can never produce complete H1 evidence.
+
 ## Legacy examples
 
 These scripts record the SolidWorks 2026 development and verification flow used
