@@ -175,7 +175,7 @@ namespace DimensionContractTests
 
                 Console.WriteLine("Dimension F0-F7 contract tests passed: " + _passed + "/17" +
                     "; F4/F7: " + f4Contracts + "/8; F5: " + f5Contracts +
-                    "/9; corpus requests: " + corpusRequests);
+                    "/10; corpus requests: " + corpusRequests);
                 return 0;
             }
             catch (Exception ex)

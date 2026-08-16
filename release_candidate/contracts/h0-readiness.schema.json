@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/h0-readiness-1.0.schema.json",
+  "title": "Five-Skill H0 Release Readiness 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "schema_version", "status", "git", "semantic_mcp", "skills", "plan_schemas", "capability_manifests", "blockers"],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-release-readiness" },
+    "schema_version": { "const": "1.0" },
+    "status": { "enum": ["ready", "blocked"] },
+    "git": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "clean", "changed_paths"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "clean": { "type": "boolean" },
+        "changed_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "semantic_mcp": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tool_count", "tools", "prompt_count", "contract", "config", "schema"],
+      "properties": {
+        "tool_count": { "type": "integer", "minimum": 0 },
+        "tools": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" } },
+        "prompt_count": { "const": 0 },
+        "contract": { "$ref": "#/$defs/artifact" },
+        "config": { "$ref": "#/$defs/artifact" },
+        "schema": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "skills": {
+      "type": "array", "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "path", "size_bytes", "sha256"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "size_bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "plan_schemas": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/artifact" } },
+    "capability_manifests": {
+      "type": "object", "additionalProperties": false,
+      "required": ["view", "dimension", "layout_boundary", "layout_plan"],
+      "properties": {
+        "view": { "$ref": "#/$defs/artifact" },
+        "dimension": { "$ref": "#/$defs/artifact" },
+        "layout_boundary": { "$ref": "#/$defs/artifact" },
+        "layout_plan": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "ready" } } },
+      "then": {
+        "properties": {
+          "git": { "properties": { "clean": { "const": true }, "changed_paths": { "maxItems": 0 } } },
+          "semantic_mcp": { "properties": { "tool_count": { "const": 24 }, "tools": { "minItems": 24, "maxItems": 24 }, "prompt_count": { "const": 0 } } },
+          "skills": { "minItems": 5, "maxItems": 5 },
+          "blockers": { "maxItems": 0 }
+        }
+      }
+    },
+    { "if": { "properties": { "status": { "const": "blocked" } } }, "then": { "properties": { "blockers": { "minItems": 1 } } } }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "size_bytes", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "blocker": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message", "references"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" },
+        "message": { "type": "string", "minLength": 1 },
+        "references": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

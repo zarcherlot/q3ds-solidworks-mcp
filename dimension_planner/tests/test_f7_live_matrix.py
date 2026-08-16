@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -285,6 +286,64 @@ def test_f7_request_rejects_incomplete_or_failed_f0_evidence(tmp_path: Path) -> 
         validate_f7_matrix_request(request)
 
 
+def test_f7_request_rejects_missing_18_kind_coverage_before_com(
+    tmp_path: Path,
+) -> None:
+    request = _fixture(tmp_path)
+    case = request["cases"][-1]
+    plan_path = Path(case["plan_path"])
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["dimensions"][-1]["kind"] = "linear"
+    _write_json(plan_path, plan)
+    case["plan_file_sha256"] = _sha(plan_path)
+    case["plan_canonical_sha256"] = canonical_json_sha256(plan, "DimensionPlan")
+    with pytest.raises(DimensionF7EvidenceError, match="incomplete before COM"):
+        validate_f7_matrix_request(request)
+
+
+def test_f7_request_rejects_proxy_handoff_reuse_before_com(tmp_path: Path) -> None:
+    request = _fixture(tmp_path)
+    source_case, target_case = request["cases"][:2]
+    source_plan = json.loads(Path(source_case["plan_path"]).read_text(encoding="utf-8"))
+    target_path = Path(target_case["plan_path"])
+    target_plan = json.loads(target_path.read_text(encoding="utf-8"))
+    target_plan["handoff"] = copy.deepcopy(source_plan["handoff"])
+    _write_json(target_path, target_plan)
+    target_case["plan_file_sha256"] = _sha(target_path)
+    target_case["plan_canonical_sha256"] = canonical_json_sha256(
+        target_plan, "DimensionPlan"
+    )
+    target_case["planning_request"]["handoff_path"] = source_plan["handoff"]["path"]
+    target_case["planning_request"]["handoff_sha256"] = source_plan["handoff"]["sha256"]
+    target_case["planning_request_sha256"] = canonical_json_sha256(
+        target_case["planning_request"], "dimension planning request"
+    )
+    with pytest.raises(DimensionF7EvidenceError, match="proxy reuse is forbidden"):
+        validate_f7_matrix_request(request)
+
+
+def test_f7_request_rejects_copied_source_model_as_distinct_evidence(
+    tmp_path: Path,
+) -> None:
+    request = _fixture(tmp_path)
+    source_case, *target_cases = request["cases"][:3]
+    source_plan = json.loads(Path(source_case["plan_path"]).read_text(encoding="utf-8"))
+    source_model = Path(source_plan["source_model"]["path"])
+    for target_case in target_cases:
+        target_path = Path(target_case["plan_path"])
+        target_plan = json.loads(target_path.read_text(encoding="utf-8"))
+        target_model = Path(target_plan["source_model"]["path"])
+        target_model.write_bytes(source_model.read_bytes())
+        target_plan["source_model"]["sha256"] = _sha(target_model)
+        _write_json(target_path, target_plan)
+        target_case["plan_file_sha256"] = _sha(target_path)
+        target_case["plan_canonical_sha256"] = canonical_json_sha256(
+            target_plan, "DimensionPlan"
+        )
+    with pytest.raises(DimensionF7EvidenceError, match="five distinct frozen source models"):
+        validate_f7_matrix_request(request)
+
+
 def test_f7_summary_requires_exact_persisted_inventory_and_all_coverage(
     tmp_path: Path,
 ) -> None:
@@ -401,6 +460,15 @@ def test_f7_runner_uses_only_default_semantic_mcp() -> None:
     assert "managed semantic transaction owns its SolidWorks session" in runner
     assert "httpx" not in runner
     assert "/api/" not in runner
+
+    spec = importlib.util.spec_from_file_location(
+        "run_dimension_f7_live_matrix",
+        ROOT / "scripts/run_dimension_f7_live_matrix.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert len(module._EXPECTED_TOOLS) == 24
 
     semantic_server = (ROOT / "adapters/claude/server.py").read_text(
         encoding="utf-8"

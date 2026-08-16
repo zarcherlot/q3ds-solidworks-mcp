@@ -423,6 +423,18 @@ F7 已完成离线证据门禁及首次资格事务候选：新增不可变矩�
 `qualify_dimensioned_part_drawing` / `verify_qualified_dimensioned_part_drawing` 工程语义工具；它们要求计划、
 原始请求、输出路径和矩阵案例逐项哈希绑定，只允许 `planned` 能力取证，已知 `unsupported` 仍在 COM 前
 拒绝，并且绝不修改能力清单。生产 `create/verify` 的 `supported + live + evidence_sha256` 门禁保持不变。
+
+F7 完整正向矩阵准备链现已补齐。新增高级 evidence-bound recipe `1.1`，可从不可变 handoff 精确表达
+`model_or_pmi`、`user_confirmed_input` 和非制造 `reference_geometry_measurement` 三类来源，以及用户批准的
+数值/配合公差和精确前后缀；所有值仍须通过仓库来源、附件、语义、覆盖、冗余和布局门禁。新增
+`dimension-f7-preparation-request` 合同、`dimension_planner/f7_preparation.py` 和
+`scripts/prepare_dimension_f7_live_matrix.py`：在 COM 前要求六个独立 handoff、至少五个不同源模型、18 类尺寸
+恰好各一次及六项执行元素全部有正向计划覆盖，先完成全部候选门禁，再每 handoff 发布一个不可变计划，最后发布
+矩阵请求。F7 live runner 同步到当前 24 工具/零 prompt 默认面；矩阵请求若缺类型/能力、复用代理 handoff、
+请求/计划不连续或源制品哈希漂移，会在连接 SolidWorks 前拒绝。C# 合同现逐项编译并资格预检 18 类联合，并用
+受信容差/前后缀计划覆盖六项通用执行能力。完整设计和运行命令见
+`docs/F7_COMPLETE_DIMENSION_MATRIX.md`。上述代码完成不代表实机晋级；仍需用六类真实 handoff 生成并跑完新的
+18 类保存重开/独立核验矩阵后，才能评审能力候选并勾选 F7。
 矩阵运行器对每个案例执行 `validate(capability_blocked) → qualify → independent qualification verify`，逐阶段
 核对 canonical/request 哈希，并在 C# 事务侧车已通过内存回读、保存关闭、只读重开及独立核验后才原子
 发布案例证据。汇总器重新
@@ -572,11 +584,21 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
 ### H. 五 Skill 完整生产链发布候选
 
 - [ ] H0：完成用户入口到 COM 再独立回读的五 Skill 发布候选。
+  - [x] 建立 H0 COM-free 发布就绪门禁：锁定五 Skill 顺序/allow-list、24 工具/零 prompt 实际发现、
+    三份计划 Schema、四份能力清单、G0/G7 哈希绑定和干净 Git commit，并发布严格的一次性就绪报告。
   - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
   - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
   - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
   - [ ] 最终图纸保存、关闭、只读重开及独立核验通过；源模型、模板和所有上游冻结制品保持不变。
   - [ ] 冻结最终 commit、五个 Skill、三个 Schema/计划、能力清单、runtime、工程图和侧车哈希，并同步文档。
+
+H0 就绪门禁已实现于 `release_candidate/h0_readiness.py`，报告合同为
+`release_candidate/contracts/h0-readiness.schema.json`，命令入口为
+`scripts/check_h0_release_readiness.py`。门禁不启动 SolidWorks，也不接受 F7/G7 资格事务替代生产事务。
+当前报告按预期返回 `blocked`：尺寸能力清单仍为 `0.3.0`，18 类 DimensionPlan 和 F7 六项生产执行元素
+仍为 `planned`；因此生产 `create_dimensioned_part_drawing` 必须继续失败关闭。完成 F7 全覆盖实证并正式
+晋级 `dimension_planner/capabilities/current.json` 后，方可运行 H0 五 Skill 实机链和冻结 M6 证据。详细
+边界与复现方式见 `docs/H0_FIVE_SKILL_RELEASE_CANDIDATE.md`。
 
 ### 开发顺序、关键路径和里程碑
 

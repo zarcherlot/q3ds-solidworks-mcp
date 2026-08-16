@@ -104,6 +104,7 @@ def validate_f7_matrix_request(candidate: Mapping[str, Any]) -> dict[str, Any]:
     case_ids: set[str] = set()
     categories: set[str] = set()
     frozen_outputs: set[str] = set()
+    plans: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
     for index, case in enumerate(request["cases"]):
         case_id = case["case_id"]
         if case_id in case_ids:
@@ -138,6 +139,8 @@ def validate_f7_matrix_request(candidate: Mapping[str, Any]) -> dict[str, Any]:
                 f"cases[{index}] plan_path is not the request publication"
             )
         case["plan_path"] = str(plan_path)
+        _validate_plan_request_binding(case, plan, index)
+        plans.append((case, plan))
 
         output = _new_absolute_path(case["output_path"], ".slddrw", f"cases[{index}].output")
         evidence = _new_absolute_path(case["evidence_path"], ".json", f"cases[{index}].evidence")
@@ -161,6 +164,7 @@ def validate_f7_matrix_request(candidate: Mapping[str, Any]) -> dict[str, Any]:
         raise DimensionF7EvidenceError(
             "F7 matrix must cover every required part category; missing: " + ", ".join(missing)
         )
+    validate_f7_pre_live_coverage(plans)
     return request
 
 
@@ -328,7 +332,11 @@ def build_f7_summary(
             element_counts["attachment_persistent_reference"] += 1
             element_counts["annotation_position"] += 1
             element_counts["save_reopen_stable_identity"] += 1
-            if dimension["source"]["source_tier"] == "model_or_pmi":
+            if (
+                dimension["source"]["source_tier"] == "model_or_pmi"
+                and dimension["source"].get("handoff_collection")
+                == "model_driven_dimensions"
+            ):
                 element_counts["model_dimension_import"] += 1
             if dimension.get("tolerance") is not None:
                 element_counts["dimension_tolerance"] += 1
@@ -471,7 +479,8 @@ def validate_f7_matrix_request_for_evaluation(
         raise DimensionF7EvidenceError("F7 matrix category coverage is incomplete")
     if len({case["case_id"] for case in request["cases"]}) != len(request["cases"]):
         raise DimensionF7EvidenceError("F7 matrix case_id values must be unique")
-    for case in request["cases"]:
+    plans: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+    for index, case in enumerate(request["cases"]):
         plan_path = _absolute_file_binding(
             {"path": case["plan_path"], "sha256": case["plan_file_sha256"]},
             ".json",
@@ -488,7 +497,97 @@ def validate_f7_matrix_request_for_evaluation(
             raise DimensionF7EvidenceError(
                 f"{case['case_id']} planning request hash mismatch"
             )
+        _validate_plan_request_binding(case, plan, index)
+        plans.append((case, plan))
+    validate_f7_pre_live_coverage(plans)
     return request
+
+
+def _validate_plan_request_binding(
+    case: Mapping[str, Any], plan: Mapping[str, Any], index: int
+) -> None:
+    request = case["planning_request"]
+    handoff = plan["handoff"]
+    if (
+        request.get("planner_profile") != "production"
+        or Path(request["handoff_path"]).resolve() != Path(handoff["path"]).resolve()
+        or request["handoff_sha256"] != handoff["sha256"]
+    ):
+        raise DimensionF7EvidenceError(
+            f"cases[{index}] planning request does not bind the exact production handoff"
+        )
+    for role in (
+        "handoff",
+        "source_model",
+        "source_drawing",
+        "view_plan",
+        "verification_sidecar",
+    ):
+        _absolute_file_binding(
+            plan[role],
+            Path(plan[role]["path"]).suffix.lower(),
+            f"cases[{index}].{role}",
+        )
+
+
+def validate_f7_pre_live_coverage(
+    cases_and_plans: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
+    *,
+    require_each_kind_exactly_once: bool = False,
+) -> None:
+    kind_counts = Counter({kind: 0 for kind in F7_DIMENSION_KINDS})
+    element_counts = Counter({element: 0 for element in F7_EXECUTION_ELEMENTS})
+    source_models: set[str] = set()
+    handoffs: set[str] = set()
+    for _, plan in cases_and_plans:
+        # Content identity is deliberately stronger than path identity.  Copying one model or
+        # handoff to several filenames must not manufacture independent F7 evidence cases.
+        source_models.add(plan["source_model"]["sha256"])
+        handoffs.add(plan["handoff"]["sha256"])
+        for dimension in plan["dimensions"]:
+            kind_counts[dimension["kind"]] += 1
+            element_counts["attachment_persistent_reference"] += 1
+            element_counts["annotation_position"] += 1
+            element_counts["save_reopen_stable_identity"] += 1
+            source = dimension["source"]
+            if (
+                source["source_tier"] == "model_or_pmi"
+                and source.get("handoff_collection") == "model_driven_dimensions"
+            ):
+                element_counts["model_dimension_import"] += 1
+            if dimension.get("tolerance") is not None:
+                element_counts["dimension_tolerance"] += 1
+            display = dimension["display_format"]
+            if display.get("prefix") or display.get("suffix"):
+                element_counts["dimension_prefix_suffix"] += 1
+    missing_kinds = [name for name in F7_DIMENSION_KINDS if kind_counts[name] < 1]
+    missing_elements = [
+        name for name in F7_EXECUTION_ELEMENTS if element_counts[name] < 1
+    ]
+    if missing_kinds or missing_elements:
+        raise DimensionF7EvidenceError(
+            "F7 request is incomplete before COM; missing dimension kinds="
+            + repr(missing_kinds)
+            + ", execution elements="
+            + repr(missing_elements)
+        )
+    if require_each_kind_exactly_once:
+        duplicated_kinds = [
+            name for name in F7_DIMENSION_KINDS if kind_counts[name] != 1
+        ]
+        if duplicated_kinds:
+            raise DimensionF7EvidenceError(
+                "F7 preparation must bind every DimensionPlan kind exactly once: "
+                + repr(duplicated_kinds)
+            )
+    if len(source_models) < 5:
+        raise DimensionF7EvidenceError(
+            "F7 promotion requires at least five distinct frozen source models"
+        )
+    if len(handoffs) != len(cases_and_plans):
+        raise DimensionF7EvidenceError(
+            "F7 promotion requires one distinct immutable handoff per matrix case; proxy reuse is forbidden"
+        )
 
 
 def _validate_f0_summary(summary: Mapping[str, Any]) -> None:

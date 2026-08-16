@@ -46,7 +46,7 @@ def build_first_draft_candidate(
         raise DimensionFirstDraftError("native-v1 prompt manifest has no producer")
     upstream = _upstream_by_role(handoff)
     dimensions = [
-        _build_dimension(spec, handoff, index)
+        _build_dimension(spec, handoff, index, recipe["schema_version"])
         for index, spec in enumerate(recipe["dimensions"])
     ]
     plan = {
@@ -115,9 +115,14 @@ def build_first_draft_candidate(
 
 
 def _build_dimension(
-    spec_candidate: object, handoff: Mapping[str, Any], index: int
+    spec_candidate: object,
+    handoff: Mapping[str, Any],
+    index: int,
+    recipe_version: str,
 ) -> dict[str, Any]:
     spec = _strict_json_object(spec_candidate, f"dimensions[{index}]")
+    if recipe_version == "1.1":
+        return _build_dimension_v1_1(spec, handoff, index)
     required = {
         "dimension_id",
         "kind",
@@ -231,6 +236,183 @@ def _build_dimension(
     }
 
 
+def _build_dimension_v1_1(
+    spec: Mapping[str, Any], handoff: Mapping[str, Any], index: int
+) -> dict[str, Any]:
+    """Build one advanced F7 candidate only from explicitly frozen evidence.
+
+    Version 1.1 adds the three trusted source tiers and tolerance payload required by the
+    complete F7 matrix. Values remain candidate input, but the repository validator below must
+    find the exact nominal/tolerance in the bound handoff before this function can return a plan.
+    """
+
+    required = {
+        "dimension_id",
+        "kind",
+        "source",
+        "value",
+        "tolerance",
+        "target_view_id",
+        "attachments",
+        "feature_ids",
+        "dimension_zone_id",
+        "initial_position_sheet_m",
+        "display_format",
+        "hierarchy",
+        "verification_tolerance",
+    }
+    if set(spec) != required:
+        raise DimensionFirstDraftError(
+            f"dimensions[{index}] properties must be exactly {sorted(required)}"
+        )
+
+    views = _by_id(handoff["views"], "view_id", "view")
+    view = views.get(spec["target_view_id"])
+    if view is None:
+        raise DimensionFirstDraftError(
+            f"dimensions[{index}] target view is absent: {spec['target_view_id']}"
+        )
+    entities = _by_id(view["projected_geometry"], "entity_id", "projected entity")
+    raw_attachments = spec["attachments"]
+    if not isinstance(raw_attachments, list) or not raw_attachments:
+        raise DimensionFirstDraftError(f"dimensions[{index}] attachments must be non-empty")
+    attachments: list[dict[str, Any]] = []
+    for attachment_index, raw in enumerate(raw_attachments):
+        attachment = _strict_json_object(
+            raw, f"dimensions[{index}].attachments[{attachment_index}]"
+        )
+        if set(attachment) != {"attachment_id", "entity_id", "role"}:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}].attachments[{attachment_index}] has unexpected fields"
+            )
+        entity = entities.get(attachment["entity_id"])
+        if entity is None:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] attachment entity is not visible in the target view: "
+                f"{attachment['entity_id']}"
+            )
+        attachments.append(
+            {
+                "attachment_id": attachment["attachment_id"],
+                "entity_id": attachment["entity_id"],
+                "model_persistent_reference": entity["model_persistent_reference"],
+                "persistent_reference_kind": entity["persistent_reference_kind"],
+                "role": attachment["role"],
+            }
+        )
+
+    features = _by_id(
+        handoff["manufacturing_features"], "feature_id", "manufacturing feature"
+    )
+    feature_ids = spec["feature_ids"]
+    if not isinstance(feature_ids, list) or not feature_ids:
+        raise DimensionFirstDraftError(f"dimensions[{index}] feature_ids must be non-empty")
+    missing_features = [feature_id for feature_id in feature_ids if feature_id not in features]
+    if missing_features:
+        raise DimensionFirstDraftError(
+            f"dimensions[{index}] manufacturing features are absent: {missing_features}"
+        )
+    zones = _by_id(handoff["dimension_zones"], "id", "dimension zone")
+    zone = zones.get(spec["dimension_zone_id"])
+    if zone is None or zone.get("view_id") != spec["target_view_id"]:
+        raise DimensionFirstDraftError(
+            f"dimensions[{index}] dimension zone is absent or belongs to another view"
+        )
+
+    source = _strict_json_object(spec["source"], f"dimensions[{index}].source")
+    tier = source.get("source_tier")
+    if tier == "model_or_pmi":
+        if set(source) != {"source_tier", "handoff_collection", "source_ids"}:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] model/PMI source is not strict"
+            )
+        collection_name = source.get("handoff_collection")
+        collection_keys = {
+            "model_driven_dimensions": "dimension_id",
+            "pmi_annotations": "annotation_id",
+            "manufacturing_features": "feature_id",
+        }
+        if collection_name not in collection_keys:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] model/PMI collection is unknown"
+            )
+        collection = _by_id(
+            handoff[collection_name], collection_keys[collection_name], collection_name
+        )
+        source_ids = _nonempty_unique_string_list(
+            source["source_ids"], f"dimensions[{index}].source.source_ids"
+        )
+        missing = [source_id for source_id in source_ids if source_id not in collection]
+    elif tier == "user_confirmed_input":
+        if set(source) != {"source_tier", "approved_input_ids"}:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] approved source is not strict"
+            )
+        collection = _by_id(handoff["approved_user_inputs"], "input_id", "approved input")
+        source_ids = _nonempty_unique_string_list(
+            source["approved_input_ids"],
+            f"dimensions[{index}].source.approved_input_ids",
+        )
+        missing = [source_id for source_id in source_ids if source_id not in collection]
+    elif tier == "reference_geometry_measurement":
+        if set(source) != {
+            "source_tier",
+            "measurement_ids",
+            "manufacturing_requirement",
+        } or source.get("manufacturing_requirement") is not False:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] reference source is not strict/non-manufacturing"
+            )
+        collection = _by_id(
+            handoff["reference_measurements"], "measurement_id", "reference measurement"
+        )
+        source_ids = _nonempty_unique_string_list(
+            source["measurement_ids"],
+            f"dimensions[{index}].source.measurement_ids",
+        )
+        missing = [source_id for source_id in source_ids if source_id not in collection]
+    else:
+        raise DimensionFirstDraftError(f"dimensions[{index}] source tier is unknown: {tier}")
+    if missing:
+        raise DimensionFirstDraftError(
+            f"dimensions[{index}] trusted source IDs are absent: {missing}"
+        )
+
+    value = _strict_json_object(spec["value"], f"dimensions[{index}].value")
+    if set(value) != {"value_mode", "quantity_kind", "nominal_si"}:
+        raise DimensionFirstDraftError(f"dimensions[{index}] value is not strict")
+    tolerance = spec["tolerance"]
+    if tolerance is not None:
+        tolerance = _strict_json_object(tolerance, f"dimensions[{index}].tolerance")
+        if set(tolerance) != {"kind", "lower_si", "upper_si", "fit_code"}:
+            raise DimensionFirstDraftError(
+                f"dimensions[{index}] tolerance is not strict"
+            )
+
+    return {
+        "dimension_id": spec["dimension_id"],
+        "kind": spec["kind"],
+        "source": source,
+        "target_view_id": spec["target_view_id"],
+        "attachments": attachments,
+        "feature_ids": list(feature_ids),
+        "value": value,
+        "tolerance": tolerance,
+        "display_format": _strict_json_object(
+            spec["display_format"], f"dimensions[{index}].display_format"
+        ),
+        "dimension_zone_id": spec["dimension_zone_id"],
+        "hierarchy": _strict_json_object(
+            spec["hierarchy"], f"dimensions[{index}].hierarchy"
+        ),
+        "initial_position_sheet_m": list(spec["initial_position_sheet_m"]),
+        "verification_tolerance": _strict_json_object(
+            spec["verification_tolerance"],
+            f"dimensions[{index}].verification_tolerance",
+        ),
+    }
+
+
 def _validate_recipe_envelope(recipe: Mapping[str, Any]) -> None:
     required = {
         "protocol_id",
@@ -244,7 +426,10 @@ def _validate_recipe_envelope(recipe: Mapping[str, Any]) -> None:
         raise DimensionFirstDraftError(
             "first-draft recipe properties must be exactly " + str(sorted(required))
         )
-    if recipe.get("protocol_id") != RECIPE_PROTOCOL or recipe.get("schema_version") != "1.0":
+    if recipe.get("protocol_id") != RECIPE_PROTOCOL or recipe.get("schema_version") not in {
+        "1.0",
+        "1.1",
+    }:
         raise DimensionFirstDraftError("unexpected first-draft recipe protocol/version")
     if not isinstance(recipe.get("dimensions"), list) or not recipe["dimensions"]:
         raise DimensionFirstDraftError("first-draft recipe requires dimensions")
@@ -289,6 +474,18 @@ def _strict_json_object(value: object, label: str) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise DimensionFirstDraftError(f"{label} must be an object")
     return result
+
+
+def _nonempty_unique_string_list(value: object, label: str) -> list[str]:
+    if (
+        not isinstance(value, list)
+        or not value
+        or any(not isinstance(item, str) or not item for item in value)
+    ):
+        raise DimensionFirstDraftError(f"{label} must be a non-empty string array")
+    if len(set(value)) != len(value):
+        raise DimensionFirstDraftError(f"{label} must not contain duplicate IDs")
+    return value
 
 
 def _load_json(path: Path) -> dict[str, Any]:

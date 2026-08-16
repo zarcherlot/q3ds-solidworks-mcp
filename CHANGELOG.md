@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Added the complete positive F7 matrix preparation chain. Advanced evidence-bound recipes now
+  support model/PMI, approved-user and non-manufacturing reference-measurement sources, including
+  trusted tolerances/fits and exact prefix/suffix evidence. A new strict preparation contract and
+  COM-free publisher require six distinct handoffs, at least five real source models, all 18
+  DimensionPlan kinds exactly once and all six execution elements before publishing one plan per
+  handoff and the matrix request last. The F7 runner now discovers the current 24-tool surface and
+  rejects incomplete coverage, proxy handoff reuse and request/artifact drift before COM. C#
+  contracts now compile and qualification-preflight all 18 kinds plus a six-element trusted plan.
+  Production capabilities remain unpromoted until the new live matrix passes.
+- Added the H0 five-Skill release-readiness gate and strict report contract. The COM-free audit
+  inventories the five Skill files, actual 24-tool/zero-prompt semantic surface, three plan
+  Schemas, four capability manifests, G0/G7 binding and Git commit, then publishes once and fails
+  closed on any drift. The current expected result is `blocked`: F7 has not promoted all 18
+  DimensionPlan kinds and six production execution elements, so qualification evidence cannot be
+  substituted for the production `create_dimensioned_part_drawing` transaction.
 - Completed G7 final-layout qualification and production capability promotion on SolidWorks 2025
   SP5 (`33.5.0`). The immutable nine-positive/one-negative matrix passed all create, save/close,
   read-only reopen and independent verification stages, covering all eight layout operations and

@@ -55,6 +55,36 @@ The Python client only orchestrates HTTP and evaluates evidence. All SolidWorks 
 the repository C# service on its STA thread. The endpoint is not registered as an Agent-visible MCP
 tool and is not part of the production DimensionPlan surface.
 
+## Dimension F7 complete qualification matrix
+
+Prepare six real, immutable handoff/recipe cases before starting SolidWorks. The preparation
+request must cover all 18 DimensionPlan kinds exactly once and all six execution elements:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\prepare_dimension_f7_live_matrix.py `
+  --request C:\path\to\dimension-f7-preparation-request.json
+```
+
+The COM-free preparer publishes one validated `dimension_plan.json` per distinct handoff and the
+matrix request last. It rejects fewer than five source models, proxy handoff reuse, legacy recipe
+1.0, missing trusted tolerance/text evidence, output collisions and any incomplete kind/element
+inventory.
+
+Run the generated request only through the semantic MCP and a repository-owned Execution Service:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_dimension_f7_live_matrix.py `
+  --request C:\path\to\dimension-f7-matrix-request.json `
+  --summary-output C:\path\to\dimension-f7-summary.json `
+  --promotion-candidate-output C:\path\to\dimension-capabilities.candidate.json `
+  --execution-service-path D:\solidworks-mcp\solidworks-execution\SolidworksExecution\bin\Debug\SolidworksExecution.exe `
+  --execution-pid 12345
+```
+
+The runner now locks the current 24-tool/zero-prompt surface and validates complete coverage before
+COM. It creates only a reviewable capability candidate; it never replaces production
+`current.json`.
+
 ## Layout G0 boundary probe
 
 Run the additive COM-free G0 request contract suite in a new or empty directory:
@@ -162,6 +192,23 @@ G7 completed with the all-supported G0 `1.1.0` registry. The immutable matrix su
 candidate was promoted only after a byte-for-byte comparison. Because matrix outputs are immutable
 and production capabilities are now supported, any future rerun must use a new output root and an
 explicitly prepared qualification context rather than overwriting the completed evidence.
+
+## H0 five-Skill release readiness
+
+Before any final production live-chain run, publish one COM-free readiness report to a new path:
+
+```powershell
+New-Item -ItemType Directory -Path C:\temp\solidpilot-h0-r1
+.\.venv\Scripts\python.exe .\scripts\check_h0_release_readiness.py `
+  --repository-root . `
+  --output C:\temp\solidpilot-h0-r1\h0-readiness.json
+```
+
+The audit checks the exact five-Skill and 24-tool/zero-prompt contracts, all three plan Schemas,
+four production capability manifests, the G0/G7 hash binding, actual FastMCP discovery, and the
+clean Git commit required for frozen evidence. Exit code `2` is an expected, schema-valid blocked
+result. At present it identifies the unpromoted F7 dimension registry, so the H0 production live
+chain must not run yet.
 
 ## Legacy examples
 
