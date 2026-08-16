@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added the H2 five-Skill production-session request and preflight contracts, deterministic
+  16-operation production-only schedule, exact future output namespace and immutable report
+  publisher. H2 rechecks H0 readiness, Git commit/worktree, runtime/model/template hashes and new
+  path isolation without creating the session root or contacting SolidWorks; blocked prerequisites
+  produce a schema-valid diagnostic report instead of partial live artifacts.
 - Added the H1 five-Skill production-chain evidence contract, COM-free validator and immutable
   publisher. The ledger enforces the exact five-stage/global semantic-call order, production-only
   publish/validate/create/verify operations, canonical request/plan continuity, one distinct blank

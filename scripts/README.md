@@ -223,6 +223,20 @@ The validator rejects qualification-tool substitution, request/plan hash drift, 
 drawing paths, changed source inputs, missing production operations and final sidecar mismatch. A
 blocked H0 report can never produce complete H1 evidence.
 
+Before creating a future live session, freeze its exact inputs, new output namespace and minimal
+16-step production schedule:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\prepare_h2_five_skill_session.py `
+  --request C:\path\to\h2-session-request.json `
+  --output C:\path\to\h2-session-preflight.json `
+  --repository-root .
+```
+
+H2 is COM-free and does not create the session root. Exit code `2` publishes a valid blocked report
+when H0, Git state, hashes, extensions or output-path isolation are not ready. Only exit code `0`
+may be consumed by the later live-session creator.
+
 ## Legacy examples
 
 These scripts record the SolidWorks 2026 development and verification flow used

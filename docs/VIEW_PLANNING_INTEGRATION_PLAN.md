@@ -589,6 +589,9 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
   - [x] 建立 H1 COM-free 完整链证据账本：固定五阶段及全局调用顺序，锁定生产 publish/validate/create/
     verify 工具，拒绝 F7/G7 qualification 替代，并核对请求、计划、handoff、空白图纸与三代后继图纸、侧车、runtime、
     源模型及模板的文件/规范 SHA-256 连续性和一次性证据发布。
+  - [x] 建立 H2 COM-free 生产会话预检：冻结 H0、commit、runtime、源模型、模板和唯一新 session root，生成
+    固定 16 步生产语义调度及全部 handoff/计划/图纸/侧车/响应/阶段证据路径；blocked 时只发布诊断报告，
+    不创建 session root、不启动 SolidWorks。
   - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
   - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
   - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
@@ -608,6 +611,14 @@ H1 证据合同为 `release_candidate/contracts/h1-chain-evidence.schema.json`�
 真实生产调用保存的响应和制品，不启动 SolidWorks；当前 H0 `blocked` 报告无法作为 H1 输入，因此不会把
 尚不存在的 F7/H 实机证据包装为完成状态。完整字段与连续性规则见
 `docs/H1_FIVE_SKILL_CHAIN_EVIDENCE.md`。
+
+H2 请求/报告合同、确定性路径表和一次性预检发布器位于
+`release_candidate/contracts/h2-session-request.schema.json`、
+`release_candidate/contracts/h2-session-preflight.schema.json` 和
+`release_candidate/h2_session_preflight.py`，命令入口为
+`scripts/prepare_h2_five_skill_session.py`。H2 不接受已有目录或 `validation/` 路径，并再次核对当前 commit/
+worktree 与 H0 报告；当前 F7 未晋级状态只能生成 `blocked` 报告。详见
+`docs/H2_FIVE_SKILL_SESSION_PREFLIGHT.md`。
 
 ### 开发顺序、关键路径和里程碑
 
