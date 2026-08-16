@@ -595,6 +595,10 @@ G7 的三项不可变证据 Schema、九正一负场景语义门禁、两项矩�
   - [x] 建立 H3 追加式会话捕获：仅从 ready H2 创建一次性 session manifest，严格按 16 步顺序保存原始
     语义响应；失败响应永久终止该 session，前一阶段未冻结不得进入下一阶段；五阶段完成后重哈希全部制品、
     通过独立 H1 验证并一次性发布 H1 candidate。H3 自身不调用 MCP、HTTP、COM 或 UI 自动化。
+  - [x] 建立 H4 单步生产语义代理：每次只接受一个哈希绑定请求，在启动 MCP 前重验 H3 当前唯一下一步，
+    仅经 `adapters/codex/server.py` 调用一个公开生产工具并立即追加捕获；锁定 24 工具/零 prompt，禁止
+    qualification、私有 executor、HTTP 和直接 COM。调用后超时或非 JSON 等不确定结果永久停止 session，
+    防止重放可能已生效的图纸修改。
   - [ ] 五个 Skill 的输入输出和 SHA-256 连续可追踪；每阶段只产生一个计划和一个新的后继图纸。
   - [ ] ViewPlan、DimensionPlan、DrawingLayoutPlan 分别通过独立发布、确定性校验、能力门禁和 C# 合同。
   - [ ] 全程仅调用工程语义 MCP，私有 executor 动词和 COM 不暴露给 Agent。
@@ -629,6 +633,13 @@ H3 会话/阶段合同和追加式捕获器位于
 `release_candidate/h3_session_capture.py`，统一命令入口为
 `scripts/h3_five_skill_session.py`。它重新计算 H2 的 16 步调度和确定性输出命名空间，拒绝被修改的 ready
 报告；完整使用方式见 `docs/H3_FIVE_SKILL_SESSION_CAPTURE.md`。
+
+H4 单步请求/排他调用声明合同、H3 只读状态检查和 stdio 语义代理位于
+`release_candidate/contracts/h4-semantic-step-request.schema.json`、
+`release_candidate/contracts/h4-semantic-call-claim.schema.json`、
+`release_candidate/h3_session_capture.py` 与 `release_candidate/h4_semantic_step.py`，命令入口为
+`scripts/run_h4_five_skill_step.py`。H4 不替 Skill 生成任何计划；Skill/用户必须提供当前步骤的完整参数，
+并在阶段边界调用 H3 冻结制品。完整边界见 `docs/H4_FIVE_SKILL_SEMANTIC_STEP.md`。
 
 ### 开发顺序、关键路径和里程碑
 

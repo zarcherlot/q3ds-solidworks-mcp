@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q3ds.local/contracts/solidworks-five-skill-semantic-step-request-1.0.schema.json",
+  "title": "Five-Skill Semantic Step Request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id", "schema_version", "session_manifest", "sequence", "tool",
+    "arguments"
+  ],
+  "properties": {
+    "protocol_id": { "const": "solidworks-five-skill-semantic-step-request" },
+    "schema_version": { "const": "1.0" },
+    "session_manifest": { "$ref": "#/$defs/artifact" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 16 },
+    "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,95}$" },
+    "arguments": { "type": "object" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

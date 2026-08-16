@@ -188,6 +188,91 @@ def capture_h3_operation(
     }
 
 
+def inspect_h3_session(
+    session_manifest_path: Path,
+    session_manifest_sha256: str,
+) -> dict[str, Any]:
+    """Return the only legal next action without changing the H3 session."""
+    manifest, manifest_path = _session_manifest(
+        session_manifest_path, session_manifest_sha256
+    )
+    completed = _captured_operations(manifest)
+    captured_count = len(completed)
+    if completed and completed[-1]["successful"] is not True:
+        return {
+            "ok": False,
+            "status": "blocked",
+            "session_manifest_path": str(manifest_path),
+            "captured_operation_count": captured_count,
+            "next_sequence": None,
+            "next_stage_order": None,
+            "next_skill": None,
+            "next_tool": None,
+        }
+
+    complete_stage_orders = {
+        row["stage_order"]
+        for row in manifest["schedule"]
+        if row["sequence"] <= captured_count
+        and not any(
+            later["stage_order"] == row["stage_order"]
+            and later["sequence"] > captured_count
+            for later in manifest["schedule"]
+        )
+    }
+    existing_stage_orders: set[int] = set()
+    for order in range(1, 6):
+        stage_path = _stage_path(manifest, order)
+        if stage_path.is_file():
+            if order not in complete_stage_orders:
+                raise H3SessionCaptureError(
+                    f"H3 stage {order} was frozen before its operations completed"
+                )
+            _load_stage(manifest, order, session_manifest_sha256)
+            existing_stage_orders.add(order)
+    if existing_stage_orders and existing_stage_orders != set(
+        range(1, max(existing_stage_orders) + 1)
+    ):
+        raise H3SessionCaptureError("H3 stage captures are not a contiguous prefix")
+    for order in range(1, 6):
+        if order in complete_stage_orders and order not in existing_stage_orders:
+            return {
+                "ok": True,
+                "status": "awaiting_stage_capture",
+                "session_manifest_path": str(manifest_path),
+                "captured_operation_count": captured_count,
+                "next_sequence": None,
+                "next_stage_order": order,
+                "next_skill": _SKILLS[order - 1],
+                "next_tool": None,
+            }
+
+    if captured_count == len(manifest["schedule"]):
+        return {
+            "ok": True,
+            "status": "ready_to_finalize",
+            "session_manifest_path": str(manifest_path),
+            "captured_operation_count": captured_count,
+            "next_sequence": None,
+            "next_stage_order": None,
+            "next_skill": None,
+            "next_tool": None,
+        }
+
+    expected = manifest["schedule"][captured_count]
+    return {
+        "ok": True,
+        "status": "awaiting_operation",
+        "session_manifest_path": str(manifest_path),
+        "captured_operation_count": captured_count,
+        "next_sequence": expected["sequence"],
+        "next_stage_order": expected["stage_order"],
+        "next_skill": expected["skill"],
+        "next_tool": expected["tool"],
+        "mutating": expected["mutating"],
+    }
+
+
 def capture_h3_stage(
     session_manifest_path: Path,
     session_manifest_sha256: str,

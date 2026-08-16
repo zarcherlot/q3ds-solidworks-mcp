@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added the H4 one-step production semantic broker and strict hash-bound request contract. It
+  revalidates H3 and its frozen inputs before process launch, requires the exact next sequence/tool,
+  locks the live 24-tool/zero-prompt surface, starts only the repository Codex stdio MCP and
+  immediately append-captures one response. Qualification/private executor/HTTP/direct-COM paths
+  are excluded; ambiguous post-invocation failures are captured as non-retryable session blockers
+  to prevent unsafe mutation replay.
 - Added the H3 append-only five-Skill session layer. A ready H2 report can create exactly one
   immutable session manifest; raw semantic responses are accepted only in the frozen 16-step order,
   failed responses permanently stop the session, and each stage freezes exact artifact roles,

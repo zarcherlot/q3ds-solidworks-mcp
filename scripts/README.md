@@ -251,6 +251,21 @@ semantic response and stage manifest is published once in strict sequence. A fai
 the session permanently; finalization independently validates the assembled H1 candidate. H3 only
 captures calls made by the five Skills and never invokes MCP or SolidWorks itself.
 
+Execute and append-capture one H3-authorized production semantic step through the repository Codex
+stdio MCP:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_h4_five_skill_step.py `
+  --request C:\path\to\01-semantic-step.json `
+  --request-sha256 <sha256> `
+  --diagnostics C:\path\to\01-semantic-step.mcp.stderr.log
+```
+
+H4 rejects any tool other than H3's exact next operation before launching MCP. It performs one call
+only, captures the JSON response immediately, and permanently blocks the session after a semantic
+failure or ambiguous post-invocation transport failure. It never calls qualification, private
+executor, HTTP or direct COM interfaces.
+
 ## Legacy examples
 
 These scripts record the SolidWorks 2026 development and verification flow used

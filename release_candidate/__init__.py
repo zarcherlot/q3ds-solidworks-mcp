@@ -14,6 +14,12 @@ from .h3_session_capture import (
     capture_h3_stage,
     create_h3_session,
     finalize_h3_session,
+    inspect_h3_session,
+)
+from .h4_semantic_step import (
+    load_h4_step_request,
+    run_h4_semantic_step,
+    validate_h4_step_request,
 )
 
 __all__ = [
@@ -27,4 +33,8 @@ __all__ = [
     "capture_h3_stage",
     "create_h3_session",
     "finalize_h3_session",
+    "inspect_h3_session",
+    "load_h4_step_request",
+    "run_h4_semantic_step",
+    "validate_h4_step_request",
 ]
