@@ -761,6 +761,13 @@ SolidWorks 2025 SP5 的五类实机矩阵全部通过事务内重开及独立验
 `view_labels` 标记为 `supported/live`。在 C1 交付点，`broken_out_section` 和 `detail_view` 继续由 C2
 阻断，未发生降级。
 
+C1 剖切契约随后补充了兼容的显式全剖模式：`explicit_full` 直接冻结两个模型空间端点、
+`cutting_line_coordinate_space=model` 和独立 `section_direction`，执行器只校验父视平面、完成模型到图纸
+坐标转换并据此设置原生反向标志，不再用特征轴、孔组或端点顺序覆盖明确意图。旧
+`through_feature_axes` 仍为 `derived_feature_axes`，但特征轴只决定剖切平面，沿线中心改由父视图轮廓中心
+确定。剖视图继续以视图级 `position_sheet_m` 独立定位；创建后、重建后和只读重开均报告计划位置、实际
+位置、偏差及剖视专用容差，并回读明确端点和箭头方向。
+
 C2 已完成 `broken_out_section` 和 `detail_view` 的原生执行。局部剖按独立模型方向视图编译，圆形边界
 必须完整位于计划框内，COM 内通过 `CreateBreakOutSection` 创建并精确回读边界中心、半径、模型轴、
 局部剖特征类型/数量和深度；原生 API 无法表达的反向局部剖在 COM 前稳定拒绝。局部视图按唯一父视图

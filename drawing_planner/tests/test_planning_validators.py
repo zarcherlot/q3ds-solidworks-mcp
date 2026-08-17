@@ -52,6 +52,25 @@ class ViewPlanSchemaValidatorTests(unittest.TestCase):
         issues = self.validator.validate(self.plan)
         self.assertIn("/created_at_utc", {issue.json_pointer for issue in issues})
 
+    def test_explicit_full_section_requires_points_space_and_direction(self):
+        section = self.plan["views"][1]["section_definition"]
+        section.update(
+            {
+                "cutting_plane_mode": "explicit_full",
+                "cutting_line_points_model_m": [
+                    [0.0125, -0.00632, -0.025],
+                    [0.0125, 0.05752, -0.025],
+                ],
+                "cutting_line_coordinate_space": "model",
+                "section_direction": [-1.0, 0.0, 0.0],
+                "cutting_line_axis": None,
+                "line_extension_ratio": None,
+            }
+        )
+        self.assertEqual(self.validator.validate(self.plan), ())
+        section.pop("section_direction")
+        self.assertNotEqual(self.validator.validate(self.plan), ())
+
 
 class HandoffIntegrityValidatorTests(unittest.TestCase):
     def setUp(self):
@@ -236,6 +255,25 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertIs(FoundationViewPlanValidator, RepositoryViewPlanValidator)
 
+    def test_repository_pipeline_accepts_authoritative_explicit_full_section(self):
+        plan = self._bound_plan()
+        plan["views"][1]["section_definition"].update(
+            {
+                "cutting_plane_mode": "explicit_full",
+                "cutting_line_points_model_m": [
+                    [0.0125, -0.00632, -0.025],
+                    [0.0125, 0.05752, -0.025],
+                ],
+                "cutting_line_coordinate_space": "model",
+                "section_direction": [-1.0, 0.0, 0.0],
+                "cutting_line_axis": None,
+                "line_extension_ratio": None,
+                "reverse_direction": False,
+            }
+        )
+        result = RepositoryViewPlanValidator().validate(plan, self._request())
+        self.assertTrue(result.passed, result.issues)
+
     def test_repository_pipeline_rejects_untrusted_ruleset_identity(self):
         plan = self._bound_plan()
         plan["producer"]["ruleset_sha256"] = "f" * 64
@@ -276,6 +314,34 @@ class HandoffIntegrityValidatorTests(unittest.TestCase):
         issues = ViewPlanSemanticsValidator().validate(plan)
         self.assertIn(
             "VP-SEMANTICS-HALF-SECTION-PERPENDICULAR",
+            {issue.code for issue in issues},
+        )
+
+    def test_semantics_treats_explicit_full_section_points_as_authoritative(self):
+        plan = self._bound_plan()
+        definition = plan["views"][1]["section_definition"]
+        definition.update(
+            {
+                "cutting_plane_mode": "explicit_full",
+                "cutting_line_points_model_m": [
+                    [0.0125, -0.00632, -0.025],
+                    [0.0125, 0.05752, -0.025],
+                ],
+                "cutting_line_coordinate_space": "model",
+                "section_direction": [-1.0, 0.0, 0.0],
+                "cutting_line_axis": None,
+                "line_extension_ratio": None,
+            }
+        )
+        issues = ViewPlanSemanticsValidator().validate(plan)
+        self.assertNotIn(
+            "VP-SEMANTICS-SECTION-FEATURE-AXIS",
+            {issue.code for issue in issues},
+        )
+        definition["section_direction"] = [0.0, 1.0, 0.0]
+        issues = ViewPlanSemanticsValidator().validate(plan)
+        self.assertIn(
+            "VP-SEMANTICS-SECTION-DIRECTION-PERPENDICULAR",
             {issue.code for issue in issues},
         )
 

@@ -450,7 +450,35 @@ class ViewPlanSemanticsValidator:
                     )
                 )
                 continue
-            if view_type == "half_section":
+            if view_type == "full_section" and section["cutting_plane_mode"] == "explicit_full":
+                direction = section.get("section_direction")
+                direction_pointer = pointer(
+                    "views", index, "section_definition", "section_direction"
+                )
+                if not _finite_vector(direction) or _norm(direction) <= _TOLERANCE:
+                    issues.append(
+                        validation_issue(
+                            "VP-SEMANTICS-SECTION-DIRECTION",
+                            "semantics",
+                            "explicit full-section direction must be a finite non-zero model-space vector",
+                            direction_pointer,
+                        )
+                    )
+                else:
+                    cosine = abs(
+                        _dot(segments[0], direction)
+                        / (_norm(segments[0]) * _norm(direction))
+                    )
+                    if cosine > 1e-6:
+                        issues.append(
+                            validation_issue(
+                                "VP-SEMANTICS-SECTION-DIRECTION-PERPENDICULAR",
+                                "semantics",
+                                "explicit full-section direction must be perpendicular to the cutting line",
+                                direction_pointer,
+                            )
+                        )
+            elif view_type == "half_section":
                 cosine = abs(_dot(segments[0], segments[1]) / (_norm(segments[0]) * _norm(segments[1])))
                 if cosine > 1e-6:
                     issues.append(
@@ -477,6 +505,11 @@ class ViewPlanSemanticsValidator:
     def _validate_section_placement(views, by_id, issues) -> None:
         for index, view in enumerate(views):
             if view["type"] != "full_section" or view["alignment"] != "projected":
+                continue
+            if view["section_definition"]["cutting_plane_mode"] == "explicit_full":
+                # Model-space cutting-line points cannot be related to sheet axes until the
+                # parent ModelToViewTransform is available.  The C# executor validates this
+                # projected alignment before creating any section sketch geometry.
                 continue
             parent = by_id.get(view["parent_view_id"])
             if parent is None:
@@ -703,6 +736,13 @@ class ViewPlanSemanticsValidator:
             if view["type"] not in {"full_section", "offset_section"}:
                 continue
             section = view["section_definition"]
+            if (
+                view["type"] == "full_section"
+                and section["cutting_plane_mode"] == "explicit_full"
+            ):
+                # Explicit endpoints are authoritative.  Feature IDs still participate in
+                # coverage/evidence validation, but their axes must never move the cut.
+                continue
             segments = [
                 (points_index, points_index + 1)
                 for points_index in range(

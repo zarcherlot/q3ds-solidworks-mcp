@@ -724,6 +724,8 @@ namespace SolidworksExecution.Contracts
             spec.SectionCuttingPlaneMode = section.Value<string>("cutting_plane_mode");
             spec.SectionCuttingLineAxis = section.Value<string>("cutting_line_axis");
             spec.SectionReverseDirection = section.Value<bool>("reverse_direction");
+            spec.SectionCuttingLineCoordinateSpace = section.Value<string>(
+                "cutting_line_coordinate_space");
             spec.SectionLabel = label.Value<string>("text");
             if (string.IsNullOrWhiteSpace(spec.SectionLabel))
                 return Fail("VIEW_PLAN_SECTION_CONTRACT_INVALID", Pointer(index, "label", "text"),
@@ -765,28 +767,83 @@ namespace SolidworksExecution.Contracts
             }
             spec.SectionPointsModel = compiledPoints;
 
-            string expectedMode = spec.Type == "full_section" ? "through_feature_axes" :
-                spec.Type == "half_section" ? "explicit_half" :
+            JToken directionToken = section["section_direction"];
+            if (directionToken != null && directionToken.Type != JTokenType.Null)
+            {
+                double[] direction;
+                if (!TryFiniteVector3(directionToken as JArray, out direction) ||
+                    Length(direction) <= GeometryTolerance)
+                    return Fail("VIEW_PLAN_SECTION_DIRECTION_INVALID",
+                        Pointer(index, "section_definition", "section_direction"),
+                        "section_direction must contain one finite non-zero model-space vector.",
+                        out error);
+                Normalize(direction, Length(direction));
+                spec.SectionDirectionModel = direction;
+            }
+
+            string expectedMode = spec.Type == "half_section" ? "explicit_half" :
                 spec.Type == "offset_section" ? "explicit_offset" :
                 spec.Type == "aligned_section" ? "explicit_aligned" : "explicit_removed";
-            if (spec.SectionCuttingPlaneMode != expectedMode)
+            if (spec.Type != "full_section" && spec.SectionCuttingPlaneMode != expectedMode)
                 return Fail("VIEW_PLAN_SECTION_CONTRACT_INVALID",
                     Pointer(index, "section_definition", "cutting_plane_mode"),
                     "Section type requires cutting_plane_mode='" + expectedMode + "'.", out error);
 
             if (spec.Type == "full_section")
             {
-                if (compiledPoints.Count != 0 || spec.SectionFeatureIds.Count == 0 ||
-                    (spec.SectionCuttingLineAxis != "horizontal" &&
-                     spec.SectionCuttingLineAxis != "vertical") ||
-                    !spec.SectionLineExtensionRatio.HasValue)
+                if (spec.SectionCuttingPlaneMode == "through_feature_axes")
+                {
+                    if (compiledPoints.Count != 0 || spec.SectionFeatureIds.Count == 0 ||
+                        (spec.SectionCuttingLineAxis != "horizontal" &&
+                         spec.SectionCuttingLineAxis != "vertical") ||
+                        !spec.SectionLineExtensionRatio.HasValue ||
+                        !string.IsNullOrEmpty(spec.SectionCuttingLineCoordinateSpace) ||
+                        spec.SectionDirectionModel != null)
+                        return Fail("VIEW_PLAN_SECTION_CONTRACT_INVALID",
+                            Pointer(index, "section_definition"),
+                            "through_feature_axes requires feature axes, horizontal/vertical " +
+                            "line axis, line extension, no explicit points, and no explicit " +
+                            "direction.", out error);
+                    spec.SectionCuttingLineSource = "derived_feature_axes";
+                    return true;
+                }
+                if (spec.SectionCuttingPlaneMode != "explicit_full" ||
+                    compiledPoints.Count != 2 ||
+                    spec.SectionCuttingLineCoordinateSpace != "model" ||
+                    spec.SectionDirectionModel == null ||
+                    spec.SectionCuttingLineAxis != null ||
+                    spec.SectionLineExtensionRatio.HasValue ||
+                    section.Value<bool>("reverse_direction"))
                     return Fail("VIEW_PLAN_SECTION_CONTRACT_INVALID",
                         Pointer(index, "section_definition"),
-                        "full_section requires feature axes, horizontal/vertical line axis, " +
-                        "line extension, and no explicit points.", out error);
+                        "explicit_full requires two model-space endpoints, one independent " +
+                        "section_direction, and no derived axis or extension.", out error);
+                if (Distance(compiledPoints[0], compiledPoints[1]) <= GeometryTolerance)
+                    return Fail("VIEW_PLAN_SECTION_GEOMETRY_INVALID",
+                        Pointer(index, "section_definition", "cutting_line_points_model_m"),
+                        "Explicit full-section endpoints must be distinct.", out error);
+                double[] segment =
+                {
+                    compiledPoints[1][0] - compiledPoints[0][0],
+                    compiledPoints[1][1] - compiledPoints[0][1],
+                    compiledPoints[1][2] - compiledPoints[0][2]
+                };
+                if (Math.Abs(Dot(segment, spec.SectionDirectionModel) / Length(segment)) > 1e-6)
+                    return Fail("VIEW_PLAN_SECTION_DIRECTION_INVALID",
+                        Pointer(index, "section_definition", "section_direction"),
+                        "section_direction must be perpendicular to the explicit cutting line.",
+                        out error);
+                spec.SectionCuttingLineSource = "explicit_plan";
                 return true;
             }
 
+            if (!string.IsNullOrEmpty(spec.SectionCuttingLineCoordinateSpace) ||
+                spec.SectionDirectionModel != null)
+                return Fail("VIEW_PLAN_SECTION_CONTRACT_INVALID",
+                    Pointer(index, "section_definition"),
+                    "cutting_line_coordinate_space and section_direction are currently " +
+                    "authoritative only for explicit_full.", out error);
+            spec.SectionCuttingLineSource = "explicit_plan";
             int expectedCount = spec.Type == "half_section" ||
                 spec.Type == "aligned_section" ? 3 :
                 spec.Type == "removed_section" ? 2 : -1;
@@ -1140,8 +1197,14 @@ namespace SolidworksExecution.Contracts
         public string HiddenLines { get; internal set; }
         public string TangentEdges { get; internal set; }
         public string SectionCuttingPlaneMode { get; internal set; }
+        public string SectionCuttingLineSource { get; internal set; }
+        public string SectionCuttingLineCoordinateSpace { get; internal set; }
         public IList<string> SectionFeatureIds { get; internal set; }
         public IList<double[]> SectionPointsModel { get; internal set; }
+        public IList<double[]> SectionResolvedPointsModel { get; internal set; }
+        public IList<double[]> SectionPointsSheet { get; internal set; }
+        public double[] SectionDirectionModel { get; internal set; }
+        public double[] SectionDirectionSheet { get; internal set; }
         public IList<double[]> SectionFeatureAxisOriginsModel { get; internal set; }
         public IList<double[]> SectionFeatureAxisDirectionsModel { get; internal set; }
         public string SectionCuttingLineAxis { get; internal set; }

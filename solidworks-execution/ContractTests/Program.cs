@@ -32,7 +32,7 @@ namespace SolidworksExecution.ContractTests
 
                 var validator = new ViewPlanContractValidator(schemaPath);
                 AssertEqual(ViewPlanContractValidator.ContractSha256,
-                    "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac",
+                    "2bc4bc1b8b0c6ffae64a1e6906cfb0f88055d13839228578ff48e5b724556c9f",
                     "contract hash constant");
 
                 JObject valid = ReadJsonObjectWithoutDateCoercion(fixturePath);
@@ -147,6 +147,40 @@ namespace SolidworksExecution.ContractTests
                         SectionLabel(sectionType), sectionType + " frozen label");
                 }
                 Pass("C1 five-section-family COM-free compilation");
+
+                JObject explicitFull = BuildSectionViewPlan(valid, "full_section");
+                var explicitDefinition = (JObject)explicitFull["views"][1]
+                    ["section_definition"];
+                explicitDefinition["cutting_plane_mode"] = "explicit_full";
+                explicitDefinition["cutting_line_points_model_m"] = new JArray(
+                    new JArray(0.0125, -0.00632, -0.025),
+                    new JArray(0.0125, 0.05752, -0.025));
+                explicitDefinition["cutting_line_coordinate_space"] = "model";
+                explicitDefinition["section_direction"] = new JArray(-1.0, 0.0, 0.0);
+                explicitDefinition["cutting_line_axis"] = null;
+                explicitDefinition["line_extension_ratio"] = null;
+                Assert(validator.TryParse(explicitFull, out basicDocument, out error),
+                    "explicit full section should satisfy ViewPlan 1.4: " + Format(error));
+                Assert(basicCompiler.TryCompile(basicDocument, out basicPlan,
+                    out executionError), "explicit full section should compile: " +
+                    Format(executionError));
+                AssertEqual(basicPlan.Views[1].SectionCuttingLineSource, "explicit_plan",
+                    "explicit full-section source");
+                Assert(basicPlan.Views[1].SectionPointsModel.Count == 2 &&
+                    basicPlan.Views[1].SectionDirectionModel != null,
+                    "explicit full-section geometry must remain frozen in the compiled plan");
+                Pass("explicit full-section endpoints and direction compilation");
+
+                JObject invalidDirection = (JObject)explicitFull.DeepClone();
+                invalidDirection["views"][1]["section_definition"]["section_direction"] =
+                    new JArray(0.0, 1.0, 0.0);
+                Assert(validator.TryParse(invalidDirection, out basicDocument, out error),
+                    "nonperpendicular explicit direction remains structurally valid");
+                Assert(!basicCompiler.TryCompile(basicDocument, out basicPlan,
+                    out executionError), "nonperpendicular explicit direction must fail before COM");
+                AssertEqual(executionError.Code, "VIEW_PLAN_SECTION_DIRECTION_INVALID",
+                    "explicit direction geometry code");
+                Pass("explicit full-section direction rejection");
 
                 JObject invalidHalf = BuildSectionViewPlan(valid, "half_section");
                 Assert(validator.TryParse(invalidHalf, out basicDocument, out error),
@@ -514,6 +548,31 @@ namespace SolidworksExecution.ContractTests
                         basicPlan.Views[1].SectionFeatureAxisDirectionsModel.Count == 1,
                         "full-section axis evidence should be frozen into the compiled plan");
                     Pass("C1 full-section frozen-axis resolution");
+
+                    string explicitRoot = Path.Combine(preflightRoot, "c1-explicit-full");
+                    Directory.CreateDirectory(explicitRoot);
+                    sectionPreflight = BuildSectionPreflightPlan(valid, explicitRoot,
+                        "full_section", "{\"features\":[{\"id\":\"B0F0\"}]}");
+                    explicitDefinition = (JObject)sectionPreflight["views"][1]
+                        ["section_definition"];
+                    explicitDefinition["cutting_plane_mode"] = "explicit_full";
+                    explicitDefinition["cutting_line_points_model_m"] = new JArray(
+                        new JArray(0.0125, -0.00632, -0.025),
+                        new JArray(0.0125, 0.05752, -0.025));
+                    explicitDefinition["cutting_line_coordinate_space"] = "model";
+                    explicitDefinition["section_direction"] = new JArray(-1.0, 0.0, 0.0);
+                    explicitDefinition["cutting_line_axis"] = null;
+                    explicitDefinition["line_extension_ratio"] = null;
+                    Assert(validator.TryParse(sectionPreflight, out basicDocument, out error),
+                        "explicit full-section preflight should satisfy Schema: " + Format(error));
+                    Assert(basicCompiler.TryCompile(basicDocument, out basicPlan,
+                        out executionError), "explicit full-section preflight should compile");
+                    Assert(geometryResolver.TryResolve(basicPlan, out executionError),
+                        "explicit endpoints must not require or derive feature axes: " +
+                        Format(executionError));
+                    Assert(basicPlan.Views[1].SectionFeatureAxisOriginsModel.Count == 0,
+                        "explicit endpoints must not be overwritten by resolved axes");
+                    Pass("explicit full-section bypasses axis derivation");
 
                     string ambiguousRoot = Path.Combine(preflightRoot, "c1-ambiguous");
                     Directory.CreateDirectory(ambiguousRoot);

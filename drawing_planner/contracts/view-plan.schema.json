@@ -491,6 +491,7 @@
         "cutting_plane_mode": {
           "enum": [
             "through_feature_axes",
+            "explicit_full",
             "explicit_half",
             "explicit_offset",
             "explicit_aligned",
@@ -507,6 +508,18 @@
         "cutting_line_points_model_m": {
           "type": "array",
           "items": { "$ref": "#/$defs/point3" }
+        },
+        "cutting_line_coordinate_space": {
+          "description": "Explicit coordinate-space declaration for explicit_full; null or omitted for legacy and other section modes.",
+          "type": ["string", "null"],
+          "enum": ["model", null]
+        },
+        "section_direction": {
+          "description": "Independent model-space observation direction for explicit_full; null or omitted for legacy and other section modes.",
+          "oneOf": [
+            { "$ref": "#/$defs/point3" },
+            { "type": "null" }
+          ]
         },
         "cutting_line_axis": {
           "type": ["string", "null"],
@@ -808,13 +821,32 @@
                 "allOf": [
                   { "$ref": "#/$defs/sectionDefinition" },
                   {
-                    "properties": {
-                      "cutting_plane_mode": { "const": "through_feature_axes" },
-                      "cutting_line_points_model_m": { "maxItems": 0 },
-                      "cutting_line_axis": { "enum": ["horizontal", "vertical"] },
-                      "line_extension_ratio": { "type": "number", "minimum": 0.02, "maximum": 1.0 },
-                      "section_depth_m": { "const": 0 }
-                    }
+                    "oneOf": [
+                      {
+                        "properties": {
+                          "cutting_plane_mode": { "const": "through_feature_axes" },
+                          "cutting_line_points_model_m": { "maxItems": 0 },
+                          "cutting_line_coordinate_space": { "type": ["null"] },
+                          "section_direction": { "type": ["null"] },
+                          "cutting_line_axis": { "enum": ["horizontal", "vertical"] },
+                          "line_extension_ratio": { "type": "number", "minimum": 0.02, "maximum": 1.0 },
+                          "section_depth_m": { "const": 0 }
+                        }
+                      },
+                      {
+                        "required": ["cutting_line_coordinate_space", "section_direction"],
+                        "properties": {
+                          "cutting_plane_mode": { "const": "explicit_full" },
+                          "cutting_line_points_model_m": { "minItems": 2, "maxItems": 2 },
+                          "cutting_line_coordinate_space": { "const": "model" },
+                          "section_direction": { "$ref": "#/$defs/point3" },
+                          "cutting_line_axis": { "type": "null" },
+                          "line_extension_ratio": { "type": "null" },
+                          "reverse_direction": { "const": false },
+                          "section_depth_m": { "const": 0 }
+                        }
+                      }
+                    ]
                   }
                 ]
               }

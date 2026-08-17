@@ -22,7 +22,7 @@ namespace SolidworksExecution.Contracts
         public const string ProtocolId = "solidworks-view-plan";
         public const string SchemaVersion = "1.4";
         public const string ContractSha256 =
-            "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac";
+            "2bc4bc1b8b0c6ffae64a1e6906cfb0f88055d13839228578ff48e5b724556c9f";
 
         private const int MaximumValidationDepth = 256;
         private static readonly Regex Rfc3339DateTime = new Regex(

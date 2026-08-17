@@ -67,7 +67,9 @@ namespace SolidworksExecution.Contracts
                         return Fail("VIEW_PLAN_SECTION_FEATURE_AMBIGUOUS", pointer,
                             "Feature '" + featureId + "' resolved " + matches.Count +
                             " times in the frozen geometry report; exactly one is required.", out error);
-                    if (section.Type == "full_section" || section.Type == "offset_section")
+                    if ((section.Type == "full_section" &&
+                         section.SectionCuttingLineSource == "derived_feature_axes") ||
+                        section.Type == "offset_section")
                     {
                         double[] origin;
                         double[] direction;

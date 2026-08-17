@@ -55,7 +55,7 @@ class PromptPipelineTests(unittest.TestCase):
         )
         self.assertEqual(
             envelope["planner_contract"]["schema_sha256"],
-            "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac",
+            "2bc4bc1b8b0c6ffae64a1e6906cfb0f88055d13839228578ff48e5b724556c9f",
         )
         self.assertEqual(len(envelope["prompt_pack"]["sha256"]), 64)
         self.assertEqual(
@@ -144,7 +144,7 @@ class PromptPipelineTests(unittest.TestCase):
                 os.environ["SOLIDWORKS_PLAN_DRAWING_VIEWS_SKILL_DIR"] = previous
         self.assertEqual(
             envelope["planner_contract"]["schema_sha256"],
-            "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac",
+            "2bc4bc1b8b0c6ffae64a1e6906cfb0f88055d13839228578ff48e5b724556c9f",
         )
         serialized = json.dumps(envelope, sort_keys=True)
         self.assertNotIn("solidworks-plan-drawing-views", serialized)

@@ -36,6 +36,8 @@
 - `detail_view`：小槽、小孔口、密封结构、退刀槽或局部过渡在基础比例下不可辨识时使用；详图必须有独立表达价值和明确来源范围。
 - `auxiliary_view`：斜面、斜孔或倾斜轮廓在基本投影中失真，必须显示实形或唯一空间方向时使用；引用几何必须来自父视图中唯一可见的冻结线性边。
 - 剖切平面优先通过孔、槽、腔的轴线或对称面，并尽量平行或垂直基本投影面。纵向剖过肋、轮辐或薄壁时按非剖面表达处理；横向切过时才表达剖面。
+- `full_section` 优先使用 `explicit_full`：在 `cutting_line_points_model_m` 中给出两个明确模型空间端点，令 `cutting_line_coordinate_space="model"`，用独立的非零 `section_direction` 指定观察箭头方向，并令兼容占位字段 `reverse_direction=false`。端点决定剖切线，`section_direction` 决定观察侧，视图自身的 `position_sheet_m` 决定图纸位置；三者互不替代。只有证据不足以安全冻结端点时才使用兼容的 `through_feature_axes` 派生模式，并明确把它视为 derived，而不是精确计划几何。
+- 明确端点不得被特征轴均值、孔组分布或执行器启发式改写；偏移、半剖、旋转剖和移出断面的既有显式折点同样是不可变计划几何。
 
 ## 特征触发规则
 

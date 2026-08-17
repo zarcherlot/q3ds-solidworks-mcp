@@ -117,7 +117,7 @@ class PlannerOrchestrationTests(unittest.TestCase):
         )
         self.assertEqual(
             prompt.schema_sha256,
-            "ebe92b04bd1b4a4f0fd7ff6a6314e36f531e06421b0ae8f803fbb86ab209ceac",
+            "2bc4bc1b8b0c6ffae64a1e6906cfb0f88055d13839228578ff48e5b724556c9f",
         )
         rendered = "\n".join(message["content"] for message in prompt.messages)
         self.assertIn("DH-orchestration-1", rendered)

@@ -21,6 +21,7 @@ namespace SolidworksExecution.Services
         private const string ManagedAuxiliaryLabelPrefix = "Q3DS_AUX_LABEL_";
         private const double SheetDimensionTolerance = 1e-6;
         private const double PositionTolerance = 5e-7;
+        private const double SectionPositionTolerance = 5e-5;
         private const double ScaleTolerance = 1e-9;
         private readonly IMathUtility _mathUtility;
 
@@ -419,7 +420,7 @@ namespace SolidworksExecution.Services
             return true;
         }
 
-        private static bool TryCreateSectionView(IModelDoc2 drawingModel, IDrawingDoc drawing,
+        private bool TryCreateSectionView(IModelDoc2 drawingModel, IDrawingDoc drawing,
             IView parent, ViewPlanBasicViewSpec spec, out IView sectionView, out string error)
         {
             sectionView = null;
@@ -431,6 +432,12 @@ namespace SolidworksExecution.Services
             }
             IList<double[]> points;
             if (!TryResolveSectionPoints(parent, spec, out points, out error)) return false;
+            spec.SectionResolvedPointsModel = points.Select(item =>
+                (double[])item.Clone()).ToList();
+            if (spec.SectionCuttingLineSource == "explicit_plan" &&
+                spec.Type == "full_section" &&
+                !TryResolveExplicitSectionDirection(parent, spec, points, out error))
+                return false;
             var segments = new List<ISketchSegment>();
             try
             {
@@ -1420,18 +1427,25 @@ namespace SolidworksExecution.Services
             }
         }
 
-        private static bool TryResolveSectionPoints(IView parent, ViewPlanBasicViewSpec spec,
+        private bool TryResolveSectionPoints(IView parent, ViewPlanBasicViewSpec spec,
             out IList<double[]> points, out string error)
         {
             points = null;
             error = null;
-            if (spec.Type != "full_section")
+            if (spec.SectionCuttingLineSource == "explicit_plan")
             {
                 points = spec.SectionPointsModel;
                 if (points == null || points.Count < 2)
                     return FailMessage("Explicit section points are unavailable.", out error);
+                IList<double[]> sheetPoints;
+                if (!TryProjectSectionPointsToParent(parent, points, out sheetPoints, out error))
+                    return false;
+                spec.SectionPointsSheet = sheetPoints;
                 return true;
             }
+            if (spec.Type != "full_section" ||
+                spec.SectionCuttingLineSource != "derived_feature_axes")
+                return FailMessage("The section cutting-line source is unsupported.", out error);
             if (spec.SectionFeatureAxisOriginsModel == null ||
                 spec.SectionFeatureAxisOriginsModel.Count == 0)
                 return FailMessage("Full-section feature axes were not resolved before COM.",
@@ -1477,6 +1491,19 @@ namespace SolidworksExecution.Services
                 if (Math.Abs(Dot(direction, perpendicular)) > 1e-6)
                     return FailMessage("A full-section feature axis is outside the requested " +
                         "cutting plane.", out error);
+
+            // The feature axes determine only the cutting plane.  Along the cutting-line axis,
+            // center the derived legacy line on the parent outline so eccentric feature groups
+            // cannot shift or shorten it.
+            double[] anchorSheet;
+            if (!TryTransformModelPoint(parent, anchor, out anchorSheet, out error)) return false;
+            double outlineCenter = spec.SectionCuttingLineAxis == "horizontal"
+                ? (outline[0] + outline[2]) * 0.5
+                : (outline[1] + outline[3]) * 0.5;
+            if (spec.SectionCuttingLineAxis == "horizontal") anchorSheet[0] = outlineCenter;
+            else anchorSheet[1] = outlineCenter;
+            if (!TryTransformViewPointToModel(parent, anchorSheet, out anchor, out error))
+                return false;
             double halfLength = modelSpan * (0.5 + spec.SectionLineExtensionRatio.Value);
             points = new List<double[]>
             {
@@ -1487,7 +1514,146 @@ namespace SolidworksExecution.Services
                     anchor[1] + axis[1] * halfLength,
                     anchor[2] + axis[2] * halfLength }
             };
+            IList<double[]> derivedSheetPoints;
+            if (!TryProjectSectionPointsToParent(parent, points, out derivedSheetPoints,
+                out error)) return false;
+            spec.SectionPointsSheet = derivedSheetPoints;
             return true;
+        }
+
+        private bool TryResolveExplicitSectionDirection(IView parent,
+            ViewPlanBasicViewSpec spec, IList<double[]> points, out string error)
+        {
+            error = null;
+            if (points == null || points.Count != 2 || spec.SectionDirectionModel == null)
+                return FailMessage("Explicit full-section geometry is incomplete.", out error);
+            IList<double[]> sheetPoints = spec.SectionPointsSheet;
+            if (sheetPoints == null || sheetPoints.Count != 2)
+                if (!TryProjectSectionPointsToParent(parent, points, out sheetPoints, out error))
+                    return false;
+
+            double[] directionEnd =
+            {
+                points[0][0] + spec.SectionDirectionModel[0],
+                points[0][1] + spec.SectionDirectionModel[1],
+                points[0][2] + spec.SectionDirectionModel[2]
+            };
+            double[] projectedDirectionEnd;
+            if (!TryTransformModelPoint(parent, directionEnd, out projectedDirectionEnd,
+                out error)) return false;
+            double directionX = projectedDirectionEnd[0] - sheetPoints[0][0];
+            double directionY = projectedDirectionEnd[1] - sheetPoints[0][1];
+            double directionZ = projectedDirectionEnd[2] - sheetPoints[0][2];
+            double directionLength = Math.Sqrt(directionX * directionX +
+                directionY * directionY);
+            if (directionLength <= 1e-12 ||
+                Math.Abs(directionZ) > Math.Max(directionLength * 1e-6, 1e-9))
+                return FailMessage("section_direction is not contained in the parent-view plane.",
+                    out error);
+            directionX /= directionLength;
+            directionY /= directionLength;
+
+            double lineX = sheetPoints[1][0] - sheetPoints[0][0];
+            double lineY = sheetPoints[1][1] - sheetPoints[0][1];
+            double lineLength = Math.Sqrt(lineX * lineX + lineY * lineY);
+            if (lineLength <= 1e-12)
+                return FailMessage("Explicit cutting-line endpoints collapse in the parent view.",
+                    out error);
+            lineX /= lineLength;
+            lineY /= lineLength;
+            if (Math.Abs(lineX * directionX + lineY * directionY) > 1e-6)
+                return FailMessage("section_direction is not perpendicular to the projected " +
+                    "cutting line.", out error);
+
+            double midpointX = (sheetPoints[0][0] + sheetPoints[1][0]) * 0.5;
+            double midpointY = (sheetPoints[0][1] + sheetPoints[1][1]) * 0.5;
+            double placementX = spec.X - midpointX;
+            double placementY = spec.Y - midpointY;
+            double along = placementX * lineX + placementY * lineY;
+            double normalX = placementX - along * lineX;
+            double normalY = placementY - along * lineY;
+            double normalLength = Math.Sqrt(normalX * normalX + normalY * normalY);
+            if (normalLength <= SectionPositionTolerance)
+                return FailMessage("The explicit section-view position lies on its cutting line; " +
+                    "SolidWorks cannot resolve a native cut side.", out error);
+            if (spec.Alignment == "projected" && Math.Abs(along) > SectionPositionTolerance)
+                return FailMessage("Projected explicit full section is not aligned normal to its " +
+                    "cutting line.", out error);
+            normalX /= normalLength;
+            normalY /= normalLength;
+            spec.SectionDirectionSheet = new[] { directionX, directionY };
+            spec.SectionReverseDirection = directionX * normalX + directionY * normalY < 0.0;
+            return true;
+        }
+
+        private bool TryProjectSectionPointsToParent(IView parent, IList<double[]> modelPoints,
+            out IList<double[]> sheetPoints, out string error)
+        {
+            sheetPoints = new List<double[]>();
+            error = null;
+            double? plane = null;
+            foreach (double[] point in modelPoints)
+            {
+                double[] projected;
+                if (!TryTransformModelPoint(parent, point, out projected, out error)) return false;
+                if (plane.HasValue && Math.Abs(projected[2] - plane.Value) >
+                    Math.Max(1e-9, Math.Abs(plane.Value) * 1e-8))
+                    return FailMessage("Cutting-line points do not lie in one parent-view plane.",
+                        out error);
+                if (!plane.HasValue) plane = projected[2];
+                sheetPoints.Add(projected);
+            }
+            return true;
+        }
+
+        private bool TryTransformModelPoint(IView view, double[] modelPoint,
+            out double[] viewPoint, out string error)
+        {
+            viewPoint = null;
+            error = null;
+            try
+            {
+                IMathTransform transform = view.ModelToViewTransform;
+                IMathPoint source = _mathUtility.CreatePoint(modelPoint) as IMathPoint;
+                IMathPoint transformed = source != null && transform != null
+                    ? source.MultiplyTransform(transform) as IMathPoint : null;
+                viewPoint = transformed != null ? transformed.ArrayData as double[] : null;
+                if (viewPoint == null || viewPoint.Length < 3 ||
+                    viewPoint.Take(3).Any(item => double.IsNaN(item) || double.IsInfinity(item)))
+                    return FailMessage("Model-to-parent-view coordinate conversion failed.",
+                        out error);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return FailMessage(ex.Message, out error);
+            }
+        }
+
+        private bool TryTransformViewPointToModel(IView view, double[] viewPoint,
+            out double[] modelPoint, out string error)
+        {
+            modelPoint = null;
+            error = null;
+            try
+            {
+                IMathTransform transform = view.ModelToViewTransform;
+                IMathTransform inverse = transform != null ? transform.IInverse() : null;
+                IMathPoint source = _mathUtility.CreatePoint(viewPoint) as IMathPoint;
+                IMathPoint transformed = source != null && inverse != null
+                    ? source.MultiplyTransform(inverse) as IMathPoint : null;
+                modelPoint = transformed != null ? transformed.ArrayData as double[] : null;
+                if (modelPoint == null || modelPoint.Length < 3 ||
+                    modelPoint.Take(3).Any(item => double.IsNaN(item) ||
+                        double.IsInfinity(item)))
+                    return FailMessage("Parent-view-to-model coordinate conversion failed.",
+                        out error);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return FailMessage(ex.Message, out error);
+            }
         }
 
         private static int SectionOptions(ViewPlanBasicViewSpec spec)
@@ -1718,6 +1884,8 @@ namespace SolidworksExecution.Services
         {
             error = null;
             double[] position = view.Position as double[];
+            double positionTolerance = IsSectionType(spec.Type)
+                ? SectionPositionTolerance : PositionTolerance;
             var baseView = view.GetBaseView() as IView;
             row = new JObject
             {
@@ -1726,7 +1894,14 @@ namespace SolidworksExecution.Services
                 ["name"] = view.Name,
                 ["unique_name"] = SafeUniqueName(view),
                 ["solidworks_view_type"] = view.Type,
+                ["position_sheet_m_planned"] = new JArray(spec.X, spec.Y),
                 ["position_sheet_m"] = position == null ? null : new JArray(position),
+                ["position_delta_sheet_m"] = position == null || position.Length < 2
+                    ? null : new JArray(position[0] - spec.X, position[1] - spec.Y),
+                ["position_tolerance_sheet_m"] = positionTolerance,
+                ["position_within_tolerance"] = position != null && position.Length >= 2 &&
+                    Math.Abs(position[0] - spec.X) <= positionTolerance &&
+                    Math.Abs(position[1] - spec.Y) <= positionTolerance,
                 ["scale"] = view.ScaleDecimal,
                 ["angle_rad"] = view.Angle,
                 ["configuration"] = view.ReferencedConfiguration,
@@ -1801,8 +1976,8 @@ namespace SolidworksExecution.Services
                 string.IsNullOrWhiteSpace(SafeUniqueName(view)))
                 error = "Native-named view persistent unique handle is unavailable.";
             else if (position == null || position.Length < 2 ||
-                Math.Abs(position[0] - spec.X) > PositionTolerance ||
-                Math.Abs(position[1] - spec.Y) > PositionTolerance)
+                Math.Abs(position[0] - spec.X) > positionTolerance ||
+                Math.Abs(position[1] - spec.Y) > positionTolerance)
                 error = "Position readback differs from position_sheet_m.";
             else if (Math.Abs(view.ScaleDecimal - spec.Scale) > ScaleTolerance)
                 error = "Scale readback differs from the frozen scale.";
@@ -2521,7 +2696,7 @@ namespace SolidworksExecution.Services
             }
         }
 
-        private static bool TryReadSectionContract(IView view, ViewPlanBasicViewSpec spec,
+        private bool TryReadSectionContract(IView view, ViewPlanBasicViewSpec spec,
             out JObject section, out string error)
         {
             section = new JObject();
@@ -2531,10 +2706,24 @@ namespace SolidworksExecution.Services
                 var data = view.GetSection() as IDrSection;
                 if (data == null)
                     return FailMessage("Section readback did not expose IDrSection.", out error);
+                if (spec.SectionResolvedPointsModel == null)
+                {
+                    var parent = view.GetBaseView() as IView;
+                    IList<double[]> resolved;
+                    if (parent == null ||
+                        !TryResolveSectionPoints(parent, spec, out resolved, out error))
+                        return false;
+                    spec.SectionResolvedPointsModel = resolved.Select(item =>
+                        (double[])item.Clone()).ToList();
+                    if (spec.Type == "full_section" &&
+                        spec.SectionCuttingLineSource == "explicit_plan" &&
+                        !TryResolveExplicitSectionDirection(parent, spec, resolved, out error))
+                        return false;
+                }
                 int segmentCount = data.IGetLineSegmentCount();
                 double[] lineInfo = data.GetLineInfo() as double[];
-                int expectedSegments = spec.Type == "full_section" ? 1 :
-                    spec.SectionPointsModel.Count - 1;
+                int expectedSegments = spec.SectionCuttingLineSource == "derived_feature_axes"
+                    ? 1 : spec.SectionPointsModel.Count - 1;
                 if (segmentCount != expectedSegments)
                     return FailMessage("Section cutting-line segment count differs from the plan.",
                         out error);
@@ -2552,7 +2741,7 @@ namespace SolidworksExecution.Services
                         return FailMessage("Section line-info contains a zero-length segment.",
                             out error);
                 }
-                if (spec.Type != "full_section" &&
+                if (spec.SectionCuttingLineSource == "explicit_plan" &&
                     !SectionLineInfoMatchesFrozenPoints(lineInfo, spec.SectionPointsModel))
                     return FailMessage("Section cutting-line coordinates differ from the " +
                         "frozen model-space points.", out error);
@@ -2574,6 +2763,18 @@ namespace SolidworksExecution.Services
                 if (reversed != spec.SectionReverseDirection)
                     return FailMessage("Section cut-direction readback differs from the plan.",
                         out error);
+                double[] actualDirectionSheet = null;
+                if (spec.Type == "full_section" &&
+                    spec.SectionCuttingLineSource == "explicit_plan")
+                {
+                    if (!TryReconstructSectionDirectionSheet(view, lineInfo, reversed,
+                        out actualDirectionSheet, out error)) return false;
+                    if (spec.SectionDirectionSheet == null ||
+                        actualDirectionSheet[0] * spec.SectionDirectionSheet[0] +
+                        actualDirectionSheet[1] * spec.SectionDirectionSheet[1] < 1.0 - 1e-6)
+                        return FailMessage("Section arrow direction differs from the explicit " +
+                            "section_direction.", out error);
+                }
                 if ((spec.Alignment == "not_aligned" && alignment != 0) ||
                     (spec.Alignment == "projected" && alignment == 0))
                     return FailMessage("Section alignment readback differs from the plan.", out error);
@@ -2595,7 +2796,24 @@ namespace SolidworksExecution.Services
                 section["section_depth_m_actual"] = Quantize(depth);
                 section["section_depth_mode"] = spec.SectionDepth == 0.0
                     ? "solidworks_default" : "explicit";
-                section["line_geometry_verification"] = spec.Type == "full_section"
+                section["cutting_line_source"] = spec.SectionCuttingLineSource;
+                section["cutting_line_points_model_m_planned"] =
+                    spec.SectionResolvedPointsModel == null ? null : new JArray(
+                        spec.SectionResolvedPointsModel.Select(item => new JArray(item)));
+                section["cutting_line_points_sheet_m_planned"] =
+                    spec.SectionPointsSheet == null ? null : new JArray(
+                        spec.SectionPointsSheet.Select(item =>
+                            new JArray(item[0], item[1])));
+                section["section_direction_model_planned"] =
+                    spec.SectionDirectionModel == null ? null : new JArray(
+                        spec.SectionDirectionModel);
+                section["section_direction_sheet_planned"] =
+                    spec.SectionDirectionSheet == null ? null : new JArray(
+                        spec.SectionDirectionSheet);
+                section["section_direction_sheet_actual"] = actualDirectionSheet == null
+                    ? null : new JArray(actualDirectionSheet);
+                section["line_geometry_verification"] =
+                    spec.SectionCuttingLineSource == "derived_feature_axes"
                     ? "derived_line_finite" : "exact_frozen_points";
                 return true;
             }
@@ -2603,6 +2821,50 @@ namespace SolidworksExecution.Services
             {
                 return FailMessage(ex.Message, out error);
             }
+        }
+
+        private bool TryReconstructSectionDirectionSheet(IView sectionView, double[] lineInfo,
+            bool reversed, out double[] direction, out string error)
+        {
+            direction = null;
+            error = null;
+            var parent = sectionView.GetBaseView() as IView;
+            double[] position = sectionView.Position as double[];
+            if (parent == null || position == null || position.Length < 2 ||
+                lineInfo == null || lineInfo.Length < 6)
+                return FailMessage("Section direction readback context is incomplete.", out error);
+            double[] firstModel = { lineInfo[0], lineInfo[1], lineInfo[2] };
+            double[] secondModel = { lineInfo[3], lineInfo[4], lineInfo[5] };
+            double[] first;
+            double[] second;
+            if (!TryTransformModelPoint(parent, firstModel, out first, out error) ||
+                !TryTransformModelPoint(parent, secondModel, out second, out error)) return false;
+            double lineX = second[0] - first[0];
+            double lineY = second[1] - first[1];
+            double lineLength = Math.Sqrt(lineX * lineX + lineY * lineY);
+            if (lineLength <= 1e-12)
+                return FailMessage("Section direction readback line collapses in sheet space.",
+                    out error);
+            lineX /= lineLength;
+            lineY /= lineLength;
+            double placementX = position[0] - (first[0] + second[0]) * 0.5;
+            double placementY = position[1] - (first[1] + second[1]) * 0.5;
+            double along = placementX * lineX + placementY * lineY;
+            double normalX = placementX - along * lineX;
+            double normalY = placementY - along * lineY;
+            double normalLength = Math.Sqrt(normalX * normalX + normalY * normalY);
+            if (normalLength <= SectionPositionTolerance)
+                return FailMessage("Section direction readback cannot resolve the cut side.",
+                    out error);
+            normalX /= normalLength;
+            normalY /= normalLength;
+            if (reversed)
+            {
+                normalX = -normalX;
+                normalY = -normalY;
+            }
+            direction = new[] { normalX, normalY };
+            return true;
         }
 
         private static bool SectionLineInfoMatchesFrozenPoints(double[] lineInfo,

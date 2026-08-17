@@ -18,7 +18,7 @@
     },
     "full_section": {
       "status": "supported",
-      "reason": "Feature-axis-bound native full sections are compiled and resolved from frozen geometry before COM, then transactionally verified by exact parent, label, segment structure, projected alignment, normalized line geometry, scale, depth semantics, and read-only reopen on SolidWorks 2025 SP5.",
+      "reason": "Native full sections support authoritative explicit model-space endpoints plus an independent section-direction vector; the executor validates the parent plane, transforms the cut to sheet space, maps direction without feature heuristics, and reports planned/actual placement. Legacy through_feature_axes plans remain derived, using feature axes only for the cutting plane and the parent outline center for along-line placement. Both modes retain transactional parent, label, segment, alignment, geometry, scale, depth, position-tolerance, and read-only-reopen verification on SolidWorks 2025 SP5.",
       "verification": "live"
     },
     "half_section": {
