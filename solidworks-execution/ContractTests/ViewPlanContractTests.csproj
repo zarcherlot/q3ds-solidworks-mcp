@@ -57,6 +57,9 @@
     <Compile Include="..\SolidworksExecution\Services\SolidWorksService.ViewPlan.cs">
       <Link>SolidWorksService.ViewPlan.cs</Link>
     </Compile>
+    <Compile Include="..\SolidworksExecution\Services\ViewPlanPersistedReadbackComparer.cs">
+      <Link>ViewPlanPersistedReadbackComparer.cs</Link>
+    </Compile>
     <Compile Include="..\SolidworksExecution\Infrastructure\IOperationGuard.cs">
       <Link>IOperationGuard.cs</Link>
     </Compile>

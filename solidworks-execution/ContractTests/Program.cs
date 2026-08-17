@@ -115,6 +115,34 @@ namespace SolidworksExecution.ContractTests
                     "full fixture execution readiness");
                 Pass("private COM-free execution-service entry");
 
+                JObject persistedBefore = new JObject
+                {
+                    ["line_info_model_m"] = new JArray(0.0125, -0.00632, -0.025),
+                    ["partial"] = false,
+                    ["label"] = "A"
+                };
+                JObject persistedAfter = (JObject)persistedBefore.DeepClone();
+                persistedAfter["line_info_model_m"][1] = -0.00552;
+                Assert(ViewPlanPersistedReadbackComparer.Equivalent(
+                    persistedBefore, persistedAfter),
+                    "save/reopen coordinate drift inside 1 millimeter should be accepted");
+                persistedAfter["line_info_model_m"][1] = -0.00512;
+                Assert(!ViewPlanPersistedReadbackComparer.Equivalent(
+                    persistedBefore, persistedAfter),
+                    "save/reopen coordinate drift outside 1 millimeter should be rejected");
+                persistedAfter = (JObject)persistedBefore.DeepClone();
+                persistedAfter["partial"] = true;
+                Assert(!ViewPlanPersistedReadbackComparer.Equivalent(
+                    persistedBefore, persistedAfter),
+                    "save/reopen semantic drift must remain exact");
+                persistedBefore["orientation_side"] = 1.0;
+                persistedAfter = (JObject)persistedBefore.DeepClone();
+                persistedAfter["orientation_side"] = 0.9992;
+                Assert(!ViewPlanPersistedReadbackComparer.Equivalent(
+                    persistedBefore, persistedAfter),
+                    "dimensionless readback must not use the millimeter tolerance");
+                Pass("bounded save/reopen numeric comparison");
+
                 var basicCompiler = new ViewPlanBasicExecutionCompiler();
                 JObject basicCandidate = BuildBasicViewPlan(valid, true);
                 ViewPlanDocument basicDocument;
