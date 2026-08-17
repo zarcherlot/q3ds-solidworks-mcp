@@ -157,7 +157,7 @@ namespace SolidworksExecution.Services
                 handles.Add(spec.Id, handle);
 
                 JObject row;
-                if (!TryReadAndVerify(drawingModel, view, spec, plan, created, out row,
+                if (!TryReadAndVerify(drawingModel, view, spec, plan, created, false, out row,
                     out string verificationError))
                     return Fail("VIEW_PLAN_IN_MEMORY_READBACK_FAILED", spec.Id,
                         verificationError, out error);
@@ -265,7 +265,8 @@ namespace SolidworksExecution.Services
                         "Multiple planned views resolved to the same persistent handle.", out error);
                 matched.Add(spec.Id, live);
                 JObject row;
-                if (!TryReadAndVerify(drawing as IModelDoc2, live, spec, plan, matched, out row,
+                if (!TryReadAndVerify(drawing as IModelDoc2, live, spec, plan, matched, true,
+                    out row,
                     out string verificationError))
                     return Fail("VIEW_PLAN_PERSISTED_VIEW_MISMATCH", spec.Id,
                         verificationError, out error);
@@ -276,7 +277,8 @@ namespace SolidworksExecution.Services
                         out expectedFingerprint) || expectedFingerprint == null)
                         return Fail("VIEW_PLAN_SECTION_FINGERPRINT_MISSING", spec.Id,
                             "No in-memory section fingerprint was recorded before save.", out error);
-                    if (!JToken.DeepEquals(expectedFingerprint, row["section"]))
+                    if (!ViewPlanPersistedReadbackComparer.Equivalent(
+                        expectedFingerprint, row["section"]))
                         return Fail("VIEW_PLAN_SECTION_FINGERPRINT_CHANGED", spec.Id,
                             "Normalized section geometry or semantics changed after save/reopen.",
                             out error);
@@ -288,7 +290,8 @@ namespace SolidworksExecution.Services
                         out expectedFingerprint) || expectedFingerprint == null)
                         return Fail("VIEW_PLAN_C2_FINGERPRINT_MISSING", spec.Id,
                             "No in-memory C2 fingerprint was recorded before save.", out error);
-                    if (!JToken.DeepEquals(expectedFingerprint, row["c2"]))
+                    if (!ViewPlanPersistedReadbackComparer.Equivalent(
+                        expectedFingerprint, row["c2"]))
                         return Fail("VIEW_PLAN_C2_FINGERPRINT_CHANGED", spec.Id,
                             "Normalized C2 geometry or semantics changed after save/reopen.",
                             out error);
@@ -302,7 +305,8 @@ namespace SolidworksExecution.Services
                         return Fail("VIEW_PLAN_AUXILIARY_FINGERPRINT_MISSING", spec.Id,
                             "No in-memory auxiliary fingerprint was recorded before save.",
                             out error);
-                    if (!JToken.DeepEquals(expectedFingerprint, row["auxiliary"]))
+                    if (!ViewPlanPersistedReadbackComparer.Equivalent(
+                        expectedFingerprint, row["auxiliary"]))
                         return Fail("VIEW_PLAN_AUXILIARY_FINGERPRINT_CHANGED", spec.Id,
                             "Normalized auxiliary geometry or semantics changed after " +
                             "save/reopen.", out error);
@@ -316,7 +320,8 @@ namespace SolidworksExecution.Services
                         return Fail("VIEW_PLAN_CENTER_FINGERPRINT_MISSING", spec.Id,
                             "No in-memory center-element fingerprint was recorded before save.",
                             out error);
-                    if (!JToken.DeepEquals(expectedFingerprint, row["center_elements"]))
+                    if (!ViewPlanPersistedReadbackComparer.Equivalent(
+                        expectedFingerprint, row["center_elements"]))
                         return Fail("VIEW_PLAN_CENTER_FINGERPRINT_CHANGED", spec.Id,
                             "Normalized center-element geometry changed after save/reopen.",
                             out error);
@@ -1880,12 +1885,15 @@ namespace SolidworksExecution.Services
         private bool TryReadAndVerify(IModelDoc2 drawingModel, IView view,
             ViewPlanBasicViewSpec spec,
             ViewPlanBasicExecutionPlan plan, Dictionary<string, IView> created,
-            out JObject row, out string error)
+            bool persistedReadback, out JObject row, out string error)
         {
             error = null;
             double[] position = view.Position as double[];
-            double positionTolerance = IsSectionType(spec.Type)
-                ? SectionPositionTolerance : PositionTolerance;
+            double positionTolerance = persistedReadback
+                ? ViewPlanPersistedReadbackComparer.GeometryTolerance
+                : IsSectionType(spec.Type) ? SectionPositionTolerance : PositionTolerance;
+            double geometryTolerance = persistedReadback
+                ? ViewPlanPersistedReadbackComparer.GeometryTolerance : PositionTolerance;
             var baseView = view.GetBaseView() as IView;
             row = new JObject
             {
@@ -1922,7 +1930,8 @@ namespace SolidworksExecution.Services
             if (IsSectionType(spec.Type))
             {
                 JObject section;
-                if (!TryReadSectionContract(view, spec, out section, out error))
+                if (!TryReadSectionContract(view, spec, geometryTolerance,
+                    out section, out error))
                 {
                     row["section"] = section;
                     return false;
@@ -2697,7 +2706,7 @@ namespace SolidworksExecution.Services
         }
 
         private bool TryReadSectionContract(IView view, ViewPlanBasicViewSpec spec,
-            out JObject section, out string error)
+            double coordinateTolerance, out JObject section, out string error)
         {
             section = new JObject();
             error = null;
@@ -2742,7 +2751,8 @@ namespace SolidworksExecution.Services
                             out error);
                 }
                 if (spec.SectionCuttingLineSource == "explicit_plan" &&
-                    !SectionLineInfoMatchesFrozenPoints(lineInfo, spec.SectionPointsModel))
+                    !SectionLineInfoMatchesFrozenPoints(lineInfo, spec.SectionPointsModel,
+                        coordinateTolerance))
                     return FailMessage("Section cutting-line coordinates differ from the " +
                         "frozen model-space points.", out error);
                 string label = data.GetLabel();
@@ -2868,7 +2878,7 @@ namespace SolidworksExecution.Services
         }
 
         private static bool SectionLineInfoMatchesFrozenPoints(double[] lineInfo,
-            IList<double[]> points)
+            IList<double[]> points, double tolerance)
         {
             if (lineInfo == null || points == null ||
                 lineInfo.Length != (points.Count - 1) * 6)
@@ -2883,10 +2893,10 @@ namespace SolidworksExecution.Services
                     if (matched[expectedIndex]) continue;
                     double[] first = points[expectedIndex];
                     double[] second = points[expectedIndex + 1];
-                    bool forward = CoordinatesEqual(lineInfo, offset, first) &&
-                        CoordinatesEqual(lineInfo, offset + 3, second);
-                    bool reverse = CoordinatesEqual(lineInfo, offset, second) &&
-                        CoordinatesEqual(lineInfo, offset + 3, first);
+                    bool forward = CoordinatesEqual(lineInfo, offset, first, tolerance) &&
+                        CoordinatesEqual(lineInfo, offset + 3, second, tolerance);
+                    bool reverse = CoordinatesEqual(lineInfo, offset, second, tolerance) &&
+                        CoordinatesEqual(lineInfo, offset + 3, first, tolerance);
                     if (!forward && !reverse) continue;
                     matched[expectedIndex] = true;
                     found = true;
@@ -2897,13 +2907,14 @@ namespace SolidworksExecution.Services
             return true;
         }
 
-        private static bool CoordinatesEqual(double[] actual, int offset, double[] expected)
+        private static bool CoordinatesEqual(double[] actual, int offset, double[] expected,
+            double tolerance)
         {
             return actual != null && expected != null && expected.Length >= 3 &&
                 offset >= 0 && offset + 2 < actual.Length &&
-                Math.Abs(actual[offset] - expected[0]) <= PositionTolerance &&
-                Math.Abs(actual[offset + 1] - expected[1]) <= PositionTolerance &&
-                Math.Abs(actual[offset + 2] - expected[2]) <= PositionTolerance;
+                Math.Abs(actual[offset] - expected[0]) <= tolerance &&
+                Math.Abs(actual[offset + 1] - expected[1]) <= tolerance &&
+                Math.Abs(actual[offset + 2] - expected[2]) <= tolerance;
         }
 
         private static bool TryResolveModelViewNames(IModelDoc2 model,

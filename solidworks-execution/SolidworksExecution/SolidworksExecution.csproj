@@ -160,6 +160,7 @@
     <Compile Include="Services\ViewPlanBasicDrawingTransaction.cs" />
     <Compile Include="Services\ViewPlanBasicDrawingVerifier.cs" />
     <Compile Include="Services\ViewPlanBasicViewExecutor.cs" />
+    <Compile Include="Services\ViewPlanPersistedReadbackComparer.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>
   <ItemGroup>
